@@ -17,12 +17,12 @@ def motivo(pg, txt): pg.fill('#mc-motivo', txt); clk(pg, '.confirma [data-acao=c
 def muda(pg, i, js): pg.evaluate(f"(()=>{{const o=JSON.parse(localStorage.getItem('{CH}')); const d=o.demandas.find(x=>x.id==={i}); {js}; localStorage.setItem('{CH}', JSON.stringify(o));}})()"); pg.reload(); pg.wait_for_timeout(400)
 def massa():
     base = lambda i, sit, resp, local: {'id': i, 'sei': f'8.2026.9745/{i:06d}-1', 'descricao': f'Demanda de teste {i}', 'comarca': local, 'responsavel': resp, 'inicio': None, 'fim': None, 'situacao': sit, 'ticketPrincipal': None, 'subtickets': [], 'informacoes': '', 'historico': [], 'criadaEm': '2026-01-01', 'passou': [resp] if resp else [], 'aviso': None}
-    tecs = ['bruno', 'geison', 'felipe']; ls = [base(i, 'nova', tecs[i % 3], 'Pelotas' if i % 4 == 0 else 'Canoas') for i in range(1, 25)]
-    ls += [dict(base(30 + i, 'concluida', None, 'Ijuí'), tecnico='bruno', ticketPrincipal='1800000', acionadaEm='2026-01-02', subtickets=[{'empresa': 'CDS', 'numero': '1800001', 'finalidade': 'Mudança de Local', 'quantidade': 3}]) for i in range(3)]
-    ls.append(dict(base(900, 'acionada', 'bruno', 'Guaíba'), ticketPrincipal='1900000', inicio='2099-01-10', acionadaEm='2026-01-02'))
-    ls.append(dict(base(901, 'cancelada', 'bruno', 'Ijuí')))
+    tecs = ['tecnico1', 'tecnico2', 'tecnico3']; ls = [base(i, 'nova', tecs[i % 3], 'Pelotas' if i % 4 == 0 else 'Canoas') for i in range(1, 25)]
+    ls += [dict(base(30 + i, 'concluida', None, 'Ijuí'), tecnico='tecnico1', ticketPrincipal='1800000', acionadaEm='2026-01-02', subtickets=[{'empresa': 'CDS', 'numero': '1800001', 'finalidade': 'Mudança de Local', 'quantidade': 3}]) for i in range(3)]
+    ls.append(dict(base(900, 'acionada', 'tecnico1', 'Guaíba'), ticketPrincipal='1900000', inicio='2099-01-10', acionadaEm='2026-01-02'))
+    ls.append(dict(base(901, 'cancelada', 'tecnico1', 'Ijuí')))
     equipe = [{'id': i, 'nome': i.capitalize(), 'curto': i.capitalize(), 'ini': i[:2].upper(), 'cor': '#3E7C8A', 'ativo': True} for i in tecs]
-    ls.append(dict(base(902, 'nova', 'bruno', 'Torres'), inicio='2026-01-05', descricao='Data vencida'))
+    ls.append(dict(base(902, 'nova', 'tecnico1', 'Torres'), inicio='2026-01-05', descricao='Data vencida'))
     return {'demandas': ls, 'excluidas': [], 'equipe': equipe}
 def chk(cond, nome): (ok if cond else falhas).append(nome); print(('OK   ' if cond else 'FALHA ') + nome)
 def st(pg): return pg.evaluate(f"JSON.parse(localStorage.getItem('{CH}'))")
@@ -56,10 +56,10 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=folha][data-v="2"]'); chk('11–20' in pg.inner_text('.l-pe'), 'paginação vai para a folha 2'); clk(pg, '[data-acao=folha][data-v="1"]')
     clk(pg, '[data-acao=sit-aba][data-v=concluida]'); pg.fill('#busca', 'Pelotas'); pg.wait_for_timeout(300); clk(pg, '[data-acao=resp-pop]')
     conta = lambda v: int(pg.inner_text(f'[data-acao=resp-escolher][data-v={v}] .op-n'))
-    chk(conta('bruno') == sum(1 for d in st(pg)['demandas'] if d['responsavel'] == 'bruno'), 'filtro de responsável conta todos os cards, independente de aba e pesquisa')
+    chk(conta('tecnico1') == sum(1 for d in st(pg)['demandas'] if d['responsavel'] == 'tecnico1'), 'filtro de responsável conta todos os cards, independente de aba e pesquisa')
     chk(conta('_sem') == 0, 'concluídas (com o setor) não contam como Sem responsável')
     clk(pg, '[data-acao=resp-pop]'); pg.fill('#busca', ''); pg.wait_for_timeout(300); clk(pg, '[data-acao=sit-aba][data-v=abertas]')
-    clk(pg, '[data-acao=resp-pop]'); clk(pg, '[data-acao=resp-escolher][data-v=geison]'); chk(all('Geison' in c.inner_text() for c in pg.query_selector_all('.linha-dem')), 'filtro de responsável'); clk(pg, '.filtro-limpa')
+    clk(pg, '[data-acao=resp-pop]'); clk(pg, '[data-acao=resp-escolher][data-v=tecnico2]'); chk(all('Tecnico2' in c.inner_text() for c in pg.query_selector_all('.linha-dem')), 'filtro de responsável'); clk(pg, '.filtro-limpa')
     # técnico sem login: não cancela
     clk(pg, '[data-acao=sit-aba][data-v=nova]'); prim = int(pg.get_attribute('.linha-dem', 'data-id')); clk(pg, '[data-acao=abrir]')
     ops = opcoes(pg); chk(ops == ['nova', 'acionada'], 'técnico só vê Nova/Acionada no status')
@@ -99,10 +99,10 @@ with sync_playwright() as p:
     pg.fill('#n-sei', '8202697450000999'); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Teste de ponta a ponta')
     clk(pg, '[data-acao=cal-abrir]'); chk(pg.query_selector('#cal-pop') is not None, 'calendário abre'); clk(pg, '[data-acao=cal-hoje]')
     pg.fill('#n-hora', '09:00')
-    pg.evaluate("document.querySelector('input[name=n-resp][value=bruno]').click()"); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('input[name=n-resp][value=tecnico1]').click()"); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(300)
     chk(pg.query_selector('.sucesso') is not None, 'nova demanda incluída (tela de sucesso)')
     nid = max(d['id'] for d in st(pg)['demandas']); nd = dem(pg, nid)
-    chk(nd['sei'] == '8.2026.9745/000099-9' and nd['responsavel'] == 'bruno' and nd['situacao'] == 'nova' and nd['aviso']['tipo'] == 'nova', 'dados da nova demanda (SEI formatado, Bruno, Nova, bolinha)'); chk(nd['hora'] == '09:00' and 'horaFim' not in nd, 'grava uma hora só, a do início')
+    chk(nd['sei'] == '8.2026.9745/000099-9' and nd['responsavel'] == 'tecnico1' and nd['situacao'] == 'nova' and nd['aviso']['tipo'] == 'nova', 'dados da nova demanda (SEI formatado, Tecnico1, Nova, bolinha)'); chk(nd['hora'] == '09:00' and 'horaFim' not in nd, 'grava uma hora só, a do início')
     clk(pg, '[data-acao=abrir-nova]'); pg.wait_for_timeout(200)
     # salvar Acionada sem ticket: leva à aba Tickets e mantém o status escolhido
     pg.select_option('#d-status', 'acionada'); pg.wait_for_timeout(200); clk(pg, '#btn-salvar')
@@ -122,7 +122,7 @@ with sync_playwright() as p:
     chk(dem(pg, nid)['situacao'] == 'nova', 'registrar ticket não salva o status escolhido')
     # SLA: CDS e WECOM 2 dias antes; CADI e Selbetti 1 dia antes; fora do prazo avisa, mas não trava
     clk(pg, '[data-acao=aba][data-v=dados]'); pg.fill('#f-ini', br(em_dias(2))); sair_do_campo(pg); pg.evaluate("document.getElementById('form-dados').requestSubmit()"); pg.wait_for_timeout(250); x = dem(pg, nid); chk(x['situacao'] == 'acionada' and x['acionadaEm'] and 'SLA' not in x['historico'][-1]['texto'] and not any('fora do SLA' in h['texto'] for h in x['historico']), 'SLA: CDS com 2 dias de antecedência, sem aviso')
-    chk(x['aviso'] and x['aviso']['tipo'] == 'status' and x['aviso']['para'] == 'bruno', 'mudar o status acende a bolinha para o responsável')
+    chk(x['aviso'] and x['aviso']['tipo'] == 'status' and x['aviso']['para'] == 'tecnico1', 'mudar o status acende a bolinha para o responsável')
     clk(pg, '[data-acao=fechar-det]'); chk(dem(pg, nid)['aviso'] is not None, 'bolinha continua depois de fechar o card em que o status mudou')
     pg.fill('#busca', '000099'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]'); chk(dem(pg, nid)['aviso'] is None, 'bolinha some assim que o card é aberto'); clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
     s90 = {'empresa': 'CADI', 'numero': '1999999', 'finalidade': 'Configuração', 'quantidade': 1}
@@ -140,7 +140,7 @@ with sync_playwright() as p:
     muda(pg, nid, f"d.inicio='{em_dias(0)}'"); x = dem(pg, nid); chk(x['situacao'] == 'atendimento' and x['responsavel'] == 'admin', 'na data, entra Em atendimento com o gestor')
     pg.fill('#busca', '000099'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]')
     chk(all(pg.is_disabled(s) for s in ('#f-sei', '#f-local', '#f-desc', '#f-ini', '#f-hora', '#f-fim')) and pg.is_enabled('#f-resp') and pg.is_enabled('#f-info') and pg.query_selector('#d-status') is None, 'Em atendimento: dados travados; responsável e informações liberados')
-    pg.select_option('#f-resp', 'bruno'); pg.fill('#f-info', 'Acompanhar atendimento'); sair_do_campo(pg); clk(pg, '#btn-salvar'); x = dem(pg, nid); chk(x['responsavel'] == 'bruno' and x['informacoes'] == 'Acompanhar atendimento' and x['aviso'] and x['aviso']['para'] == 'bruno', 'Em atendimento: muda responsável (com bolinha) e informações')
+    pg.select_option('#f-resp', 'tecnico1'); pg.fill('#f-info', 'Acompanhar atendimento'); sair_do_campo(pg); clk(pg, '#btn-salvar'); x = dem(pg, nid); chk(x['responsavel'] == 'tecnico1' and x['informacoes'] == 'Acompanhar atendimento' and x['aviso'] and x['aviso']['para'] == 'tecnico1', 'Em atendimento: muda responsável (com bolinha) e informações')
     clk(pg, '[data-acao=aba][data-v=tickets]'); chk(pg.query_selector('form[data-form=sub]') is not None and not pg.query_selector('[data-acao=sub-del]') and not pg.query_selector('[data-acao=tk-alterar]') and pg.is_disabled('#sq-0') and pg.is_disabled('#sf-0'), 'Em atendimento: inclui ticket novo, mas os registrados ficam travados')
     pg.select_option('#n-emp', 'Selbetti'); pg.fill('#n-num', '1899104'); pg.select_option('#n-fin', 'Instalação'); pg.evaluate("document.querySelector('form[data-form=sub]').requestSubmit()"); pg.wait_for_timeout(250); chk(any(s['numero'] == '1899104' for s in dem(pg, nid)['subtickets']), 'Em atendimento: subticket novo incluído')
     clk(pg, '[data-acao=aba][data-v=dados]')
@@ -150,7 +150,7 @@ with sync_playwright() as p:
     # automação: data passada -> pendente com o gestor
     pg.evaluate(f"(()=>{{const o=JSON.parse(localStorage.getItem('{CH}')); const d=o.demandas.find(x=>x.id==={nid}); d.inicio='2026-01-10'; d.fim=null; localStorage.setItem('{CH}', JSON.stringify(o));}})()")
     pg.reload(); pg.wait_for_timeout(500); x = dem(pg, nid)
-    chk(x['situacao'] == 'pendente' and x['responsavel'] == 'admin' and x['tecnico'] == 'bruno', 'automático: data passada vira Pendente com o gestor')
+    chk(x['situacao'] == 'pendente' and x['responsavel'] == 'admin' and x['tecnico'] == 'tecnico1', 'automático: data passada vira Pendente com o gestor')
     chk(any('automaticamente' in h['texto'] and h['usuario'] == 'sistema' for h in x['historico']), 'histórico registra mudança automática')
     # abre a pendente
     clk(pg, '[data-acao=sit-aba][data-v=pendente]'); pg.fill('#busca', '000099'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]')
@@ -166,11 +166,11 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=fechar-modal]')
     # devolve ao técnico e volta
     clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=devolver-tec]'); x = dem(pg, nid)
-    chk(x['situacao'] == 'pendente' and x['responsavel'] == 'bruno' and x['aviso']['tipo'] == 'retornou', 'devolvida ao técnico, ainda Pendente, com bolinha')
+    chk(x['situacao'] == 'pendente' and x['responsavel'] == 'tecnico1' and x['aviso']['tipo'] == 'retornou', 'devolvida ao técnico, ainda Pendente, com bolinha')
     clk(pg, '[data-acao=fechar-det]'); clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=sair]')
     clk(pg, '[data-acao=abrir]'); chk(dem(pg, nid)['aviso'] is None, 'bolinha some quando o técnico abre')
     clk(pg, '[data-acao=devolver-gestor]'); x = dem(pg, nid)
-    chk(x['responsavel'] == 'admin' and x['historico'][-2]['usuario'] == 'bruno', 'técnico devolve ao gestor (autor no histórico)')
+    chk(x['responsavel'] == 'admin' and x['historico'][-2]['usuario'] == 'tecnico1', 'técnico devolve ao gestor (autor no histórico)')
     clk(pg, '[data-acao=fechar-det]')
     # conclui
     clk(pg, '[data-acao=login]'); clk(pg, '[data-acao=proto-gestor]'); pg.wait_for_timeout(300)
@@ -197,14 +197,19 @@ with sync_playwright() as p:
     # equipe
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=equipe]'); pg.fill('#eq-nome', 'Ana Teste'); pg.evaluate("document.querySelector('form[data-form=equipe-add]').requestSubmit()"); pg.wait_for_timeout(250)
     chk(any(u['nome'] == 'Ana Teste' for u in st(pg)['equipe']), 'equipe: incluir pessoa')
-    clk(pg, '[data-acao=eq-transferir][data-v=geison]'); pg.select_option('#tr-dest', 'ana-teste'); pg.evaluate("document.querySelector('form[data-form=equipe-transf]').requestSubmit()"); pg.wait_for_timeout(250)
-    chk(not any(d['responsavel'] == 'geison' and d['situacao'] in ('nova', 'acionada') for d in st(pg)['demandas']), 'equipe: transferir demandas em aberto')
+    clk(pg, '[data-acao=eq-transferir][data-v=tecnico2]'); pg.select_option('#tr-dest', 'ana-teste'); pg.evaluate("document.querySelector('form[data-form=equipe-transf]').requestSubmit()"); pg.wait_for_timeout(250)
+    chk(not any(d['responsavel'] == 'tecnico2' and d['situacao'] in ('nova', 'acionada') for d in st(pg)['demandas']), 'equipe: transferir demandas em aberto')
     clk(pg, '[data-acao=fechar-modal]')
     # Nova com data vencida: bolinha e data em vermelho
     muda(pg, 5, f"d.inicio='{em_dias(-3)}'; d.fim=null"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000005'); pg.wait_for_timeout(300)
     chk(pg.query_selector('.linha-dem .nv-ponto.venc') is not None and pg.query_selector('.c-data.vencida') is not None and pg.evaluate("getComputedStyle(document.querySelector('.c-data.vencida')).fontWeight") == '700', 'Nova vencida: bolinha vermelha e data em negrito vermelho')
     clk(pg, '[data-acao=vista][data-v=postits]'); chk(pg.query_selector('.postit .nv-ponto.venc') is not None and pg.query_selector('.pi-data .vencida') is not None, 'Nova vencida: sinal também no post-it'); clk(pg, '[data-acao=vista][data-v=linhas]')
     pg.fill('#busca', '000010'); pg.wait_for_timeout(300); chk(pg.query_selector('.nv-ponto.venc') is None, 'demanda sem data vencida não tem o sinal vermelho'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    # datas anteriores a hoje
+    clk(pg, '[data-acao=nova]'); pg.fill('#n-sei', '8202697450000052'); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Data passada'); pg.fill('#n-ini', br(em_dias(-1))); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(250)
+    chk('anterior a hoje' in pg.inner_text('.modal-n') and pg.query_selector('.sucesso') is None, 'Nova demanda recusa Data de Início anterior a hoje'); clk(pg, '.modal-n [data-acao=fechar-modal]')
+    pg.fill('#busca', '000005'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]'); ini5 = dem(pg, 5)['inicio']; pg.fill('#f-desc', 'Editada com data vencida'); sair_do_campo(pg); pg.evaluate("document.getElementById('form-dados').requestSubmit()"); pg.wait_for_timeout(250); x = dem(pg, 5); chk(x['descricao'] == 'Editada com data vencida' and x['inicio'] == ini5, 'Nova com data vencida ainda salva outros campos')
+    pg.fill('#f-ini', br(em_dias(-1))); sair_do_campo(pg); pg.evaluate("document.getElementById('form-dados').requestSubmit()"); pg.wait_for_timeout(250); chk(dem(pg, 5)['inicio'] == ini5 and 'anteriores a hoje' in pg.inner_text('.det .erro'), 'Nova recusa mudar a data para o passado'); clk(pg, '[data-acao=fechar-det]'); clk(pg, '.confirma [data-acao=confirmar]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
     # sem data e com SEI repetido
     clk(pg, '[data-acao=nova]'); pg.fill('#n-sei', '8202697450000051'); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Sem nenhuma data'); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(300)
     novo = dem(pg, max(d['id'] for d in st(pg)['demandas'])); chk(pg.query_selector('.sucesso') is not None and novo['inicio'] is None and novo['sei'] == '8.2026.9745/000005-1' and sum(1 for d in st(pg)['demandas'] if d['sei'] == novo['sei']) == 2, 'cria demanda sem data e com SEI repetido'); clk(pg, '.sucesso [data-acao=fechar-modal]')
