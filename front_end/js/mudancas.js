@@ -6,7 +6,7 @@
      2. Relatório de execução em PDF (gerador próprio, sem bibliotecas)
      3. Aplicação: estado, regras do fluxo, telas e eventos
    Estado em memória + localStorage do navegador. No sistema real, os pontos marcados com "API:" viram
-   chamadas fetch para o back-end Spring Boot (ver README.md).
+   chamadas fetch para o back-end Spring Boot (ver docs/ESPECIFICACAO.md).
    Segurança: todo texto vindo de dados passa por esc() antes de entrar no HTML; nada de eval/new Function;
    nenhum recurso externo (funciona offline).
    ===================================================================================================== */
@@ -1654,6 +1654,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         // demanda acionada não pode perder a data nem ir para o passado (cairia direto em Para validação)
         else if (d.situacao === 'acionada' && !ini) E.erros.data = 'Demanda acionada precisa ter Data de Início.';
         else if (d.situacao === 'acionada' && (fim || ini) < hojeISO()) E.erros.data = 'Em demanda acionada, o agendamento não pode estar no passado.';
+        // Nova: quem muda a data não pode pôr no passado; a data já vencida e não alterada não impede salvar o resto
+        else if (d.situacao === 'nova' && ((ini && ini !== d.inicio && ini < hojeISO()) || (fim && fim !== d.fim && fim < hojeISO()))) E.erros.data = 'As datas não podem ser anteriores a hoje.';
         if (hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
         if (Object.keys(E.erros).length) { desenhar(); return; }
       }
@@ -1776,6 +1778,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (!v.comarca) E.erros.local = 'Informe a comarca ou o prédio.';
       if (!v.descricao) E.erros.desc = 'Descreva a demanda.';
       const ed = erroDatas(v.inicio, v.fim); if (ed) E.erros.data = ed;
+      else if (v.inicio && v.inicio < hojeISO()) E.erros.data = 'A Data de Início não pode ser anterior a hoje.';
       if (v.hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (v.inicio === null) v.inicio = ''; if (v.fim === null) v.fim = ''; if (v.hora === null) v.hora = val('n-hora');
       if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) pri.focus(); return; }
