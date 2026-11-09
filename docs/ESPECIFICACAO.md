@@ -238,10 +238,10 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
   O botão aparece em qualquer aba enquanto houver status escolhido; fechar a demanda antes de salvar pede
   confirmação para descartar.
 - **Em atendimento e Para Validação nunca são escolhidos à mão.** Dependem só das datas ([seção 7.1](#71-automação-pelas-datas)).
-- **Acionada** exige ticket principal e Data de Início (a demanda pode ser criada sem data, mas não acionada). Sem ele, o sistema abre a aba Tickets e mantém o status escolhido
+- **Acionada** exige ticket principal, Data de Início e responsável, técnico ou gestor (a demanda pode ser criada sem data e sem responsável, mas não acionada). Se faltar algum deles, o sistema abre a aba onde ele é preenchido (Tickets ou Dados) e mantém o status escolhido
   até salvar. Ao virar Acionada, grava `acionadaEm = hoje`, que é a data do acionamento no relatório.
 - **SLA de acionamento**, em dias corridos antes da data de agendamento: **CDS e WECOM, 2 dias** (agendamento
-  em 11/11/2026, acionar até 09/11/2026); **CADI e Selbetti, 1 dia**. A aba Tickets mostra o prazo.
+  em 11/11/2026, acionar até 09/11/2026); **CADI e Selbetti, 1 dia**.
   **O SLA não trava o acionamento:** fora do prazo, o sistema avisa e registra no histórico quais empresas
   ficaram fora.
 - **Demanda para o mesmo dia:** marcar Acionada e salvar leva a demanda na hora para Em atendimento e para a
@@ -269,6 +269,7 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
   situação continua **Para Validação**, a carga vai ao técnico e ele recebe a bolinha azul.
 - Com a demanda devolvida, o técnico vê o botão **Devolver ao gestor**. A carga volta ao gestor, com
   aviso para ele.
+- A devolução vai para o último técnico que tratou da demanda.
 - O gestor conclui a demanda na etapa Para Validação em qualquer caso.
 
 ### 7.4 Carga, responsável e bolinha azul
@@ -362,7 +363,7 @@ textos gerados e anotações livres ("Registrar andamento").
 - **Aba Tickets:** ticket principal (registrar ou alterar) e subtickets (empresa, número, serviço,
   quantidade, editáveis na tabela).
 - **Aba Histórico:** linha do tempo e campo para registrar andamento.
-- **Mais ações:** Gerar relatório de mudança (gestor, só na etapa Para Validação), Devolver ao técnico (gestor),
+- **Mais ações:** Gerar relatório de mudança (gestor, em Para Validação e Concluída), Devolver ao técnico (gestor),
   Gerar informação de acionamento, Copiar tickets em texto, Alterar Data para Conclusão (gestor, Em atendimento), Cancelar e Excluir (gestor).
 - **Rodapé:** Fechar, Devolver ao gestor (técnico, Para Validação devolvida), Concluir demanda (gestor,
   Para Validação) e Salvar alterações.
@@ -370,7 +371,7 @@ textos gerados e anotações livres ("Registrar andamento").
 ### 8.3 Outros modais
 
 - **Nova demanda** (gestor): "Informações Iniciais" (SEI ou "Fora do SEI", local, Data de Início,
-  Data para Conclusão e Hora, as duas últimas opcionais, descrição) e "Atribuição da Demanda" (técnico ou "Definir depois"). Ao incluir, mostra
+  Data para Conclusão e Hora, as duas últimas opcionais, descrição) e "Atribuição da Demanda" (técnico, Gestor ou "Definir depois"). Ao incluir, mostra
   a confirmação com o número para copiar, e os botões Incluir outra / Abrir demanda / Concluir.
 - **Equipe** (gestor): incluir, editar, transferir, desativar e reativar.
 - **Movimentações do Dia** (gestor): tudo o que mudou no dia, com hora, autor e demanda (clicável, abre
@@ -703,7 +704,7 @@ esconde os botões.
   - O Esc recolhe menus e calendário; os modais fecham só pelo X ou pelos botões deles. Enter abre a demanda.
 - **Teste automático** (opcional): `pip install playwright` e depois
   `python testes/teste_ponta_a_ponta.py`. Ele cria as próprias demandas e passa pelos fluxos principais
-  (138 verificações) usando o Chromium do Playwright.
+  (146 verificações) usando o Chromium do Playwright.
 
 ---
 

@@ -239,6 +239,22 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=movimentos]'); txt = pg.inner_text('.movs'); chk('Nota da lixeira' in txt and txt.count('Motivo: Apagar teste') == 1, 'movimentações mantêm anotações de demanda na lixeira e mostram a exclusão uma vez')
     # entrar direto em outra aba não muda o tamanho do modal
     clk(pg, '[data-acao=mov-abrir]'); pg.wait_for_timeout(200); t0 = topo(pg); clk(pg, '[data-acao=aba][data-v=dados]'); t1 = topo(pg); clk(pg, '[data-acao=aba][data-v=tickets]'); t2 = topo(pg); chk(t0 == t1 == t2, f'modal não muda ao entrar direto no Histórico {t0} {t1}'); clk(pg, '[data-acao=fechar-det]')
+    # acionar exige responsável
+    muda(pg, 3, f"d.situacao='nova'; d.responsavel=null; d.inicio='{em_dias(5)}'; d.fim=null; d.ticketPrincipal='1999992'"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000003'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]'); pg.select_option('#d-status', 'acionada'); pg.wait_for_timeout(150); clk(pg, '#btn-salvar')
+    chk(dem(pg, 3)['situacao'] == 'nova' and 'responsável' in flash(pg), 'acionar sem responsável é recusado')
+    pg.select_option('#f-resp', 'tecnico1'); pg.wait_for_timeout(150); sair_do_campo(pg); clk(pg, '#btn-salvar'); x = dem(pg, 3); chk(x['situacao'] == 'acionada' and x['responsavel'] == 'tecnico1', 'escolhido o responsável, a demanda é acionada'); clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    # Nova já dentro do período não mostra "Hoje"
+    muda(pg, 4, f"d.situacao='nova'; d.inicio='{em_dias(-3)}'; d.fim='{em_dias(5)}'"); pg.fill('#busca', '000004'); pg.wait_for_timeout(300); chk(pg.query_selector('.c-ag .prazo') is None and pg.query_selector('.nv-ponto.venc') is None, 'Nova já dentro do período: sem selo Hoje e sem sinal vermelho'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    # relatório também em Concluída
+    clk(pg, '[data-acao=sit-aba][data-v=concluida]'); clk(pg, '[data-acao=abrir]'); clk(pg, '[data-acao=menu-mais]'); chk(pg.query_selector('[data-acao=relatorio]') is not None, 'Concluída: gestor ainda gera o relatório'); clk(pg, '[data-acao=relatorio]'); chk(pg.query_selector('#rl-itens') is not None, 'Concluída: relatório abre'); clk(pg, '[data-acao=fechar-modal]'); clk(pg, '[data-acao=fechar-det]'); clk(pg, '[data-acao=sit-aba][data-v=abertas]')
+    # relatório sem subticket e devolução ao último técnico
+    muda(pg, 7, f"d.situacao='pendente'; d.responsavel='admin'; d.tecnico='tecnico1'; d.inicio='{em_dias(-3)}'; d.fim=null; d.subtickets=[]; d.ticketPrincipal='1999993'"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000007'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]'); clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=relatorio]')
+    chk('não tem subtickets' in pg.inner_text('.relat .ac-aviso'), 'relatório sem subticket mostra aviso'); clk(pg, '[data-acao=fechar-modal]')
+    pg.select_option('#f-resp', 'tecnico2'); pg.wait_for_timeout(150); sair_do_campo(pg); clk(pg, '#btn-salvar'); pg.select_option('#f-resp', 'admin'); pg.wait_for_timeout(150); sair_do_campo(pg); clk(pg, '#btn-salvar'); clk(pg, '[data-acao=menu-mais]')
+    chk(dem(pg, 7)['tecnico'] == 'tecnico2' and 'Tecnico2' in pg.inner_text('[data-acao=devolver-tec]'), 'devolução aponta o último técnico que tratou da demanda'); clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    # Gestor como responsável na Nova Demanda
+    clk(pg, '[data-acao=nova]'); pg.fill('#n-sei', '8202697450000071'); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Para o gestor'); pg.evaluate("document.querySelector('input[name=n-resp][value=admin]').click()"); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(300)
+    novo = dem(pg, max(d['id'] for d in st(pg)['demandas'])); chk(novo['responsavel'] == 'admin' and 'atribuída a Gestor' in pg.inner_text('.sucesso') and 'atribuída a Gestor' in novo['historico'][0]['texto'], 'Nova Demanda pode ser atribuída ao Gestor'); clk(pg, '.sucesso [data-acao=fechar-modal]')
     # período em vários dias, frase removida e lista de locais
     muda(pg, 900, "d.inicio='2099-11-12'; d.fim='2099-11-13'; d.hora='09:00'")
     clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000900'); pg.wait_for_timeout(300)
