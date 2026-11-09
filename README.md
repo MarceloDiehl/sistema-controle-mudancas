@@ -12,7 +12,7 @@ usada hoje pelo setor.
 - Cadastro de demandas por expediente SEI, com local, período e responsável
 - Tickets principais e subtickets do 4Biz, por empresa contratada e serviço
 - Mudança automática de status conforme as datas do agendamento
-- Aviso de prazo de acionamento (SLA) por empresa
+- Contagem dos dias até o início do atendimento
 - Histórico de cada demanda e movimentações do dia
 - Lixeira com restauração em até 30 dias
 - Texto de acionamento para o SEI e relatório de execução em PDF

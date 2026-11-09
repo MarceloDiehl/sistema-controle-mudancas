@@ -156,9 +156,6 @@
   // 'gestor' é o id usado nas versões anteriores do protótipo; fica como apelido para o histórico antigo.
   const GESTORES = [{ id: 'admin', nome: 'Administrador', curto: 'Gestor', ini: 'AD', cor: '#374151', gestor: true, apelidos: ['gestor', 'administrador'] }];
   const EMPRESAS = ['CADI', 'CDS', 'Selbetti', 'WECOM'];
-  // SLA: dias corridos mínimos entre o acionamento da empresa e a data de agendamento.
-  // Não trava o acionamento (há demandas para o mesmo dia): fora do prazo, avisa e registra no histórico.
-  const SLA_ACIONAMENTO = { CDS: 2, WECOM: 2, CADI: 1, Selbetti: 1 };
   // demanda excluída fica na lixeira por este número de dias
   const DIAS_LIXEIRA = 30;
   // situações em aberto (ainda dão trabalho para alguém)
@@ -294,9 +291,11 @@
   function atribuir(d, novo) {
     novo = novo || null;
     // Em atendimento e Para validação nunca ficam sem responsável: no mínimo, o gestor
-    if (!novo && TRAVADOS.includes(d.situacao)) { if (d.responsavel && d.responsavel !== 'admin') d.tecnico = d.responsavel; novo = 'admin'; }
+    if (!novo && TRAVADOS.includes(d.situacao)) novo = 'admin';
     if (!d.passou) d.passou = d.responsavel ? [d.responsavel] : [];
     if (novo === d.responsavel) return;
+    // guarda quem tratou por último: é para ele que a devolução vai
+    if (TRAVADOS.includes(d.situacao) && d.responsavel && d.responsavel !== 'admin') d.tecnico = d.responsavel;
     d.responsavel = novo;
     if (!novo) { if (d.aviso && d.aviso.tipo !== 'pendente') d.aviso = null; return; }
     avisar(d, d.passou.length ? 'retornou' : 'nova', novo);
@@ -395,7 +394,8 @@
     if (d.situacao === 'pendente') return fim < 0 ? '<span class="badge prazo pend">Há ' + (-fim) + (fim === -1 ? ' dia' : ' dias') + '</span>' : '';
     if (d.situacao === 'atendimento') return fim <= 0 ? '<span class="badge prazo aten">Último dia</span>' : (ini <= 0 ? '<span class="badge prazo aten">Até ' + br(d.fim || d.inicio).slice(0, 5) + '</span>' : '<span class="badge prazo">Em ' + ini + (ini === 1 ? ' dia' : ' dias') + '</span>');
     if (fim < 0) return d.situacao === 'acionada' ? '<span class="badge prazo">Há ' + (-fim) + (fim === -1 ? ' dia' : ' dias') + '</span>' : '';
-    if (ini <= 0) return '<span class="badge prazo hoje">Hoje</span>';
+    if (ini < 0) return ''; // Nova já dentro do período, sem acionamento: não é "hoje"
+    if (ini === 0) return '<span class="badge prazo hoje">Hoje</span>';
     // contagem até o início: 02 dias, 01 dia, 120 dias (no máximo 3 dígitos)
     const n = Math.min(ini, 999);
     return '<span class="badge prazo">' + String(n).padStart(2, '0') + (n === 1 ? ' dia' : ' dias') + '</span>';
@@ -727,13 +727,13 @@
     <div class="menu-ancora">
       <button type="button" class="btn btn-link btn-suave" data-acao="menu-mais" aria-haspopup="menu" aria-expanded="${E.menu === 'mais'}">${I.pontos}Mais ações</button>
       ${E.menu === 'mais' ? `<div class="dropdown-menu show cima" role="menu">
-        ${d.situacao === 'pendente' && ehGestor() ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
+        ${['pendente', 'concluida'].includes(d.situacao) && ehGestor() ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
         ${d.situacao === 'pendente' && ehGestor() && d.responsavel === 'admin' && d.tecnico ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="devolver-tec" data-id="${d.id}">${svg(16, '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', 2)}Devolver a ${esc(nomeUsr(d.tecnico))} (atendimento extra)</button>` : ''}
         ${d.situacao === 'atendimento' && ehGestor() ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="alterar-conclusao" data-id="${d.id}">${I.agenda}Alterar Data para Conclusão</button>` : ''}
         <button type="button" role="menuitem" class="dropdown-item" data-acao="acionamento" data-id="${d.id}">${I.texto}Gerar informação de acionamento</button>
         <button type="button" role="menuitem" class="dropdown-item" data-acao="copiar-tickets" data-id="${d.id}">${I.copiar}Copiar tickets em texto</button>
-        ${ehGestor() ? `<hr class="dropdown-divider">
-        ${!['concluida', 'cancelada'].includes(d.situacao) ? `<button type="button" role="menuitem" class="dropdown-item perigo" data-acao="cancelar" data-id="${d.id}">${svg(16, '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>', 2)}Cancelar demanda</button>` : ''}
+        ${ehGestor() && d.situacao !== 'concluida' ? `<hr class="dropdown-divider">
+        ${d.situacao !== 'cancelada' ? `<button type="button" role="menuitem" class="dropdown-item perigo" data-acao="cancelar" data-id="${d.id}">${svg(16, '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>', 2)}Cancelar demanda</button>` : ''}
         <button type="button" role="menuitem" class="dropdown-item perigo" data-acao="excluir" data-id="${d.id}">${I.lixo}Excluir demanda</button>` : ''}
       </div>` : ''}
     </div>
@@ -933,7 +933,6 @@
 ${blocoTicket(d)}
 ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.length > 1 ? ' subtickets' : ' subticket') : '', `
   ${ro ? '' : `<div class="bloco-barra">
-    ${d.situacao === 'nova' && d.inicio ? `<p class="bloco-dica">${esc(textoSLA(d))}</p>` : ''}
     <form class="add-sub" data-form="sub" novalidate>
       <span class="campo"><label class="form-label" for="n-emp">Empresa</label>
       <select id="n-emp" data-rascunho class="form-select sel-g" ${E.erros.emp ? 'aria-invalid="true"' : ''}><option value="">Escolher empresa…</option>${EMPRESAS.map((e) => `<option ${E.ultimaEmp === e ? 'selected' : ''}>${e}</option>`).join('')}</select></span>
@@ -1007,6 +1006,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
           <legend class="rotulo">Responsável</legend>
           <div class="grade-resp" role="radiogroup">
             ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${u.id}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
+            <label class="tile-resp"><input type="radio" name="n-resp" value="admin" ${resp === 'admin' ? 'checked' : ''}>${avatar('admin', 'sm')}<span>Gestor</span></label>
             <label class="tile-resp"><input type="radio" name="n-resp" value="" ${!resp ? 'checked' : ''}><span class="avatar sm vazio">?</span><span>Definir depois</span></label>
           </div>
         </fieldset>`)}
@@ -1028,7 +1028,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 <div class="sucesso ${E._anim.suc ? 'anim' : ''}" role="status">
   <span class="suc-ico">${I.checkG}</span>
   <h2 class="suc-tit">Demanda Incluída com Sucesso</h2>
-  <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · atribuída a ' + esc(u.nome) : ''}</p>
+  <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · atribuída a ' + esc(nomeResp(u.id)) : ''}</p>
   <div class="suc-campo">
     <span class="suc-rot">${d.sei ? 'Expediente SEI' : 'Número da demanda'}</span>
     <div class="suc-valor"><span class="mono">${esc(d.sei || num4(d.id))}</span><button type="button" class="btn btn-outline-secondary btn-sm" data-acao="copiar" data-v="${esc(d.sei || num4(d.id))}">Copiar</button></div>
@@ -1306,6 +1306,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   <header class="modal-header"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, cabe revisão. O PDF segue o modelo-mestre do DSUP.</p></div>
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
+    ${d.subtickets.length ? '' : `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda não tem subtickets. Marque os serviços, preencha os itens e confira a frase de custo antes de baixar.</span></p>`}
     ${bloco('Datas e serviços', '', `
       <div class="row duplo">
         <div class="col-md-6 campo"><label class="form-label" for="rl-acion">Data do acionamento</label><input id="rl-acion" data-rascunho class="form-control" value="${esc(r.acionamento)}" placeholder="dd/mm/aaaa"></div>
@@ -1568,33 +1569,19 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para marcar como Acionada, registre antes o ticket principal e salve.'); return; }
       // sem data, a automação nunca levaria a demanda adiante
       if (!d.inicio) { irAba(d.id, 'dados', 'f-ini', 'Para marcar como Acionada, informe a Data de Início e salve.'); return; }
+      if (!d.responsavel) { irAba(d.id, 'dados', 'f-resp', ehGestor() ? 'Para marcar como Acionada, escolha o responsável e salve.' : 'Para marcar como Acionada, a demanda precisa de um responsável. Peça ao gestor.'); return; }
       // com o agendamento já vencido, a regra automática levaria direto para Pendente: pede uma nova data
       if (d.inicio && (d.fim || d.inicio) < hojeISO()) { irAba(d.id, 'dados', 'f-ini', 'O agendamento já passou. Informe a nova data e salve.'); return; }
     }
-    // o SLA não impede o acionamento: fora do prazo, fica o aviso e o registro no histórico
-    const fora = novo === 'acionada' ? foraDoSLA(d) : [];
-    const noPrazo = fora.length ? ' Acionada fora do SLA: ' + fora.map((e) => e + ' (até ' + br(limiteSLA(d, e)) + ')').join(', ') + '.' : '';
-    setSituacao(d, novo, (novo === 'acionada' ? 'Empresas acionadas. ' : '') + 'Status alterado: ' + sit(d.situacao).um + ' → ' + rot + '.' + noPrazo);
+    setSituacao(d, novo, (novo === 'acionada' ? 'Empresas acionadas. ' : '') + 'Status alterado: ' + sit(d.situacao).um + ' → ' + rot + '.');
     if (d.responsavel) avisar(d, 'status', d.responsavel);
     // agendada para hoje: automatizar(), em mudou(), já leva para Em atendimento e para a carga do gestor
     const jaHoje = novo === 'acionada' && d.inicio && d.inicio <= hojeISO();
-    aviso((jaHoje ? 'Demanda acionada e já Em Atendimento, com o gestor.' : 'Status alterado para ' + rot + '.') + (fora.length ? ' Fora do SLA: ' + fora.join(', ') + '.' : ''), fora.length > 0);
+    aviso((jaHoje ? 'Demanda acionada e já Em Atendimento, com o gestor.' : 'Status alterado para ' + rot + '.'));
     destacar(d.id); mudou();
   }
   function somarDias(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
   const diaSeguinte = (iso) => somarDias(iso, 1);
-  // último dia em que a empresa ainda pode ser acionada para esta demanda
-  const limiteSLA = (d, emp) => somarDias(d.inicio, -SLA_ACIONAMENTO[emp]);
-  // empresas dos subtickets cujo prazo de acionamento já venceu
-  function foraDoSLA(d) {
-    if (!d.inicio) return [];
-    const hoje = hojeISO();
-    return EMPRESAS.filter((e) => d.subtickets.some((s) => s.empresa === e) && limiteSLA(d, e) < hoje);
-  }
-  function textoSLA(d) {
-    const grupo = (dias) => { const ls = EMPRESAS.filter((e) => SLA_ACIONAMENTO[e] === dias); return ls.join(' e ') + ' até ' + br(limiteSLA(d, ls[0])); };
-    return 'Prazo para acionar: ' + grupo(2) + ' · ' + grupo(1) + '.';
-  }
   function statusCab(d) {
     if (TRAVADOS.includes(d.situacao)) {
       const quando = d.situacao === 'atendimento' && d.inicio ? 'Vai para validação em ' + br(diaSeguinte(d.fim || d.inicio)).slice(0, 5)
@@ -1785,7 +1772,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       // API: POST /api/mudancas
       const id = Math.max(0, ...E.demandas.map((x) => x.id), ...E.excluidas.map((x) => x.id)) + 1; // não reaproveita número de demanda na lixeira
       const nova = { id, sei: v.sei, descricao: v.descricao, comarca: v.comarca, responsavel: v.responsavel || null, inicio: v.inicio || null, fim: (v.fim && v.fim !== v.inicio) ? v.fim : null, hora: v.hora || null, situacao: 'nova', ticketPrincipal: null, subtickets: [], informacoes: v.informacoes, historico: [], criadaEm: hojeISO(), passou: [], aviso: null };
-      registrar(nova, 'Demanda registrada a partir do expediente SEI' + (v.responsavel ? ' e atribuída a ' + nomeUsr(v.responsavel) : '') + '.');
+      registrar(nova, 'Demanda registrada a partir do expediente SEI' + (v.responsavel ? ' e atribuída a ' + nomeResp(v.responsavel) : '') + '.');
       if (nova.responsavel) { avisar(nova, 'nova', nova.responsavel); nova.passou = [nova.responsavel]; }
       E.demandas.push(nova);
       E.sitAtivas.add('nova');
@@ -1889,10 +1876,10 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         E.menu = null; aviso('Demanda devolvida a ' + t.curto + ', ainda para validação.'); mudou(); break; }
       // API: POST /api/mudancas/{id}/devolver-gestor
       case 'devolver-gestor': { const x = demanda(id) || d; if (!x) break; const t = x.responsavel;
-        x.responsavel = 'admin'; registrar(x, 'Atendimento extra concluído por ' + nomeUsr(t) + '; demanda devolvida ao gestor.', t); regResp(x, t, 'admin', 'carga do gestor', t); avisar(x, 'pendente', 'admin');
+        x.responsavel = 'admin'; if (t && t !== 'admin') x.tecnico = t; registrar(x, 'Atendimento extra concluído por ' + nomeUsr(t) + '; demanda devolvida ao gestor.', t); regResp(x, t, 'admin', 'carga do gestor', t); avisar(x, 'pendente', 'admin');
         aviso('Demanda devolvida ao gestor.'); mudou(); break; }
       // API: DELETE /api/mudancas/{id} { motivo } (vai para a lixeira; o servidor guarda o registro da exclusão)
-      case 'excluir': { const x = demanda(id) || d; if (!x) break; E.menu = null;
+      case 'excluir': { const x = demanda(id) || d; if (!x || x.situacao === 'concluida') break; E.menu = null; // Concluída não vai para a lixeira
         E.modal = 'confirmar'; E.erros = {};
         E.modalDados = { titulo: 'Excluir a Demanda ' + (x.sei || num4(x.id)) + '?', texto: 'Ela vai para a Lixeira e pode ser restaurada em até ' + DIAS_LIXEIRA + ' dias. Depois disso, é removida sem retorno.', motivo: true, botao: 'Excluir demanda', perigo: true,
           acao: (motivo) => {
