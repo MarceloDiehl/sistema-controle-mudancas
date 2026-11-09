@@ -122,7 +122,6 @@ depender de CDN.
 | **Local** | Prédio de Porto Alegre (13 prédios, região Metropolitana) ou comarca do interior (164 comarcas, cada uma com a sua região). No interior, o nome do prédio é "Foro da Comarca de X". |
 | **DMP** | Depósito de material; aparece como origem ou destino no relatório (instalação e desinstalação). |
 | **Bolinha azul** | Aviso de que a demanda chegou a alguém, mudou de responsável ou mudou de status, e o card ainda não foi aberto. |
-| **SLA de acionamento** | Antecedência mínima para acionar cada empresa. Fora dele, o sistema avisa, mas não trava ([seção 7.2](#72-mudança-de-status-à-mão)). |
 | **Lixeira** | Onde a demanda excluída fica por 30 dias, podendo ser restaurada. |
 
 ---
@@ -149,7 +148,7 @@ demandas, e as alterações feitas sem login são registradas em nome do técnic
 | Gerar relatório de execução (PDF) | — | ✓ |
 | **Concluir** demanda | — | ✓ |
 | **Cancelar** demanda (antes de concluída, com motivo) | — | ✓ |
-| **Excluir** demanda (com motivo; vai para a Lixeira) | — | ✓ |
+| **Excluir** demanda (com motivo; vai para a Lixeira; não vale para Concluída) | — | ✓ |
 | **Lixeira** (consultar e restaurar) | — | ✓ |
 | **Movimentações do dia** | — | ✓ |
 
@@ -165,6 +164,8 @@ A tabela acima descreve o protótipo. No sistema real, por enquanto sem AD/LDAP 
 - **Tudo fica atrás do login.** Não há consulta anônima. O servidor valida cada permissão.
 - **Todos têm conta, com login próprio:** perfil Gestor ou Técnico. Pode haver mais de um gestor. As permissões de
   cada perfil continuam as da tabela acima, trocando "sem login" por "Técnico".
+- **Um técnico pode alterar a demanda de outro.** Cada alteração fica registrada no histórico em nome de quem a fez.
+- **Com mais de um gestor, a carga é compartilhada:** todos os gestores veem exatamente as mesmas demandas.
 - **Não existe autocadastro.** O gestor cria a conta em **Equipe** (nome, usuário, perfil, cor). Equipe e contas são
   um cadastro só: todo responsável tem conta, e quem ainda não fez o primeiro login já pode receber demandas.
 - **Primeiro acesso:** o sistema gera uma senha temporária, mostrada uma única vez e válida por 24 horas. No primeiro
@@ -240,10 +241,6 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
 - **Em atendimento e Para Validação nunca são escolhidos à mão.** Dependem só das datas ([seção 7.1](#71-automação-pelas-datas)).
 - **Acionada** exige ticket principal, Data de Início e responsável, técnico ou gestor (a demanda pode ser criada sem data e sem responsável, mas não acionada). Se faltar algum deles, o sistema abre a aba onde ele é preenchido (Tickets ou Dados) e mantém o status escolhido
   até salvar. Ao virar Acionada, grava `acionadaEm = hoje`, que é a data do acionamento no relatório.
-- **SLA de acionamento**, em dias corridos antes da data de agendamento: **CDS e WECOM, 2 dias** (agendamento
-  em 11/11/2026, acionar até 09/11/2026); **CADI e Selbetti, 1 dia**.
-  **O SLA não trava o acionamento:** fora do prazo, o sistema avisa e registra no histórico quais empresas
-  ficaram fora.
 - **Demanda para o mesmo dia:** marcar Acionada e salvar leva a demanda na hora para Em atendimento e para a
   carga do gestor.
 - **Depois de acionada, a demanda não volta para Nova**, não pode perder a Data de Início e o agendamento não pode
@@ -259,7 +256,8 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
 - **Concluída e Cancelada são finais.** Nenhuma das duas muda de status, nem pelo gestor; Concluída não
   pode ser cancelada. Para retomar um atendimento cancelado, abre-se uma nova demanda igual.
 - **Demanda encerrada é somente leitura.** Detalhes, ticket principal e subtickets não mudam mais. Continua
-  possível registrar andamento no histórico, gerar os textos e, para o gestor, excluir a demanda.
+  possível registrar andamento no histórico, gerar os textos e, para o gestor, excluir a demanda Cancelada.
+  Demanda Concluída não pode ser excluída ([seção 7.5](#75-exclusão)).
 - **Concluir** é só do gestor, só a partir de Para Validação, exige ticket principal e pede confirmação. A
   demanda fica sem responsável (Setor) e guarda `tecnico`.
 
@@ -286,6 +284,7 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
 
 ### 7.5 Exclusão
 
+- **Demanda Concluída não pode ser excluída:** é trabalho que o setor realizou e levou adiante.
 - Só o gestor, com **motivo** obrigatório (até 100 caracteres). A demanda vai para a **Lixeira** (menu da
   conta do gestor), de onde pode ser **restaurada** como estava.
 - Depois de **30 dias** sem restauração, é removida automaticamente, sem retorno.
@@ -364,7 +363,7 @@ textos gerados e anotações livres ("Registrar andamento").
   quantidade, editáveis na tabela).
 - **Aba Histórico:** linha do tempo e campo para registrar andamento.
 - **Mais ações:** Gerar relatório de mudança (gestor, em Para Validação e Concluída), Devolver ao técnico (gestor),
-  Gerar informação de acionamento, Copiar tickets em texto, Alterar Data para Conclusão (gestor, Em atendimento), Cancelar e Excluir (gestor).
+  Gerar informação de acionamento, Copiar tickets em texto, Alterar Data para Conclusão (gestor, Em atendimento), Cancelar e Excluir (gestor; Excluir não aparece em Concluída).
 - **Rodapé:** Fechar, Devolver ao gestor (técnico, Para Validação devolvida), Concluir demanda (gestor,
   Para Validação) e Salvar alterações.
 
@@ -642,7 +641,7 @@ No JavaScript, cada ponto que vira chamada ao servidor está marcado com `// API
 | PATCH / DELETE | `/api/mudancas/{id}/subtickets/{numero}` | serviço/quantidade / remover |
 | GET / POST | `/api/mudancas/{id}/historico` | histórico / registrar andamento |
 | POST | `/api/mudancas/{id}/devolver-tecnico` · `/devolver-gestor` | Para Validação: atendimento extra |
-| DELETE | `/api/mudancas/{id}` | `{ motivo }`: envia para a lixeira (gestor; grava `demanda_excluida`) |
+| DELETE | `/api/mudancas/{id}` | `{ motivo }`: envia para a lixeira (gestor; grava `demanda_excluida`; recusa demanda Concluída) |
 | GET | `/api/lixeira` | demandas na lixeira (gestor) |
 | POST | `/api/lixeira/{id}/restaurar` | restaurar (gestor) |
 | GET | `/api/movimentacoes?dia=AAAA-MM-DD` | Movimentações do dia (gestor) |
@@ -755,13 +754,12 @@ esconde os botões.
 - Em atendimento e Para Validação **travam o status** e só entram pelas datas. Para Validação nunca volta para Acionada.
 - Em atendimento e Para Validação, os dados registrados travam; o gestor ainda pode mudar o responsável.
 - Cancelar e excluir exigem motivo e ficam só em Mais ações; o select de status não oferece Cancelada.
-- Demanda excluída fica 30 dias na Lixeira.
+- Demanda excluída fica 30 dias na Lixeira. Demanda Concluída não pode ser excluída.
 - Não se cria demanda com data anterior à do dia: hoje, futura ou em branco.
 - Ticket principal é obrigatório para acionar. Em acionamento direto em ticket independente, esse ticket é registrado como principal.
-- O SLA é avaliado só no momento de acionar; mudar a data depois não reavalia.
 - Acionar exige só o ticket principal; subticket não é obrigatório.
 - O número do SEI pode se repetir em mais de uma demanda.
-- O SLA de acionamento avisa e registra, mas nunca trava: pode haver demanda para o mesmo dia.
+- Não há controle de SLA: basta a contagem dos dias até a demanda passar a Em atendimento. Pode haver demanda para o mesmo dia.
 - A bolinha azul some ao abrir o card, por quem for.
 - O sistema novo não traz técnicos cadastrados.
 - Depois de acionada, a demanda **não volta para Nova**.
@@ -787,12 +785,7 @@ esconde os botões.
 - **A situação está na cor da linha:** verde = concluída, amarelo = acionada, branco = nova,
   vermelho = cancelada, laranja = sobrestada (hoje, para validação).
 - Os tickets de cada empresa vêm numa só célula, separados por " / ".
-- **Em avaliação (novembro/2026):** importar a planilha ou começar o sistema do zero. Se houver importação, o plano é:
-  - importar a planilha **inteira** para uma tabela `legado_planilha` (colunas originais + cor + linha),
-    por um script SQL gerado a partir do .xlsx, para poder fazer relatórios históricos;
-  - converter para `demanda` + `subticket` o recorte mais recente e consistente (as de 2026 são quase
-    todas de importação direta);
-  - marcar para revisão as linhas com SEI inválido, sem data ou com cor ambígua.
+- **Decisão (novembro/2026):** as planilhas existentes não serão importadas; o sistema começa do zero.
 - **Depois:** uma tela de **análise de dados**: demandas por mês, tickets principais e subtickets por
   empresa, regiões atendidas, tempo entre acionamento e conclusão.
 
@@ -807,7 +800,5 @@ esconde os botões.
 3. Login e contas para todos, com recuperação de senha pelo gestor
    ([seção 5](#login-e-contas-desenho-aprovado-entra-com-o-back-end)).
 4. Trocar o `localStorage` por chamadas `fetch` nos pontos `// API:`.
-5. Decidir se o legado da planilha será importado ou se o sistema começa do zero
-   ([seção 15](#15-legado-a-planilha-atual)).
-6. Tela de análise de dados e relatórios.
-7. Geração do PDF no servidor (opcional; o gerador do navegador já atende ao modelo-mestre).
+5. Tela de análise de dados e relatórios.
+6. Geração do PDF no servidor (opcional; o gerador do navegador já atende ao modelo-mestre).
