@@ -151,6 +151,7 @@ demandas, e as alterações feitas sem login são registradas em nome do técnic
 | **Excluir** demanda (com motivo; vai para a Lixeira; não vale para Concluída) | — | ✓ |
 | **Lixeira** (consultar e restaurar) | — | ✓ |
 | **Movimentações do dia** | — | ✓ |
+| **Configuração** (valores do custo do relatório) | — | ✓ |
 
 Ações do gestor tentadas sem login abrem o modal de login. Depois de entrar, a ação continua.
 
@@ -304,7 +305,7 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
 | Motivo (cancelar, excluir e alterar a Data para Conclusão) | obrigatório, até 100 caracteres |
 | Nova senha | pelo menos 8 caracteres, confirmada e diferente da inicial |
 | Ticket principal | só dígitos, 6 a 8 |
-| Subtickets | um ou mais números de 6 a 8 dígitos no mesmo campo (ex.: `1831365 / 1831398`); número repetido na demanda é ignorado; empresa e serviço obrigatórios (a empresa começa sem seleção); quantidade 1–999 |
+| Subtickets | um ou mais números de 6 a 8 dígitos no mesmo campo (ex.: `1831365 / 1831398`); número repetido na demanda é ignorado; empresa e serviço obrigatórios (a empresa começa sem seleção); quantidade 1–999; metro linear opcional e inteiro (1–9999), só na WECOM em Instalação ou Infraestrutura (o campo só aparece nesses casos) |
 | Equipe | nome obrigatório, único, até 60 caracteres; cor da paleta; iniciais geradas pelo nome |
 
 ### 7.7 Serviços por empresa (subtickets)
@@ -314,7 +315,7 @@ servidor** (tarefa agendada diária, ex.: `@Scheduled` no Spring).
 | CADI | Mudança de Local, Configuração, Habilitação de Pontos de Rede |
 | CDS | Instalação, Desinstalação, Rollout AC, Rollout ABC, Mudança de Local, Mudança de Prédio |
 | Selbetti | Mudança de Local, Instalação, Desinstalação, Mudança de Prédio |
-| WECOM | Instalação, Desinstalação, Mudança de Local, Mudança de Prédio, Instalação de Infraestrutura |
+| WECOM | Instalação, Realocação, Infraestrutura |
 
 ### 7.8 Equipe
 
@@ -347,8 +348,8 @@ textos gerados e anotações livres ("Registrar andamento").
 - **Visualização:** **linhas** (10 por folha) ou **post-its** (8 por folha, 4 × 2), sempre com a mesma
   altura, haja 1 ou 10 na folha.
 - **Colunas:** Expediente, Local, Data, Ticket, Status, Responsável. Todas ordenáveis; o padrão é Data,
-  da mais nova para a mais antiga. Também mostra o prazo: a contagem até o início nas demandas Novas e Acionadas ("02 dias", "01 dia", "120 dias", no
-  máximo 3 dígitos), "Hoje", "Até 09/11" e "Há 2 dias". Demanda Nova cujo período já
+  da mais nova para a mais antiga. Só nas demandas Acionadas mostra a contagem de dias até o início ("02 dias", "01 dia", "120 dias", no
+  máximo 3 dígitos); nas demais situações não há contagem. Demanda Nova cujo período já
   terminou ganha **bolinha vermelha** e a data em **negrito vermelho**, nas linhas e nos post-its.
 - **Rodapé da lista:** "Mostrando 1–10 de 46 demandas", mensagens de confirmação e paginação.
 
@@ -360,7 +361,7 @@ textos gerados e anotações livres ("Registrar andamento").
   Data para Conclusão e Hora, as duas últimas opcionais, informações adicionais). "Salvar alterações" só fica ativo quando há mudança, inclusive
   de status; se a pessoa sair sem salvar, o sistema pergunta antes de descartar.
 - **Aba Tickets:** ticket principal (registrar ou alterar) e subtickets (empresa, número, serviço,
-  quantidade, editáveis na tabela).
+  quantidade e metro linear da WECOM, editáveis na tabela).
 - **Aba Histórico:** linha do tempo e campo para registrar andamento.
 - **Mais ações:** Gerar relatório de mudança (gestor, em Para Validação e Concluída), Devolver ao técnico (gestor),
   Gerar informação de acionamento, Copiar tickets em texto, Alterar Data para Conclusão (gestor, Em atendimento), Cancelar e Excluir (gestor; Excluir não aparece em Concluída).
@@ -373,6 +374,10 @@ textos gerados e anotações livres ("Registrar andamento").
   Data para Conclusão e Hora, as duas últimas opcionais, descrição) e "Atribuição da Demanda" (técnico, Gestor ou "Definir depois"). Ao incluir, mostra
   a confirmação com o número para copiar, e os botões Incluir outra / Abrir demanda / Concluir.
 - **Equipe** (gestor): incluir, editar, transferir, desativar e reativar.
+- **Configuração** (gestor, no menu da conta): valores da CDS por região e serviço e, da WECOM, Realocação,
+  Instalação/Infraestrutura e metro linear. Valores maiores que zero, no formato 125,00. **Salvar Alterações** começa
+  inativo e ativa quando algum campo muda; ele pede confirmação (Sim ou Não), só o Sim grava e a mesma janela mostra "Valores Atualizados" com o botão Fechar, que volta à tela de valores. Fechar com
+  alterações pede confirmação para descartar.
 - **Movimentações do Dia** (gestor): tudo o que mudou no dia, com hora, autor e demanda (clicável, abre
   no Histórico). Setas para os dias anteriores e filtro "Todas" / "Só status".
 - **Informação de Acionamento:** texto pronto para o SEI, editável, com botão de copiar.
@@ -434,23 +439,35 @@ bibliotecas. Ele segue o modelo-mestre do DSUP:
   - Data do Acionamento: `acionadaEm`, ou a data do histórico.
   - Data da Execução: o agendamento.
   - Serviços realizados (Mudança de Prédio, Desinstalação, Mudança de Local, Instalação): marcados pelos
-    serviços dos subtickets.
+    serviços dos subtickets. A Realocação da WECOM marca Mudança de Local.
   - Local de origem e Local de destino:
     - origem = `DMP` se há Instalação; o local, se há Mudança de Local, Mudança de Prédio ou
       Desinstalação.
     - destino = o local, se há Mudança de Local, Mudança de Prédio ou Instalação (ou se não há
       Desinstalação); `DMP – Carga CDS` se há Desinstalação.
-  - Custo (aproximado): vazio para preencher quando há CDS ou WECOM; `-` quando não há.
+  - Custo (aproximado): a soma calculada quando há CDS ou WECOM; `-` quando não há.
 - **Corpo:** "Em atendimento à demanda solicitada a esse DITIC-DSUP, referente às mudanças de equipamentos
   de informática, informo que foram realizadas:", seguido de **um item por subticket**, numerado
   `1 - `, `2 - `…:
   > 1 - Mudança de local de equipamentos de informática, em total de 12 serviços, no Foro da Comarca de
   > Canoas. A atividade foi executada pela contratada CDS através do ticket 1831365.
 
-  Em Instalação de Infraestrutura e Habilitação de Pontos de Rede, o item não leva "de equipamentos de
+  A quantidade de serviços sempre tem ao menos dois dígitos: `01`, `09`, `10`, `120`.
+
+  Em Infraestrutura e Habilitação de Pontos de Rede, o item não leva "de equipamentos de
   informática".
 - **Frase de custo, automática:** "Custo incluído no valor global do contrato." entra **só quando não há
   subtickets da CDS nem da WECOM**. Com elas há valor a pagar, e a frase não entra.
+- **Cálculo do custo**, com os valores da tela Configuração:
+  - CDS: quantidade × preço do serviço na região do local, como no sistema de faturamento do DSUP. Os prédios
+    de Porto Alegre são da região Metropolitana.
+  - WECOM, Realocação: quantidade × valor da Realocação.
+  - WECOM, Instalação ou Infraestrutura: valor de Instalação/Infraestrutura + (metro linear × valor do metro
+    linear), por ticket. Valores iniciais: R$ 970,93 + (R$ 164,18 × metros). Sem metro linear, o ticket fica
+    fora da soma e entra a frase: "O valor do serviço de Instalação de Salas de Audiência Digital (ticket
+    xxxxx) não consta na soma do valor total de custo discriminado neste relatório."
+  - Ticket da CDS ou da WECOM sem preço (local sem região ou serviço sem valor) fica fora da soma, e o
+    formulário avisa antes de baixar o PDF.
 - **Fecho:** "Era o que cabia informar."
 - **Arquivo:** `Relatório de execução - <SEI com hífens>.pdf`. Gerar o PDF registra no histórico.
 
@@ -466,7 +483,8 @@ O estado fica no `localStorage`, como JSON:
 {
   demandas: [Demanda], equipe: [Pessoa], usuario: 'admin' | null,
   sitAtivas: ['nova','acionada','atendimento','pendente'] | ['<uma situação>'],
-  vista: 'linhas' | 'postits', excluidas: [Exclusao], lixeira: [Demanda], senhaDefinida: boolean
+  vista: 'linhas' | 'postits', excluidas: [Exclusao], lixeira: [Demanda], senhaDefinida: boolean,
+  precos: { cds: { '<serviço>': [valor por região] }, wecom: { realocacao, instalacao, metro } }
 }
 ```
 
@@ -486,7 +504,7 @@ O estado fica no `localStorage`, como JSON:
 | `ticketPrincipal` | texto \| null | 6–8 dígitos |
 | `ticketEm` | `{ data, usuario }` | quando e por quem o ticket foi registrado |
 | `acionadaEm` | `AAAA-MM-DD` | data em que virou Acionada |
-| `subtickets` | `[{ empresa, numero, finalidade, quantidade }]` | `finalidade` = serviço |
+| `subtickets` | `[{ empresa, numero, finalidade, quantidade, metro? }]` | `finalidade` = serviço; `metro` = metro linear da WECOM |
 | `informacoes` | texto ≤ 100 | |
 | `historico` | `[{ data: 'AAAA-MM-DDTHH:MM', usuario, texto }]` | `usuario`: id do técnico, `'admin'`, `'sistema'` ou `'tecnico'` |
 | `criadaEm` | `AAAA-MM-DD` | |
@@ -502,7 +520,10 @@ O estado fica no `localStorage`, como JSON:
 
 ## 11. Proposta de banco de dados (MySQL)
 
-É uma sugestão de partida para o back-end. Nomes em português, como no resto do sistema.
+O script definitivo é `db/ditic_mudancas_db.sql`. Ele cria só a estrutura, sem nenhum `INSERT`: catálogos, valores
+iniciais e o gestor `admin` são carregados pela aplicação. Abaixo, um resumo das tabelas; no
+script, as chaves estrangeiras são declaradas com `FOREIGN KEY`, porque o MySQL ignora `REFERENCES` junto da coluna.
+Nomes em português, como no resto do sistema.
 
 ```sql
 -- quem usa o sistema: gestores e técnicos (a Equipe é este cadastro)
@@ -533,8 +554,7 @@ CREATE TABLE local (
 CREATE TABLE empresa (
   id            BIGINT AUTO_INCREMENT PRIMARY KEY,
   nome          VARCHAR(30) NOT NULL UNIQUE,       -- CADI, CDS, Selbetti, WECOM
-  paga_por_servico BOOLEAN NOT NULL,               -- CDS e WECOM = TRUE (regra da frase de custo)
-  sla_dias      TINYINT NOT NULL                   -- CDS e WECOM = 2; CADI e Selbetti = 1
+  paga_por_servico BOOLEAN NOT NULL                -- CDS e WECOM = TRUE (regra da frase de custo)
 );
 
 CREATE TABLE servico (
@@ -556,13 +576,13 @@ CREATE TABLE demanda (
   situacao           ENUM('NOVA','ACIONADA','EM_ATENDIMENTO','PARA_VALIDACAO','CONCLUIDA','CANCELADA') NOT NULL DEFAULT 'NOVA',
   motivo_cancelamento VARCHAR(100) NULL,
   excluida_em        DATETIME NULL,                -- preenchido = está na lixeira; apagar depois de 30 dias
-  excluida_por       VARCHAR(60) NULL,
+  excluida_por_id    BIGINT NULL REFERENCES pessoa(id),
   motivo_exclusao    VARCHAR(100) NULL,
   carga              ENUM('TECNICO','GESTOR','SETOR','SEM_RESPONSAVEL') NOT NULL,
   tecnico_id         BIGINT NULL REFERENCES pessoa(id),   -- responsável (carga TECNICO) ou quem atendeu (GESTOR/SETOR)
   ticket_principal   VARCHAR(8) NULL,
   ticket_em          DATETIME NULL,
-  ticket_por         VARCHAR(60) NULL,
+  ticket_por_id      BIGINT NULL REFERENCES pessoa(id),
   acionada_em        DATE NULL,
   informacoes        VARCHAR(100) NULL,
   aviso_tipo         ENUM('NOVA','RETORNOU','ATENDIMENTO','PARA_VALIDACAO','STATUS') NULL,
@@ -586,6 +606,7 @@ CREATE TABLE subticket (
   numero        VARCHAR(8) NOT NULL,
   servico_id    BIGINT NULL REFERENCES servico(id),
   quantidade    SMALLINT NOT NULL DEFAULT 1 CHECK (quantidade BETWEEN 1 AND 999),
+  metro_linear  INT NULL,                          -- só WECOM em Instalação ou Infraestrutura; opcional
   UNIQUE (demanda_id, numero)
 );
 
@@ -593,7 +614,7 @@ CREATE TABLE historico (
   id            BIGINT AUTO_INCREMENT PRIMARY KEY,
   demanda_id    BIGINT NOT NULL REFERENCES demanda(id) ON DELETE CASCADE,
   data_hora     DATETIME NOT NULL,
-  autor         VARCHAR(60) NOT NULL,              -- 'SISTEMA', 'GESTOR:<login>' ou 'TECNICO:<id>'
+  autor_id      BIGINT NULL REFERENCES pessoa(id), -- quem fez a alteração; NULL = o sistema (automático)
   tipo          ENUM('CRIACAO','STATUS','STATUS_AUTOMATICO','RESPONSAVEL','AGENDAMENTO','DADOS',
                      'TICKET','SUBTICKET','DOCUMENTO','NOTA') NOT NULL,
   texto         VARCHAR(500) NOT NULL,
@@ -607,8 +628,22 @@ CREATE TABLE demanda_excluida (                     -- auditoria da exclusão
   local_texto   VARCHAR(120) NULL,
   situacao      VARCHAR(20) NOT NULL,
   excluida_em   DATETIME NOT NULL,
-  excluida_por  VARCHAR(60) NOT NULL,
-  motivo        VARCHAR(100) NULL
+  excluida_por_id BIGINT NULL REFERENCES pessoa(id), -- NULL = o sistema (remoção definitiva após 30 dias)
+  motivo        VARCHAR(100) NULL,
+  texto         VARCHAR(250) NULL                  -- usado na remoção definitiva
+);
+
+CREATE TABLE preco_cds (                            -- preço da CDS por região e serviço
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  regiao        VARCHAR(40) NOT NULL,
+  servico_id    BIGINT NOT NULL REFERENCES servico(id),
+  valor         DECIMAL(10,2) NOT NULL,
+  UNIQUE (regiao, servico_id)
+);
+
+CREATE TABLE preco_parametro (                      -- WECOM_REALOCACAO, WECOM_INSTALACAO, WECOM_METRO_LINEAR
+  chave         VARCHAR(40) PRIMARY KEY,
+  valor         DECIMAL(10,2) NOT NULL
 );
 ```
 
@@ -619,8 +654,10 @@ CREATE TABLE demanda_excluida (                     -- auditoria da exclusão
 - `responsavel = null` em demanda concluída → `carga = 'SETOR'`, com `tecnico_id` = quem atendeu.
 - `responsavel = null` nas demais → `carga = 'SEM_RESPONSAVEL'`.
 - `finalidade` → `servico_id`; `comarca` → `local_texto` (+ `local_id` quando estiver no catálogo).
-- Os catálogos de locais, regiões e serviços estão na parte 1 do `mudancas.js` e podem virar os
-  `INSERT`s iniciais.
+- `usuario = 'sistema'` → `autor_id` vazio; demais `usuario` → `autor_id` da pessoa.
+- `metro` → `metro_linear`; `precos` → `preco_cds` e `preco_parametro`.
+- Os catálogos de locais, regiões, empresas e serviços e os valores iniciais estão na parte 1 do `mudancas.js` e
+  devem ser carregados pela aplicação quando o banco estiver vazio, como o gestor `admin`.
 
 ---
 
@@ -638,7 +675,8 @@ No JavaScript, cada ponto que vira chamada ao servidor está marcado com `// API
 | PATCH | `/api/mudancas/{id}/situacao` | mudar status, concluir, cancelar com `motivo` (regras da [seção 7](#7-regras-de-negócio)) |
 | PUT | `/api/mudancas/{id}/ticket` | ticket principal |
 | POST | `/api/mudancas/{id}/subtickets` | incluir subticket(s) |
-| PATCH / DELETE | `/api/mudancas/{id}/subtickets/{numero}` | serviço/quantidade / remover |
+| PATCH / DELETE | `/api/mudancas/{id}/subtickets/{numero}` | serviço/quantidade/metro linear / remover |
+| GET / PUT | `/api/precos` | valores do custo do relatório (PUT só do gestor) |
 | GET / POST | `/api/mudancas/{id}/historico` | histórico / registrar andamento |
 | POST | `/api/mudancas/{id}/devolver-tecnico` · `/devolver-gestor` | Para Validação: atendimento extra |
 | DELETE | `/api/mudancas/{id}` | `{ motivo }`: envia para a lixeira (gestor; grava `demanda_excluida`; recusa demanda Concluída) |
@@ -703,7 +741,8 @@ esconde os botões.
   - O Esc recolhe menus e calendário; os modais fecham só pelo X ou pelos botões deles. Enter abre a demanda.
 - **Teste automático** (opcional): `pip install playwright` e depois
   `python testes/teste_ponta_a_ponta.py`. Ele cria as próprias demandas e passa pelos fluxos principais
-  (146 verificações) usando o Chromium do Playwright.
+  (178 verificações) usando o Chromium do Playwright. `testes/exemplo_para_validacao.html`, aberto com dois cliques,
+  inclui no navegador uma demanda Para Validação para gerar o relatório.
 
 ---
 

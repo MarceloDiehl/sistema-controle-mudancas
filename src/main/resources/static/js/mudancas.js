@@ -136,6 +136,7 @@
         quebrar(it.trim(), 'H', TB, R - (L + 46) - 8).forEach((l, j) => { garante(); if (!j) pdf.texto(L + 28, yy, (i + 1) + ' -', { tam: TB }); pdf.texto(L + 46, yy, l, { tam: TB }); yy += LH; });
       });
       yy += LH * 0.6;
+      (r.notas || []).forEach((n) => quebrar(n, 'H', TB, R - (L + 46) - 8).forEach((l) => { garante(); pdf.texto(L + 46, yy, l, { tam: TB }); yy += LH; }));
       if (r.global) { garante(); pdf.texto(L + 46, yy, 'Custo incluído no valor global do contrato.', { tam: TB }); yy += LH; }
       garante(); pdf.texto(L + 46, yy, 'Era o que cabia informar.', { tam: TB }); yy += LH;
       fechaCaixa(Math.max(yy + 6, cx === 60 ? yy + 6 : 755));
@@ -175,8 +176,42 @@
     CADI: ['Mudança de Local', 'Configuração', 'Habilitação de Pontos de Rede'],
     CDS: SERVICOS_CDS,
     Selbetti: ['Mudança de Local', 'Instalação', 'Desinstalação', 'Mudança de Prédio'],
-    WECOM: ['Instalação', 'Desinstalação', 'Mudança de Local', 'Mudança de Prédio', 'Instalação de Infraestrutura']
+    WECOM: ['Instalação', 'Realocação', 'Infraestrutura']
   };
+  // valores iniciais do custo do relatório (o gestor altera em Configuração)
+  // CDS: por região e serviço, na ordem de REGIOES, como no sistema de faturamento do DSUP
+  const REGIOES = ['Noroeste', 'Nordeste', 'Centro Ocidental', 'Centro Oriental', 'Metropolitana', 'Sudeste', 'Sudoeste'];
+  const PRECOS_INICIAIS = {
+    cds: {
+      'Instalação': [285, 229, 233, 272, 125, 273.95, 267],
+      'Rollout AC': [315, 261, 260, 302, 143, 307, 298.21],
+      'Rollout ABC': [352, 298, 298, 339, 170, 343, 335],
+      'Desinstalação': [248, 194, 194, 236, 130, 239, 231],
+      'Mudança de Local': [198, 152, 153, 185, 160, 187, 188],
+      'Mudança de Prédio': [354, 300, 300, 341, 150, 335, 327]
+    },
+    wecom: { realocacao: 4121, instalacao: 970.93, metro: 164.18 }
+  };
+  const SERVICOS_CDS_PRECO = Object.keys(PRECOS_INICIAIS.cds);
+  const valorOk = (v) => Number.isFinite(v) && v > 0;
+  function carregarPrecos(s) {
+    const p = JSON.parse(JSON.stringify(PRECOS_INICIAIS));
+    if (!s) return p;
+    SERVICOS_CDS_PRECO.forEach((sv) => { const ls = s.cds && s.cds[sv]; if (Array.isArray(ls) && ls.length === REGIOES.length && ls.every(valorOk)) p.cds[sv] = ls; });
+    Object.keys(p.wecom).forEach((k) => { if (s.wecom && valorOk(s.wecom[k])) p.wecom[k] = s.wecom[k]; });
+    return p;
+  }
+  // WECOM: Instalação e Infraestrutura são calculadas pelo metro linear, que é opcional
+  const usaMetro = (emp, serv) => emp === 'WECOM' && ['Instalação', 'Infraestrutura'].includes(serv);
+  const centavos = (v) => Math.round(v * 100);
+  const moeda = (c) => 'R$ ' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const valorCampo = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // aceita 125,00 / 1.250,00 / 125.00; devolve null se não for um valor maior que zero
+  function lerValor(t) {
+    let s = String(t).replace(/\s|R\$/g, '');
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    return /^\d{1,7}(\.\d{1,2})?$/.test(s) && Number(s) > 0 ? Number(s) : null;
+  }
   const opcoesServ = (emp, sel) => `<option value="">Escolher serviço…</option>${(SERVICOS[emp] || []).map((x) => `<option ${sel === x ? 'selected' : ''}>${x}</option>`).join('')}`;
   function regiaoDe(c) { return LOCAIS.poa.includes(c) ? 'Metropolitana' : (REGIAO[c] || null); }
   const RE_SEI = /^\d\.\d{4}\.\d{4}\/\d{6}-\d$/;
@@ -202,6 +237,7 @@
     excluidas: (salvo && Array.isArray(salvo.excluidas)) ? salvo.excluidas : [],
     lixeira: (salvo && Array.isArray(salvo.lixeira)) ? salvo.lixeira : [],
     senhaDefinida: !!(salvo && salvo.senhaDefinida), // primeiro acesso: o gestor precisa criar uma senha
+    precos: carregarPrecos(salvo && salvo.precos),
     sitAtivas: new Set((salvo && Array.isArray(salvo.sitAtivas) && salvo.sitAtivas.length === 1 && SITUACOES.some((x) => x.id === salvo.sitAtivas[0])) ? salvo.sitAtivas : ABERTAS),
     busca: '', filtroResp: '', filtroLocal: '', localQ: '', ordCol: 'ag', ordDir: 'desc', folha: 1,
     vista: (salvo && salvo.vista === 'postits') ? 'postits' : 'linhas',
@@ -213,7 +249,7 @@
   };
   function persistir() {
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ demandas: E.demandas, equipe: E.equipe, usuario: E.usuario, sitAtivas: [...E.sitAtivas], vista: E.vista, excluidas: E.excluidas, lixeira: E.lixeira, senhaDefinida: E.senhaDefinida }));
+      localStorage.setItem(CHAVE, JSON.stringify({ demandas: E.demandas, equipe: E.equipe, usuario: E.usuario, sitAtivas: [...E.sitAtivas], vista: E.vista, excluidas: E.excluidas, lixeira: E.lixeira, senhaDefinida: E.senhaDefinida, precos: E.precos }));
     } catch (e) { /* ignora */ }
   }
 
@@ -388,15 +424,9 @@
   }
 
   function prazo(d) {
-    if (!ABERTAS.includes(d.situacao)) return '';
-    if (!d.inicio) return d.situacao === 'nova' ? '<span class="badge prazo">A agendar</span>' : '';
-    const ini = dias(d.inicio); const fim = dias(d.fim || d.inicio);
-    if (d.situacao === 'pendente') return fim < 0 ? '<span class="badge prazo pend">Há ' + (-fim) + (fim === -1 ? ' dia' : ' dias') + '</span>' : '';
-    if (d.situacao === 'atendimento') return fim <= 0 ? '<span class="badge prazo aten">Último dia</span>' : (ini <= 0 ? '<span class="badge prazo aten">Até ' + br(d.fim || d.inicio).slice(0, 5) + '</span>' : '<span class="badge prazo">Em ' + ini + (ini === 1 ? ' dia' : ' dias') + '</span>');
-    if (fim < 0) return d.situacao === 'acionada' ? '<span class="badge prazo">Há ' + (-fim) + (fim === -1 ? ' dia' : ' dias') + '</span>' : '';
-    if (ini < 0) return ''; // Nova já dentro do período, sem acionamento: não é "hoje"
-    if (ini === 0) return '<span class="badge prazo hoje">Hoje</span>';
-    // contagem até o início: 02 dias, 01 dia, 120 dias (no máximo 3 dígitos)
+    // só a demanda Acionada conta os dias até passar a Em Atendimento: 02 dias, 01 dia, 120 dias (no máximo 3 dígitos)
+    if (d.situacao !== 'acionada' || !d.inicio) return '';
+    const ini = dias(d.inicio); if (ini <= 0) return '';
     const n = Math.min(ini, 999);
     return '<span class="badge prazo">' + String(n).padStart(2, '0') + (n === 1 ? ' dia' : ' dias') + '</span>';
   }
@@ -557,7 +587,8 @@
         <div class="dropdown-header menu-cab">${avatar(u.id, 'g')}<span><b>${esc(u.nome)}</b><small>Controle de Mudanças</small></span></div>
         ${u.gestor ? `        <button type="button" role="menuitem" class="dropdown-item" data-acao="equipe">${svg(16, '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.9-3 3.1-4.6 5.5-4.6s4.6 1.6 5.5 4.6"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.6c2.3-.2 4.2 1.2 5 4"/>', 1.8)}<span style="flex:1">Equipe</span><small class="menu-n">${ativos().length} ${ativos().length === 1 ? "pessoa" : "pessoas"}</small></button>
         <button type="button" role="menuitem" class="dropdown-item" data-acao="movimentos">${svg(16, '<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16.5" r="3.5"/><path d="M18 15v1.6l1 .8"/>', 1.9)}<span style="flex:1">Movimentações do dia</span></button>
-        <button type="button" role="menuitem" class="dropdown-item" data-acao="lixeira">${I.lixo}<span style="flex:1">Lixeira</span><small class="menu-n">${E.lixeira.length}</small></button>` : ''}
+        <button type="button" role="menuitem" class="dropdown-item" data-acao="lixeira">${I.lixo}<span style="flex:1">Lixeira</span><small class="menu-n">${E.lixeira.length}</small></button>
+        <button type="button" role="menuitem" class="dropdown-item" data-acao="config">${svg(16, '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>', 1.9)}<span style="flex:1">Configuração</span></button>` : ''}
         <hr class="dropdown-divider">
         <button type="button" role="menuitem" class="dropdown-item perigo" data-acao="sair">${I.sair}Sair da conta</button>
       </div>` : ''}
@@ -697,7 +728,7 @@
   function telaDetalhe() {
     const d = demanda(E.aberta); if (!d) return '';
     const s = sit(d.situacao); const u = usr(d.responsavel);
-    const abas = [['dados', 'Detalhes', ''], ['tickets', 'Tickets', d.subtickets.length + (d.ticketPrincipal ? 1 : 0)], ['hist', 'Histórico', d.historico.length]];
+    const abas = [['dados', 'Detalhes', ''], ['tickets', 'Tickets', d.subtickets.length], ['hist', 'Histórico', d.historico.length]];
     return `
 <div class="modal d-block det-fundo ${E._anim.det ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal">
 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -918,13 +949,15 @@
   function abaTickets(d) {
     // Em atendimento e Para validação: dá para incluir ticket novo, mas os já registrados ficam travados
     const ro = !podeEditar(d); const fixos = ro || TRAVADOS.includes(d.situacao); const trava = fixos ? 'disabled' : '';
+    const temMetro = d.subtickets.some((s) => usaMetro(s.empresa, s.finalidade));
     const tabela = d.subtickets.length ? `<table class="table tabela">
-      <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th><th><span class="visually-hidden">Ações</span></th></tr></thead>
+      <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th>${temMetro ? '<th class="th-qtd">Metro</th>' : ''}<th><span class="visually-hidden">Ações</span></th></tr></thead>
       <tbody>${d.subtickets.map((s, i) => `<tr>
         <td><span class="badge emp-tag">${esc(s.empresa)}</span></td>
         <td class="mono">${esc(s.numero)}</td>
         <td><label class="visually-hidden" for="sf-${i}">Serviço</label><select id="sf-${i}" class="form-select sel-tab ${s.finalidade ? '' : 'falta'}" data-campo-sub="finalidade" data-i="${i}" ${trava}>${opcoesServ(s.empresa, s.finalidade)}${s.finalidade && !(SERVICOS[s.empresa] || []).includes(s.finalidade) ? `<option selected>${esc(s.finalidade)}</option>` : ''}</select></td>
         <td class="td-qtd"><label class="visually-hidden" for="sq-${i}">Quantidade</label><input id="sq-${i}" type="number" min="1" max="999" class="form-control inp-qtd ${s.quantidade ? '' : 'falta'}" value="${esc(s.quantidade || '')}" placeholder="—" data-campo-sub="quantidade" data-i="${i}" ${trava}></td>
+        ${temMetro ? `<td class="td-qtd">${usaMetro(s.empresa, s.finalidade) ? `<label class="visually-hidden" for="sm-${i}">Metro linear</label><input id="sm-${i}" type="number" min="1" max="9999" step="1" class="form-control inp-qtd" value="${esc(s.metro || '')}" placeholder="—" data-campo-sub="metro" data-i="${i}" ${trava}>` : ''}</td>` : ''}
         <td class="td-acao"><span class="acoes-sub">
           ${fixos ? '' : `<button type="button" class="btn btn-icone perigo-h" data-acao="sub-del" data-i="${i}" aria-label="Remover subticket ${esc(s.numero)}" title="Remover">${I.lixo}</button>`}
         </span></td>
@@ -937,11 +970,13 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       <span class="campo"><label class="form-label" for="n-emp">Empresa</label>
       <select id="n-emp" data-rascunho class="form-select sel-g" ${E.erros.emp ? 'aria-invalid="true"' : ''}><option value="">Escolher empresa…</option>${EMPRESAS.map((e) => `<option ${E.ultimaEmp === e ? 'selected' : ''}>${e}</option>`).join('')}</select></span>
       <span class="campo"><label class="form-label" for="n-num">Número do subticket</label>
-      <input id="n-num" data-rascunho class="form-control mono" inputmode="numeric" placeholder="Ex.: 1831365 / 1831398" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
+      <input id="n-num" data-rascunho class="form-control mono" inputmode="numeric" placeholder="1831365 / 1831398" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
       <span class="campo"><label class="form-label" for="n-fin">Serviço</label>
       <select id="n-fin" data-rascunho class="form-select sel-g" ${E.erros.fin ? 'aria-invalid="true"' : ''}>${opcoesServ(E.ultimaEmp || '', '')}</select></span>
       <span class="campo campo-qtd"><label class="form-label" for="n-qtd">Quantidade</label>
       <input id="n-qtd" data-rascunho type="number" min="1" max="999" class="form-control" value="1" ${E.erros.qtd ? 'aria-invalid="true"' : ''}></span>
+      <span class="campo campo-qtd campo-metro"><label class="form-label" for="n-metro">Metro Linear</label>
+      <input id="n-metro" data-rascunho type="number" min="1" max="9999" step="1" class="form-control" placeholder="Opc." title="Opcional" disabled ${E.erros.metro ? 'aria-invalid="true"' : ''}></span>
       <button type="submit" class="btn btn-primary btn-lg">${I.mais}Incluir</button>
     </form>
     ${E.erros.sub ? `<span class="erro">${esc(E.erros.sub)}</span>` : ''}
@@ -965,8 +1000,11 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   // ------------------------------------------------------------------ outros modais
   function telaModal() {
     if (!E.modal) return '';
-    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, relatorio: modalRelatorio, movimentos: modalMovimentos, lixeira: modalLixeira, senha: modalSenha, conclusao: modalConclusao }[E.modal];
-    return `<div class="modal d-block modal-camada ${E.modal === 'confirmar' || E.modal === 'conclusao' ? 'modal-topo' : ''} ${E._anim.modal ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">${m ? m() : ''}</div></div>`;
+    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, relatorio: modalRelatorio, movimentos: modalMovimentos, lixeira: modalLixeira, senha: modalSenha, conclusao: modalConclusao, config: modalConfig }[E.modal];
+    // a confirmação da Configuração abre por cima dela; ao voltar, a Configuração não repete a animação
+    const camada = (fn, cls, anim) => `<div class="modal d-block modal-camada ${cls} ${anim ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">${fn ? fn() : ''}</div></div>`;
+    const voltou = E.modal === 'config' && E._k && E._k.modal === 'confirmar';
+    return (E.modal === 'confirmar' && E.cfg ? camada(modalConfig, '', false) : '') + camada(m, E.modal === 'confirmar' || E.modal === 'conclusao' ? 'modal-topo' : '', E._anim.modal && !voltou);
   }
 
   function modalNova() {
@@ -1276,9 +1314,23 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const h = d.historico.slice().reverse().find((x) => /→ Acionada|para Acionada|Empresas acionadas/i.test(x.texto));
     return h ? br(String(h.data).slice(0, 10)) : '';
   }
+  // custo de um subticket, em centavos; null quando não há como calcular
+  function custoSub(s, regiao) {
+    const p = E.precos;
+    if (s.empresa === 'CDS') {
+      const ls = p.cds[s.finalidade]; const i = REGIOES.indexOf(regiao);
+      return ls && i >= 0 && s.quantidade ? centavos(ls[i]) * s.quantidade : null;
+    }
+    if (s.empresa === 'WECOM') {
+      if (s.finalidade === 'Realocação') return s.quantidade ? centavos(p.wecom.realocacao) * s.quantidade : null;
+      if (usaMetro(s.empresa, s.finalidade) && s.metro) return centavos(p.wecom.instalacao) + s.metro * centavos(p.wecom.metro);
+    }
+    return null;
+  }
   function montarRelatorio(d) {
     const tem = (serv) => d.subtickets.some((x) => x.finalidade === serv);
-    const sv = { predio: tem('Mudança de Prédio'), desinst: tem('Desinstalação'), local: tem('Mudança de Local'), inst: tem('Instalação') };
+    // a Realocação da WECOM aparece no quadro do relatório como Mudança de Local
+    const sv = { predio: tem('Mudança de Prédio'), desinst: tem('Desinstalação'), local: tem('Mudança de Local') || tem('Realocação'), inst: tem('Instalação') };
     const lugar = predio(d.comarca) || d.comarca || '';
     const origem = []; const destino = [];
     if (sv.inst) origem.push('DMP');
@@ -1287,15 +1339,22 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (sv.desinst) destino.push('DMP – Carga CDS');
     // um item por subticket, na ordem das empresas
     // serviços de rede não são "de equipamentos de informática" no texto do relatório
-    const SO_REDE = ['Instalação de Infraestrutura', 'Habilitação de Pontos de Rede'];
-    const frase = (serv) => (serv || 'Atendimento').replace(/ de (Local|Prédio|Infraestrutura|Pontos de Rede)$/, (m) => m.toLowerCase()) + (SO_REDE.includes(serv) ? '' : ' de equipamentos de informática');
+    const SO_REDE = ['Infraestrutura', 'Habilitação de Pontos de Rede'];
+    const frase = (serv) => (serv || 'Atendimento').replace(/ de (Local|Prédio|Pontos de Rede)$/, (m) => m.toLowerCase()) + (SO_REDE.includes(serv) ? '' : ' de equipamentos de informática');
     const itens = [];
     EMPRESAS.forEach((e) => d.subtickets.filter((x) => x.empresa === e).forEach((x) => {
       const q = x.quantidade;
-      itens.push(frase(x.finalidade) + (q ? ', em total de ' + q + (q === 1 ? ' serviço' : ' serviços') : '') + ', no ' + lugar + '. A atividade foi executada pela contratada ' + e + ' através do ticket ' + x.numero + '.');
+      itens.push(frase(x.finalidade) + (q ? ', em total de ' + String(q).padStart(2, '0') + (q === 1 ? ' serviço' : ' serviços') : '') + ', no ' + lugar + '. A atividade foi executada pela contratada ' + e + ' através do ticket ' + x.numero + '.');
     }));
-    const pago = d.subtickets.some((x) => ['CDS', 'WECOM'].includes(x.empresa));
-    return { acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: pago ? '' : '-', itens, global: !pago };
+    const pagos = d.subtickets.filter((x) => ['CDS', 'WECOM'].includes(x.empresa)); const pago = pagos.length > 0;
+    const regiao = regiaoDe(d.comarca); let total = 0; const notas = []; const semPreco = [];
+    pagos.forEach((x) => {
+      const c = custoSub(x, regiao);
+      if (c !== null) total += c;
+      else if (usaMetro(x.empresa, x.finalidade)) notas.push('O valor do serviço de Instalação de Salas de Audiência Digital (ticket ' + x.numero + ') não consta na soma do valor total de custo discriminado neste relatório.');
+      else semPreco.push(x.numero);
+    });
+    return { acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (total ? moeda(total) : ''), itens, global: !pago, notas, semPreco };
   }
   function modalRelatorio() {
     const d = demanda(E.modalDados && E.modalDados.id); if (!d) return '';
@@ -1307,6 +1366,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${d.subtickets.length ? '' : `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda não tem subtickets. Marque os serviços, preencha os itens e confira a frase de custo antes de baixar.</span></p>`}
+    ${r.semPreco.length ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Sem valor na soma: ${r.semPreco.length > 1 ? 'tickets' : 'ticket'} ${esc(r.semPreco.join(', '))}. Confira a região do local e o serviço, e ajuste o custo antes de baixar.</span></p>` : ''}
     ${bloco('Datas e serviços', '', `
       <div class="row duplo">
         <div class="col-md-6 campo"><label class="form-label" for="rl-acion">Data do acionamento</label><input id="rl-acion" data-rascunho class="form-control" value="${esc(r.acionamento)}" placeholder="dd/mm/aaaa"></div>
@@ -1321,13 +1381,74 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       <div class="campo rl-custo"><label class="form-label" for="rl-custo">Custo (aproximado)</label><input id="rl-custo" data-rascunho class="form-control" value="${esc(r.custo)}" placeholder="R$ 0,00"></div>`)}
     ${bloco('Serviços executados', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
       <div class="campo"><label for="rl-itens" class="visually-hidden">Itens</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="6">${esc(r.itens.join('\n\n'))}</textarea>
-      <span class="dica-datas">Um item por parágrafo (separados por uma linha em branco); a numeração entra no PDF. ${r.global ? 'Sem CDS nem WECOM: entra a frase “Custo incluído no valor global do contrato.”' : 'Com CDS ou WECOM há valor a pagar, então a frase do valor global do contrato não entra.'}</span></div>`)}
+      <span class="dica-datas">Um item por parágrafo (separados por uma linha em branco); a numeração entra no PDF. ${r.global ? 'Sem CDS nem WECOM: entra a frase “Custo incluído no valor global do contrato.”' : 'Com CDS ou WECOM há valor a pagar, então a frase do valor global do contrato não entra.'}</span></div>
+      ${r.notas.length ? `<div class="campo"><label class="form-label" for="rl-notas">Observações de custo <em>(uma por linha)</em></label><textarea id="rl-notas" data-rascunho class="form-control txt" rows="3">${esc(r.notas.join('\n'))}</textarea></div>` : ''}`)}
   </div>
   <footer class="modal-footer">${flash('relatorio')}<span class="esp"></span>
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-modal">Fechar</button>
     <button type="button" class="btn btn-primary btn-lg" data-acao="baixar-relatorio">${I.baixar}Baixar PDF</button>
   </footer>
 </div>`;
+  }
+  // Configuração de valores: edita em rascunho (E.cfg.v) e só salva depois do Sim
+  const WECOM_CAMPOS = [['realocacao', 'Realocação'], ['instalacao', 'Instalação/Infraestrutura'], ['metro', 'Metro linear']];
+  function cfgCampos() {
+    const p = E.precos; const ls = [];
+    SERVICOS_CDS_PRECO.forEach((sv, si) => REGIOES.forEach((r, ri) => ls.push({ id: 'pc-' + si + '-' + ri, atual: p.cds[sv][ri] })));
+    WECOM_CAMPOS.forEach(([k]) => ls.push({ id: 'pw-' + k, atual: p.wecom[k] }));
+    return ls;
+  }
+  function cfgRascunho() { const v = {}; cfgCampos().forEach((c) => { v[c.id] = valorCampo(c.atual); }); return v; }
+  function cfgEstado() {
+    const campos = cfgCampos().map((c) => { const novo = lerValor(E.cfg.v[c.id]); return Object.assign(c, { invalido: novo === null, mudou: novo !== null && centavos(novo) !== centavos(c.atual) }); });
+    return { campos, mudancas: campos.filter((c) => c.mudou), invalidos: campos.filter((c) => c.invalido) };
+  }
+  function modalConfig() {
+    const c = E.cfg;
+    const celula = (sv, si, ri) => `<td><input id="pc-${si}-${ri}" data-cfg="1" class="form-control inp-valor" inputmode="decimal" autocomplete="off" aria-label="${esc(sv)}, ${esc(REGIOES[ri])}" value="${esc(c.v['pc-' + si + '-' + ri])}"></td>`;
+    const wecom = ([k, rot]) => `<div class="col-md-4 campo"><label class="form-label" for="pw-${k}">${esc(rot)}</label><input id="pw-${k}" data-cfg="1" class="form-control" inputmode="decimal" autocomplete="off" value="${esc(c.v['pw-' + k])}"></div>`;
+    return `
+<form class="modal-content modal-m config" role="dialog" aria-modal="true" aria-labelledby="cf-tit" data-form="config" novalidate>
+  <header class="modal-header"><div><h2 class="modal-title" id="cf-tit">Configuração de Valores</h2><p>Valores usados no custo do relatório.</p></div>
+    <button type="button" class="btn btn-icone" data-acao="cfg-fechar" aria-label="Fechar">${I.fechar}</button></header>
+  <div class="modal-body corpo-blocos">
+    ${bloco('CDS', 'Por região e serviço', `<table class="table tabela cfg-tab">
+      <thead><tr><th>Região</th>${SERVICOS_CDS_PRECO.map((sv) => `<th>${esc(sv)}</th>`).join('')}</tr></thead>
+      <tbody>${REGIOES.map((r, ri) => `<tr><td>${esc(r)}</td>${SERVICOS_CDS_PRECO.map((sv, si) => celula(sv, si, ri)).join('')}</tr>`).join('')}</tbody>
+    </table>`, '', 'tabela-bloco')}
+    ${bloco('WECOM', '', `<div class="row duplo">${WECOM_CAMPOS.map(wecom).join('')}</div>`)}
+  </div>
+  <footer class="modal-footer"><span id="cfg-erro" class="erro" role="alert"></span><span class="esp"></span>
+    <button type="button" class="btn btn-link btn-lg" data-acao="cfg-fechar">Fechar</button>
+    <button type="submit" id="cfg-salvar" class="btn btn-primary btn-lg">Salvar Alterações</button>
+  </footer>
+</form>`;
+  }
+  // atualiza a tela enquanto a pessoa digita, sem redesenhar (o foco e o cursor ficam onde estão)
+  function atualizaConfig() {
+    if (!E.cfg) return;
+    const st = cfgEstado(); const erro = (c) => c.invalido && (E.cfg.tentou || E.cfg.tocados[c.id]);
+    st.campos.forEach((c) => { const el = document.getElementById(c.id); if (!el) return; if (erro(c)) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid'); });
+    const msg = document.getElementById('cfg-erro'); if (msg) msg.textContent = st.campos.some(erro) ? 'Confira os valores destacados. Use o formato 125,00.' : '';
+    const bt = document.getElementById('cfg-salvar'); if (bt) bt.disabled = !st.mudancas.length && !st.invalidos.length;
+  }
+  function cfgFechar() { E.cfg = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); }
+  function cfgPedirSalvar() {
+    const st = cfgEstado();
+    if (st.invalidos.length) { E.cfg.tentou = true; atualizaConfig(); const el = document.getElementById(st.invalidos[0].id); if (el) el.focus(); return; }
+    const n = st.mudancas.length; if (!n) return;
+    E.modal = 'confirmar';
+    E.modalDados = { titulo: 'Salvar Alterações?', texto: (n === 1 ? '1 valor será alterado' : n + ' valores serão alterados') + ' nos relatórios gerados a partir de agora.', botao: 'Sim', voltar: 'Não', acao: () => cfgSalvar(n) };
+    desenhar();
+  }
+  function cfgSalvar(n) { // API: PUT /api/precos { cds, wecom }
+    const v = E.cfg.v; const cds = {}; const wecom = {};
+    SERVICOS_CDS_PRECO.forEach((sv, si) => { cds[sv] = REGIOES.map((r, ri) => lerValor(v['pc-' + si + '-' + ri])); });
+    WECOM_CAMPOS.forEach(([k]) => { wecom[k] = lerValor(v['pw-' + k]); });
+    E.precos = { cds, wecom }; E.cfg = { v: cfgRascunho(), tocados: {} }; persistir();
+    // o resultado aparece na mesma janela da confirmação; Fechar volta à tela de valores
+    E.modal = 'confirmar'; E.modalDados = { titulo: 'Valores Atualizados', texto: n === 1 ? '1 valor foi atualizado.' : n + ' valores foram atualizados.', ok: true, soFechar: true };
+    desenhar();
   }
   // salva o arquivo: no claude.ai pelo recurso de downloads; fora dele, pelo download do navegador
   async function salvarArquivo(nome, bytes) {
@@ -1350,7 +1471,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       servicos: { predio: chk('rl-predio'), desinst: chk('rl-desinst'), local: chk('rl-local'), inst: chk('rl-inst') },
       origem: ln('rl-origem'), destino: ln('rl-destino'), custo: val('rl-custo'),
       itens: val('rl-itens').split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean),
-      global: montarRelatorio(d).global
+      global: montarRelatorio(d).global, notas: ln('rl-notas')
     };
     const nome = 'Relatório de execução - ' + (d.sei ? d.sei.replace(/\//g, '-') : 'demanda ' + num4(d.id)) + '.pdf';
     const res = await salvarArquivo(nome, RelatorioPDF.gerar(r));
@@ -1448,7 +1569,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   function modalConfirmar() {
     const c = E.modalDados; const erM = E.erros.motivo;
     return `
-<div class="modal-content modal-p confirma ${c.perigo ? 'perigo' : c.ok ? 'ok' : ''}" role="alertdialog" aria-modal="true" aria-labelledby="mc-tit" aria-describedby="mc-txt">
+<div class="modal-content modal-p confirma ${c.perigo ? 'perigo' : c.ok ? 'ok' : ''} ${E.cfg ? 'cfg-conf' : ''}" role="alertdialog" aria-modal="true" aria-labelledby="mc-tit" aria-describedby="mc-txt">
   <span class="conf-ico">${c.perigo ? I.triangulo : c.ok ? svg(22, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', 2.4) : I.alerta}</span>
   <h2 id="mc-tit">${esc(c.titulo)}</h2>
   <p id="mc-txt">${esc(c.texto)}</p>
@@ -1457,7 +1578,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     <textarea id="mc-motivo" data-rascunho data-cont="100" class="form-control txt" rows="2" maxlength="100" ${erM ? 'aria-invalid="true"' : ''}></textarea>
     ${erM ? `<span class="erro">${esc(erM)}</span>` : ''}
   </div>` : ''}
-  <div class="conf-btns"><button type="button" class="btn btn-outline-secondary btn-lg" data-acao="fechar-modal">${esc(c.voltar || 'Voltar')}</button><button type="button" class="btn btn-lg ${c.perigo ? 'btn-danger' : c.ok ? 'btn-success' : 'btn-primary'}" data-acao="confirmar">${esc(c.botao)}</button></div>
+  ${c.soFechar ? '<div class="conf-btns um"><button type="button" class="btn btn-primary btn-lg" data-acao="fechar-modal">Fechar</button></div>' : `<div class="conf-btns"><button type="button" class="btn btn-outline-secondary btn-lg" data-acao="fechar-modal">${esc(c.voltar || 'Voltar')}</button><button type="button" class="btn btn-lg ${c.perigo ? 'btn-danger' : c.ok ? 'btn-success' : 'btn-primary'}" data-acao="confirmar">${esc(c.botao)}</button></div>`}
 </div>`;
   }
 
@@ -1487,7 +1608,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     // posição de rolagem de cada área, para nada pular depois do clique
     const rol = {};
     ['.rolagem', '.det-corpo', '.modal-camada .modal-body'].forEach((q) => { const el = document.querySelector(q); if (el) rol[q] = el.scrollTop; });
-    const mesmaTela = ant.det === k.det && ant.aba === E.aba && ant.modal === k.modal;
+    const mesmaTela = ant.det === k.det && ant.aba === E.aba && (ant.modal === k.modal || !!E.cfg);
     // preserva o que a pessoa está digitando quando a tela é redesenhada (ex.: um aviso aparece)
     const chave = (E.aberta || '') + '|' + E.aba + '|' + (E.aberta ? '' : (E.modal || ''));
     const rasc = {};
@@ -1500,7 +1621,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (k.startsWith('radio:')) { const r = app.querySelector(`input[name="${k.slice(6)}"][value="${rasc[k]}"]`); if (r) r.checked = true; return; }
       const el = document.getElementById(k); if (el) { if (el.type === 'checkbox') el.checked = rasc[k]; else el.value = rasc[k]; }
     });
-    trocarFinalidade(); atualizaTransf(); filtrarLocais(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
+    trocarFinalidade(); ajustarMetro(); atualizaConfig(); atualizaTransf(); filtrarLocais(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
     E.chaveRasc = chave; E.limparRascunho = false; E.recemTk = false; k.aba = E.aba; E._k = k;
     Object.keys(rol).forEach((q) => { const el = document.querySelector(q); if (el && (q === '.rolagem' ? !E.zerarLista : mesmaTela)) el.scrollTop = rol[q]; });
     E.zerarLista = false;
@@ -1689,14 +1810,18 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (!fin) { E.erros.sub = 'Escolha o serviço do subticket.'; E.erros.fin = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-fin'); if (el) el.focus(); return; }
       const qtd = parseInt(val('n-qtd'), 10);
       if (!(qtd >= 1 && qtd <= 999)) { E.erros.sub = 'Informe a quantidade de serviços (1 a 999).'; E.erros.qtd = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-qtd'); if (el) el.focus(); return; }
+      // metro linear: só WECOM em Instalação ou Infraestrutura, opcional e inteiro
+      const metroTxt = usaMetro(emp, fin) ? val('n-metro') : ''; const metro = metroTxt ? Number(metroTxt) : null;
+      if (metroTxt && !(Number.isInteger(metro) && metro >= 1 && metro <= 9999)) { E.erros.sub = 'Informe o metro linear em número inteiro (1 a 9999).'; E.erros.metro = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-metro'); if (el) el.focus(); return; }
       const novos = nums.filter((n) => !d.subtickets.some((s) => s.numero === n));
-      novos.forEach((n) => d.subtickets.push({ empresa: emp, numero: n, finalidade: fin, quantidade: qtd }));
+      novos.forEach((n) => d.subtickets.push(Object.assign({ empresa: emp, numero: n, finalidade: fin, quantidade: qtd }, metro ? { metro } : {})));
       E.ultimaEmp = '';
-      if (novos.length) registrar(d, 'Subticket' + (novos.length > 1 ? 's ' : ' ') + emp + ' ' + novos.join(', ') + (novos.length > 1 ? ' adicionados' : ' adicionado') + ' (' + fin + ', ' + qtd + (qtd === 1 ? ' serviço' : ' serviços') + ').');
+      if (novos.length) registrar(d, 'Subticket' + (novos.length > 1 ? 's ' : ' ') + emp + ' ' + novos.join(', ') + (novos.length > 1 ? ' adicionados' : ' adicionado') + ' (' + fin + ', ' + qtd + (qtd === 1 ? ' serviço' : ' serviços') + (metro ? ', ' + metro + ' m' : '') + ').');
       E.manterRolagem = true; E.limparRascunho = true;
       aviso(novos.length ? (novos.length > 1 ? novos.length + ' subtickets incluídos.' : 'Subticket incluído.') : 'Esses tickets já estavam na lista.', !novos.length);
       mudou(); const el = document.getElementById('n-num'); if (el) el.focus(); return;
     }
+    if (tipo === 'config') { cfgPedirSalvar(); return; }
     if (tipo === 'nota' && d) { // API: POST /api/mudancas/{id}/historico { texto }
       const t = val('h-nota'); if (!t) return;
       registrar(d, t); E.limparRascunho = true; aviso('Andamento registrado.'); mudou(); return;
@@ -1786,7 +1911,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   document.addEventListener('submit', (ev) => {
     const f = ev.target.closest('form[data-form]'); if (!f) return; ev.preventDefault();
     const tf = f.dataset.form;
-    if (tf === 'nova' || tf === 'conclusao' || tf.startsWith('equipe')) { if (precisaGestor()) return; }
+    if (tf === 'nova' || tf === 'conclusao' || tf === 'config' || tf.startsWith('equipe')) { if (precisaGestor()) return; }
     else if (tf !== 'login' && tf !== 'senha' && tf !== 'nota' && precisaEditar(demanda(E.aberta))) return;
     enviar(f);
   });
@@ -1809,7 +1934,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     // clicar fora do modal não fecha nada; só recolhe um menu que esteja aberto
     if (a === 'fundo-modal') { if (E.menu) { E.menu = null; desenhar(); } return; }
     if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'menu-conta' && E.menu) E.menu = null;
-    const SO_GESTOR = ['relatorio', 'concluir-dem', 'cancelar', 'excluir', 'devolver-tec', 'movimentos', 'equipe', 'nova', 'lixeira', 'restaurar', 'alterar-conclusao'];
+    const SO_GESTOR = ['relatorio', 'concluir-dem', 'cancelar', 'excluir', 'devolver-tec', 'movimentos', 'equipe', 'nova', 'lixeira', 'restaurar', 'alterar-conclusao', 'config'];
     const EDITA = ['sub-del', 'tk-alterar', 'devolver-gestor'];
     if (SO_GESTOR.includes(a) && precisaGestor()) return;
     if (EDITA.includes(a) && precisaEditar(demanda(E.aberta))) return;
@@ -1891,6 +2016,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         desenhar(); document.getElementById('mc-motivo').focus(); break; }
       case 'alterar-conclusao': { const x = demanda(id) || d; if (!x || x.situacao !== 'atendimento') break; E.menu = null; E.modal = 'conclusao'; E.modalDados = { id: x.id }; E.erros = {}; desenhar(); document.getElementById('pr-fim').focus(); break; }
       case 'lixeira': E.menu = null; E.modal = 'lixeira'; E.modalDados = null; desenhar(); break;
+      case 'config': E.menu = null; E.cfg = { v: cfgRascunho(), tocados: {} }; E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break;
+      case 'cfg-fechar': { const st = cfgEstado(); if (!st.mudancas.length && !st.invalidos.length) { cfgFechar(); break; }
+        E.modal = 'confirmar'; E.modalDados = { titulo: 'Descartar Alterações?', texto: 'Você mudou os valores e ainda não salvou.', botao: 'Descartar', perigo: true, acao: cfgFechar }; desenhar(); break; }
       // API: POST /api/lixeira/{id}/restaurar
       case 'restaurar': { const i = E.lixeira.findIndex((x) => x.id === id); if (i < 0) break;
         const x = E.lixeira.splice(i, 1)[0]; delete x.excluidaEm; delete x.excluidaPor; delete x.motivoExclusao;
@@ -1914,7 +2042,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         if (c.motivo && !motivo) { E.erros.motivo = 'Informe o motivo.'; desenhar(); document.getElementById('mc-motivo').focus(); break; }
         const fn = c.acao; E.modal = null; E.modalDados = null; E.erros = {}; if (fn) fn(motivo); else desenhar(); break;
       }
-      case 'fechar-modal': if (E.modal === 'equipe') E.toast = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); break;
+      case 'fechar-modal': if (E.modal === 'confirmar' && E.cfg) { E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break; } // Não/Voltar: segue editando os valores
+        if (E.modal === 'equipe') E.toast = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); break;
       case 'copiar': copiar(v, 'Copiado: ' + v); break;
       case 'relatorio': if (!d) break; E.menu = null; E.modal = 'relatorio'; E.modalDados = { id: d.id }; E.limparRascunho = true; desenhar(); break;
       case 'baixar-relatorio': baixarRelatorio(); break;
@@ -1981,20 +2110,27 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (t.dataset.campo && t.dataset.campo !== 'busca') { E[t.dataset.campo] = t.value; E.folha = 1; desenhar(); return; }
     if (t.id === 'tr-dest' && E.erros.transf) { E.erros.transf = ''; const er = document.querySelector('.equipe .erro'); if (er) er.remove(); t.removeAttribute('aria-invalid'); }
     if (t.name === 'tr-d') { const all = [...document.querySelectorAll('input[name="tr-d"]')]; const l = document.querySelector('[data-acao=tr-todas]'); if (l) l.textContent = all.every((c) => c.checked) ? 'Desmarcar todas' : 'Marcar todas'; atualizaTransf(); return; }
-    if (t.id === 'n-emp') { E.ultimaEmp = t.value; trocarFinalidade(); return; }
+    if (t.id === 'n-emp') { E.ultimaEmp = t.value; trocarFinalidade(); ajustarMetro(); return; }
+    if (t.id === 'n-fin') { ajustarMetro(); return; }
     if (t.dataset.campoSub && precisaDestravar(demanda(E.aberta))) return;
     if ((t.dataset.status || t.dataset.campoSub) && !podeEditar(demanda(E.aberta))) { const d = demanda(E.aberta); if (t.dataset.status && d) t.value = d.situacao; precisaEditar(d); return; }
     if (t.dataset.status) { const d = demanda(Number(t.dataset.status)); if (d) escolherStatus(d, t.value); return; }
     if (t.closest && t.closest('#form-dados')) marcarSujo();
     if (t.dataset.campoSub) {
       const d = demanda(E.aberta); if (!d) return; const sub = d.subtickets[Number(t.dataset.i)];
-      // API: PATCH /api/mudancas/{id}/subtickets/{numero} { servico | quantidade }
+      // API: PATCH /api/mudancas/{id}/subtickets/{numero} { servico | quantidade | metroLinear }
+      if (t.dataset.campoSub === 'metro') {
+        const m = t.value.trim() === '' ? null : Number(t.value);
+        if (m !== null && !(Number.isInteger(m) && m >= 1 && m <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
+        if (m !== (sub.metro || null)) { if (m) sub.metro = m; else delete sub.metro; registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': metro linear ' + (m ? m + ' m' : 'não informado') + '.'); E.manterRolagem = true; mudou(); }
+        return;
+      }
       if (t.dataset.campoSub === 'quantidade') {
         const q = parseInt(t.value, 10); if (!(q >= 1 && q <= 999)) { t.value = sub.quantidade || ''; return; }
         if (q !== sub.quantidade) { sub.quantidade = q; registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': quantidade ' + q + '.'); E.manterRolagem = true; mudou(); }
         return;
       }
-      sub.finalidade = t.value.trim(); persistir();
+      sub.finalidade = t.value.trim(); if (!usaMetro(sub.empresa, sub.finalidade)) delete sub.metro; persistir();
       if (t.tagName === 'SELECT') { registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': serviço ' + (sub.finalidade || 'não informado') + '.'); E.manterRolagem = true; mudou(); }
       return;
     }
@@ -2006,6 +2142,21 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (fin.dataset.emp === emp.value) return;
     const atual = fin.value; fin.innerHTML = opcoesServ(emp.value, atual); fin.dataset.emp = emp.value;
   }
+  // o campo Metro Linear só aparece para WECOM em Instalação ou Infraestrutura
+  function ajustarMetro() {
+    const m = document.getElementById('n-metro'); if (!m) return;
+    const ativo = usaMetro(val('n-emp'), val('n-fin')); m.disabled = !ativo; if (!ativo) m.value = '';
+    m.closest('.add-sub').classList.toggle('com-metro', ativo);
+  }
+  // Configuração de valores: guarda o rascunho, formata ao sair do campo e seleciona ao entrar
+  document.addEventListener('input', (ev) => { const t = ev.target; if (t.dataset && t.dataset.cfg && E.cfg) { E.cfg.v[t.id] = t.value; atualizaConfig(); } });
+  document.addEventListener('change', (ev) => {
+    const t = ev.target; if (!(t.dataset && t.dataset.cfg && E.cfg)) return;
+    E.cfg.tocados[t.id] = true; const x = lerValor(t.value);
+    if (x !== null) { t.value = valorCampo(x); E.cfg.v[t.id] = t.value; }
+    atualizaConfig();
+  });
+  document.addEventListener('focusin', (ev) => { if (ev.target.dataset && ev.target.dataset.cfg) ev.target.select(); });
   // botão de transferir mostra quantas demandas vão
   // a descrição do post-it mostra só as linhas inteiras que cabem, com reticências na última
   function ajustaPostits() {
@@ -2088,6 +2239,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   E.demandas = E.demandas.filter((d) => d && Number.isFinite(d.id) && sit(d.situacao) && Array.isArray(d.subtickets) && Array.isArray(d.historico));
   E.equipe = E.equipe.filter((u) => u && typeof u.id === 'string' && typeof u.nome === 'string');
   E.lixeira = E.lixeira.filter((d) => d && Number.isFinite(d.id) && sit(d.situacao) && Array.isArray(d.subtickets) && Array.isArray(d.historico) && d.excluidaEm);
+  // o serviço da WECOM mudou de nome: atualiza o que já estava salvo no navegador
+  E.demandas.concat(E.lixeira).forEach((d) => d.subtickets.forEach((s) => { if (s.empresa === 'WECOM' && s.finalidade === 'Instalação de Infraestrutura') s.finalidade = 'Infraestrutura'; }));
   if (automatizar()) persistir();
   // a data muda com o sistema aberto: confere de hora em hora
   setInterval(() => { if (automatizar()) mudou(); }, 3600000);

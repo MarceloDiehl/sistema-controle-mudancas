@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Carregar exemplo</title>
+</head>
+<body>
+<p>Carregando a demanda de exemplo…</p>
+<script>
+  // Página de teste: inclui no navegador uma demanda Para Validação para gerar o relatório.
+  // Abra com dois cliques, a partir desta pasta. Rodar de novo não duplica o exemplo.
+  (function () {
+    var CHAVE = 'ditic-dsup-mudancas-v5'; var SEI = '8.2026.9745/009001-0';
+    var o = JSON.parse(localStorage.getItem(CHAVE) || '{}');
+    o.demandas = o.demandas || [];
+    var ids = o.demandas.concat(o.lixeira || [], o.excluidas || []).map(function (d) { return d.id; });
+    var antiga = o.demandas.filter(function (d) { return d.sei === SEI; })[0];
+    var id = antiga ? antiga.id : Math.max.apply(null, [0].concat(ids)) + 1;
+    o.demandas = o.demandas.filter(function (d) { return d.sei !== SEI; });
+    o.demandas.push({
+      id: id, sei: SEI, descricao: 'Exemplo para testar o relatório: equipamentos e sala de audiência',
+      comarca: 'Pelotas', responsavel: 'admin', tecnico: null, inicio: '2026-11-05', fim: null, hora: '09:00',
+      situacao: 'pendente', ticketPrincipal: '1900100', ticketEm: { data: '2026-11-03T09:00', usuario: 'admin' }, acionadaEm: '2026-11-03',
+      subtickets: [
+        { empresa: 'CDS', numero: '1900101', finalidade: 'Instalação', quantidade: 3 },
+        { empresa: 'CDS', numero: '1900102', finalidade: 'Mudança de Prédio', quantidade: 12 },
+        { empresa: 'WECOM', numero: '1900103', finalidade: 'Realocação', quantidade: 1 },
+        { empresa: 'WECOM', numero: '1900104', finalidade: 'Instalação', quantidade: 1, metro: 25 },
+        { empresa: 'WECOM', numero: '1900105', finalidade: 'Infraestrutura', quantidade: 1 }
+      ],
+      informacoes: '', historico: [{ data: '2026-11-03T09:00', usuario: 'admin', texto: 'Demanda de exemplo criada para testar o relatório.' }],
+      criadaEm: '2026-11-03', passou: [], aviso: null
+    });
+    o.usuario = 'admin'; o.sitAtivas = ['pendente'];
+    localStorage.setItem(CHAVE, JSON.stringify(o));
+    location.replace('../index.html');
+  })();
+</script>
+</body>
+</html>

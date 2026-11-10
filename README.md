@@ -16,6 +16,7 @@ usada hoje pelo setor.
 - Histórico de cada demanda e movimentações do dia
 - Lixeira com restauração em até 30 dias
 - Texto de acionamento para o SEI e relatório de execução em PDF
+- Custo do relatório calculado para CDS e WECOM, com valores editáveis pelo gestor
 
 **Fluxo de status:** Nova → Acionada → Em Atendimento → Para Validação → Concluída. Até a conclusão, o gestor pode
 cancelar a demanda.

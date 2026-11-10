@@ -116,7 +116,7 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('form[data-form=sub]').requestSubmit()"); pg.wait_for_timeout(250)
     subs = dem(pg, nid)['subtickets']; chk(len(subs) == 2 and subs[0]['quantidade'] == 7 and subs[0]['empresa'] == 'CDS', 'dois subtickets CDS com quantidade 7')
     pg.select_option('#n-emp', 'WECOM'); serv_wecom = [o.inner_text() for o in pg.query_selector_all('#n-fin option')]; pg.select_option('#n-emp', 'CADI'); serv_cadi = [o.inner_text() for o in pg.query_selector_all('#n-fin option')]
-    chk('Instalação de Infraestrutura' in serv_wecom and 'Habilitação de Pontos de Rede' in serv_cadi, 'serviços novos da WECOM e da CADI')
+    chk('Infraestrutura' in serv_wecom and 'Habilitação de Pontos de Rede' in serv_cadi, 'serviços novos da WECOM e da CADI')
     pg.fill('#n-num', '1899103'); pg.select_option('#n-fin', 'Habilitação de Pontos de Rede'); pg.fill('#n-qtd', '2'); pg.evaluate("document.querySelector('form[data-form=sub]').requestSubmit()"); pg.wait_for_timeout(250)
     # status acionada
     chk(dem(pg, nid)['situacao'] == 'nova', 'registrar ticket não salva o status escolhido')
@@ -156,8 +156,8 @@ with sync_playwright() as p:
     chk(pg.query_selector('#d-status') is None and pg.query_selector('.st-fixo') is not None, 'Pendente: status travado')
     # relatório
     clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=relatorio]'); itens = pg.input_value('#rl-itens')
-    chk('em total de 7 serviços' in itens and 'contratada CDS através do ticket 1899101' in itens, 'relatório: item com quantidade e ticket')
-    chk('Habilitação de pontos de rede, em total de 2 serviços' in itens, 'relatório: serviço de rede sem "de equipamentos de informática"')
+    chk('em total de 07 serviços' in itens and 'contratada CDS através do ticket 1899101' in itens, 'relatório: item com quantidade e ticket')
+    chk('Habilitação de pontos de rede, em total de 02 serviços' in itens, 'relatório: serviço de rede sem "de equipamentos de informática"')
     chk('não entra' in pg.inner_text('.relat'), 'relatório: com CDS a frase do contrato não entra')
     with pg.expect_download() as dl: clk(pg, '[data-acao=baixar-relatorio]')
     f = dl.value; caminho = f.path(); head = open(caminho, 'rb').read(5)
@@ -254,6 +254,54 @@ with sync_playwright() as p:
     # Gestor como responsável na Nova Demanda
     clk(pg, '[data-acao=nova]'); pg.fill('#n-sei', '8202697450000071'); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Para o gestor'); pg.evaluate("document.querySelector('input[name=n-resp][value=admin]').click()"); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(300)
     novo = dem(pg, max(d['id'] for d in st(pg)['demandas'])); chk(novo['responsavel'] == 'admin' and 'atribuída a Gestor' in pg.inner_text('.sucesso') and 'atribuída a Gestor' in novo['historico'][0]['texto'], 'Nova Demanda pode ser atribuída ao Gestor'); clk(pg, '.sucesso [data-acao=fechar-modal]')
+    # WECOM: serviços e campo Metro Linear
+    muda(pg, 21, f"d.situacao='nova'; d.responsavel='tecnico1'; d.inicio='{em_dias(5)}'; d.fim=null; d.ticketPrincipal='1999995'; d.subtickets=[]"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000021'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]'); clk(pg, '[data-acao=aba][data-v=tickets]')
+    pg.select_option('#n-emp', 'WECOM'); pg.wait_for_timeout(100); ops = [o.inner_text() for o in pg.query_selector_all('#n-fin option')]; chk(ops[1:] == ['Instalação', 'Realocação', 'Infraestrutura'], 'WECOM: Realocação no lugar de Mudança de Local/Prédio, sem Desinstalação')
+    pg.select_option('#n-fin', 'Realocação'); pg.wait_for_timeout(100); chk(not pg.is_visible('#n-metro'), 'Metro Linear escondido na Realocação')
+    pg.select_option('#n-fin', 'Infraestrutura'); pg.wait_for_timeout(100); chk(pg.is_visible('#n-metro'), 'Metro Linear aparece na Infraestrutura da WECOM')
+    pg.select_option('#n-emp', 'CDS'); pg.wait_for_timeout(100); chk(not pg.is_visible('#n-metro'), 'Metro Linear escondido fora da WECOM')
+    pg.select_option('#n-emp', 'WECOM'); pg.wait_for_timeout(100); pg.select_option('#n-fin', 'Instalação'); pg.wait_for_timeout(100); pg.fill('#n-num', '1899201'); pg.fill('#n-metro', '12.5'); pg.evaluate("document.querySelector('form[data-form=sub]').requestSubmit()"); pg.wait_for_timeout(250); chk(not dem(pg, 21)['subtickets'] and 'inteiro' in pg.inner_text('.add-sub ~ .erro'), 'metro linear quebrado é recusado')
+    pg.fill('#n-metro', '12'); pg.evaluate("document.querySelector('form[data-form=sub]').requestSubmit()"); pg.wait_for_timeout(250); chk(dem(pg, 21)['subtickets'][0].get('metro') == 12, 'subticket guarda o metro linear')
+    pg.fill('#sm-0', ''); sair_do_campo(pg); pg.wait_for_timeout(250); chk('metro' not in dem(pg, 21)['subtickets'][0], 'metro linear pode ficar em branco na tabela'); clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    # custo do relatório: CDS por região e serviço, WECOM com realocação e metro linear
+    subs_custo = [{'empresa': 'CDS', 'numero': '1899301', 'finalidade': 'Mudança de Local', 'quantidade': 3}, {'empresa': 'WECOM', 'numero': '1899302', 'finalidade': 'Realocação', 'quantidade': 1}, {'empresa': 'WECOM', 'numero': '1899303', 'finalidade': 'Instalação', 'quantidade': 1, 'metro': 10}, {'empresa': 'WECOM', 'numero': '1899304', 'finalidade': 'Infraestrutura', 'quantidade': 12}]
+    muda(pg, 20, f"d.situacao='pendente'; d.responsavel='admin'; d.tecnico='tecnico1'; d.comarca='Canoas'; d.inicio='{em_dias(-3)}'; d.fim=null; d.ticketPrincipal='1999994'; d.subtickets={json.dumps(subs_custo)}")
+    def abre_relatorio(): clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000020'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]'); clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=relatorio]')
+    def fecha_relatorio(): clk(pg, '[data-acao=fechar-modal]'); clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    abre_relatorio(); chk(pg.input_value('#rl-custo') == 'R$ 7.213,73', 'custo soma CDS da região, Realocação e Instalação com metro linear')
+    itens = pg.input_value('#rl-itens'); chk('em total de 03 serviços' in itens and 'em total de 01 serviço,' in itens and 'em total de 12 serviços' in itens, 'relatório: quantidade com dois dígitos')
+    nota = pg.input_value('#rl-notas'); chk('(ticket 1899304) não consta na soma do valor total de custo discriminado neste relatório.' in nota and '1899303' not in nota, 'frase só para o ticket sem metro linear')
+    chk(pg.is_checked('#rl-local'), 'Realocação marca Mudança de Local no quadro')
+    with pg.expect_download() as dl: clk(pg, '[data-acao=baixar-relatorio]')
+    chk(open(dl.value.path(), 'rb').read(5) == b'%PDF-', 'PDF gerado com a observação de custo'); fecha_relatorio()
+    # local fora do catálogo: não soma e avisa
+    muda(pg, 20, "d.comarca='Lugar sem região'"); abre_relatorio(); chk('1899301' in pg.inner_text('.relat .ac-aviso') and pg.input_value('#rl-custo') == 'R$ 6.733,73', 'CDS sem região fica fora da soma, com aviso'); fecha_relatorio(); muda(pg, 20, "d.comarca='Canoas'")
+    # Configuração: o gestor altera os valores
+    def cfg_salvar(): pg.evaluate("document.querySelector('form[data-form=config]').requestSubmit()"); pg.wait_for_timeout(250)
+    clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=config]'); chk(pg.input_value('#pc-4-4') == '160,00' and pg.input_value('#pw-realocacao') == '4.121,00' and pg.input_value('#pw-instalacao') == '970,93' and pg.input_value('#pw-metro') == '164,18', 'Configuração mostra os valores atuais')
+    chk(pg.inner_text('#cfg-salvar') == 'Salvar Alterações' and pg.is_disabled('#cfg-salvar'), 'Salvar Alterações começa inativo')
+    txt = pg.inner_text('.config'); chk('Instalação/Infraestrutura' in txt and 'Exemplo' not in txt, 'WECOM: rótulo Instalação/Infraestrutura, sem exemplo de cálculo')
+    pg.fill('#pc-4-4', '161'); chk(not pg.is_disabled('#cfg-salvar'), 'Salvar Alterações ativa quando um campo muda'); pg.fill('#pc-4-4', '160,00'); chk(pg.is_disabled('#cfg-salvar'), 'voltar ao valor original inativa o botão de novo')
+    pg.fill('#pw-metro', 'abc'); cfg_salvar(); chk(st(pg)['precos']['wecom']['metro'] == 164.18 and pg.get_attribute('#pw-metro', 'aria-invalid') == 'true' and 'Confira' in pg.inner_text('#cfg-erro') and pg.query_selector('.confirma') is None, 'Configuração recusa valor inválido e aponta o campo')
+    pg.fill('#pw-metro', '200,00'); pg.fill('#pw-realocacao', '5.000,50'); pg.fill('#pc-4-4', '100'); cfg_salvar(); txt = pg.inner_text('.confirma'); chk('Salvar Alterações?' in txt and '3 valores' in txt and 'Sim' in txt and 'Não' in txt and st(pg)['precos']['wecom']['metro'] == 164.18, 'salvar pede Sim ou Não e ainda não grava')
+    clk(pg, '.confirma [data-acao=fechar-modal]'); pg.wait_for_timeout(200); chk(pg.query_selector('.confirma') is None and pg.input_value('#pw-metro') == '200,00' and st(pg)['precos']['wecom']['metro'] == 164.18, 'Não volta ao modal com o que foi digitado')
+    altura_conf = "document.querySelector('.confirma').getBoundingClientRect().height"
+    cfg_salvar(); alt_conf = pg.evaluate(altura_conf); clk(pg, '.confirma [data-acao=confirmar]'); pg.wait_for_timeout(250); s = st(pg); chk(pg.evaluate(altura_conf) == alt_conf, 'Salvar Alterações e Valores Atualizados têm o mesmo tamanho'); chk(s['precos']['wecom']['realocacao'] == 5000.5 and s['precos']['cds']['Mudança de Local'][4] == 100 and 'Valores Atualizados' in pg.inner_text('.confirma') and len(pg.query_selector_all('.confirma .conf-btns button')) == 1, 'Sim salva e mostra Valores Atualizados, só com Fechar')
+    clk(pg, '.confirma [data-acao=fechar-modal]'); pg.wait_for_timeout(200); chk(pg.query_selector('.confirma') is None and pg.query_selector('.config') is not None and pg.input_value('#pw-metro') == '200,00' and pg.is_disabled('#cfg-salvar'), 'Fechar volta à tela de valores, já com os novos'); clk(pg, '.modal-footer [data-acao=cfg-fechar]'); pg.wait_for_timeout(200)
+    clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=config]'); pg.fill('#pc-0-0', '300'); clk(pg, '.modal-footer [data-acao=cfg-fechar]'); pg.wait_for_timeout(200); chk('Descartar' in pg.inner_text('.confirma') and pg.query_selector('.config') is not None, 'fechar com alterações pede confirmação')
+    clk(pg, '.confirma [data-acao=confirmar]'); pg.wait_for_timeout(200); chk(pg.query_selector('.config') is None and st(pg)['precos']['cds']['Instalação'][0] == 285, 'descartar não altera os valores')
+    abre_relatorio(); chk(pg.input_value('#rl-custo') == 'R$ 8.271,43', 'relatório usa os valores configurados'); fecha_relatorio()
+    # só a demanda Acionada conta os dias
+    for sit_, inicio_ in (('nova', em_dias(5)), ('atendimento', em_dias(-1)), ('pendente', em_dias(-5))):
+        muda(pg, 22, f"d.situacao='{sit_}'; d.responsavel='admin'; d.inicio='{inicio_}'; d.fim=null; d.ticketPrincipal='1999996'"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000022'); pg.wait_for_timeout(300); chk(pg.query_selector('.c-ag .prazo') is None, f'sem contagem de dias em {sit_}'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
+    # no card: a aba Tickets conta só os subtickets e a base dos blocos fica alinhada
+    subs_aba = [{'empresa': 'CDS', 'numero': '1899401', 'finalidade': 'Instalação', 'quantidade': 1}, {'empresa': 'CADI', 'numero': '1899402', 'finalidade': 'Configuração', 'quantidade': 1}]
+    muda(pg, 23, f"d.situacao='nova'; d.responsavel='tecnico1'; d.inicio='{em_dias(5)}'; d.fim=null; d.ticketPrincipal='1999997'; d.subtickets={json.dumps(subs_aba)}"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000023'); pg.wait_for_timeout(300); clk(pg, '[data-acao=abrir]')
+    chk(pg.inner_text('#aba-tickets .qtd') == '2', 'aba Tickets não conta o ticket principal')
+    base_bloco = "(() => { const c = document.querySelector('.det-corpo'); const b = [...c.querySelectorAll('.bloco')].pop(); return Math.round(c.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom); })()"
+    bases = []
+    for aba_ in ('dados', 'tickets', 'hist'): clk(pg, f'[data-acao=aba][data-v={aba_}]'); pg.wait_for_timeout(150); bases.append(pg.evaluate(base_bloco))
+    chk(len(set(bases)) == 1, f'base dos blocos alinhada nas três abas {bases}'); clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
     # período em vários dias, frase removida e lista de locais
     muda(pg, 900, "d.inicio='2099-11-12'; d.fim='2099-11-13'; d.hora='09:00'")
     clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000900'); pg.wait_for_timeout(300)
