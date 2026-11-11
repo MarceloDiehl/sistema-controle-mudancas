@@ -1341,10 +1341,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const sv = { predio: tem('Mudança de Prédio'), desinst: tem('Desinstalação'), local: tem('Mudança de Local') || tem('Realocação'), inst: tem('Instalação') };
     const lugar = predio(d.comarca) || d.comarca || '';
     const origem = []; const destino = [];
+    // a Desinstalação da Selbetti (multifuncional) não vai para lugar nenhum: não conta para origem e destino
+    const desinstLocal = d.subtickets.some((x) => x.finalidade === 'Desinstalação' && x.empresa !== 'Selbetti');
     if (sv.inst) origem.push('DMP');
-    if (sv.local || sv.predio || sv.desinst) origem.push(lugar);
-    if (sv.local || sv.predio || sv.inst || !(sv.desinst)) destino.push(lugar);
-    if (sv.desinst) destino.push('DMP – Carga CDS');
+    if (sv.local || sv.predio || desinstLocal) origem.push(lugar);
+    if (sv.local || sv.predio || sv.inst || !desinstLocal) destino.push(lugar);
+    if (desinstLocal) destino.push('DMP – Carga CDS');
     // um item por subticket, na ordem das empresas
     // serviços de rede não são "de equipamentos de informática" no texto do relatório
     const SO_REDE = ['Infraestrutura', 'Habilitação de Pontos de Rede'];

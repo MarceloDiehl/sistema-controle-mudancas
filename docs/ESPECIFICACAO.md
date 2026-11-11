@@ -463,6 +463,8 @@ bibliotecas. Ele segue o modelo-mestre do DSUP:
       Desinstalação.
     - destino = o local, se há Mudança de Local, Mudança de Prédio ou Instalação (ou se não há
       Desinstalação); `DMP – Carga CDS` se há Desinstalação.
+    - A **Desinstalação da Selbetti** (multifuncional) não vai para lugar nenhum: não conta para origem e destino.
+      No quadro de serviços, ela continua marcando Desinstalação.
   - Custo (aproximado): a soma calculada quando há CDS ou WECOM; `-` quando não há.
 - **Corpo:** "Em atendimento à demanda solicitada a esse DITIC-DSUP, referente às mudanças de equipamentos
   de informática no Foro da Comarca de Canoas, informo que foram realizadas:" (o local entra só aqui),

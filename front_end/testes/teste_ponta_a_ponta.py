@@ -300,7 +300,13 @@ with sync_playwright() as p:
     pdf_b = open(dl.value.path(), 'rb').read(); chk(pdf_b[:5] == b'%PDF-' and b'0.6 w' not in pdf_b and b'/F2 10 Tf' in pdf_b and 'no Foro da Comarca de Canoas'.encode('cp1252') in pdf_b, 'PDF com linhas finas, local na abertura e a observação de custo'); fecha_relatorio()
     # local fora do catálogo: não soma e avisa
     muda(pg, 20, "d.comarca='Lugar sem região'"); abre_relatorio(); chk('189301' in pg.inner_text('.relat .ac-aviso') and pg.input_value('#rl-custo') == 'R$ 19.877,52', 'CDS sem região fica fora da soma, com aviso'); fecha_relatorio(); muda(pg, 20, "d.comarca='Canoas'")
-    # Configuração: o gestor altera os valores
+    # Desinstalação da Selbetti não vai para lugar nenhum; a da CDS vai para o DMP
+    s_sel = [{'empresa': 'CADI', 'numero': '187001', 'finalidade': 'Mudança de Local', 'quantidade': 1}, {'empresa': 'Selbetti', 'numero': '187002', 'finalidade': 'Desinstalação', 'quantidade': 1}]
+    muda(pg, 20, f"d.subtickets={json.dumps(s_sel)}"); abre_relatorio(); chk('Carga CDS' not in pg.input_value('#rl-destino') and pg.is_checked('#rl-desinst'), 'Desinstalação da Selbetti não leva destino (continua marcada no quadro)'); fecha_relatorio()
+    s_cds2 = s_sel + [{'empresa': 'CDS', 'numero': '187003', 'finalidade': 'Desinstalação', 'quantidade': 1}]
+    muda(pg, 20, f"d.subtickets={json.dumps(s_cds2)}"); abre_relatorio(); chk('DMP – Carga CDS' in pg.input_value('#rl-destino'), 'Desinstalação da CDS leva o destino DMP – Carga CDS'); fecha_relatorio()
+    muda(pg, 20, f"d.subtickets={json.dumps(subs_custo)}")
+    # Configuração: o coordenador altera os valores
     def cfg_salvar(): pg.evaluate("document.querySelector('form[data-form=config]').requestSubmit()"); pg.wait_for_timeout(250)
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=config]'); chk(pg.input_value('#pc-4-4') == '160,00' and pg.input_value('#pw-realocacao') == '4.121,86' and pg.input_value('#pw-instalacao') == '970,93' and pg.input_value('#pw-metro') == '164,18' and pg.query_selector('#pw-metrosEstimados') is None, 'Configuração mostra os valores atuais, sem Metros estimados')
     chk(pg.inner_text('#cfg-salvar') == 'Salvar Alterações' and pg.is_disabled('#cfg-salvar'), 'Salvar Alterações começa inativo')
