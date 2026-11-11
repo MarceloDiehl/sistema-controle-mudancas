@@ -379,6 +379,7 @@ em { font-style: normal; }
 .suc-ico { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 88px; border-radius: 50%; background: var(--ok-bg); color: var(--ok-ink); box-shadow: 0 0 0 10px var(--ok-ring); flex: none; }
 .suc-tit { margin: 32px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
 .suc-desc { margin: 8px 0 0; font-size: 14.5px; color: #525C69; }
+.suc-nota { margin: 10px auto 0; max-width: 420px; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; color: #93370D; background: #FFFAEB; border: 1px solid #FEDF89; }
 .suc-campo { width: 100%; max-width: 480px; margin-top: 32px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .suc-rot { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
 .suc-valor { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-radius: 10px; background: var(--bg); border: 1px solid #E8EBF0; }
@@ -1149,7 +1150,7 @@ textarea.txt { overflow: hidden; }
 .rl-custo { max-width: 240px; }
 .relat label em { font-style: normal; font-weight: 400; color: var(--faint); }
 
-/* ---------------------------------------------------------------- perfis, quantidade e movimentações do dia */
+/* ---------------------------------------------------------------- perfis, quantidade e lista da lixeira */
 .add-sub { grid-template-columns: 130px minmax(0, 1.1fr) minmax(0, 1fr) 92px auto; }
 .th-qtd, .td-qtd { width: 84px; }
 .inp-qtd { width: 64px; height: 32px; padding: 0 8px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -1382,3 +1383,11 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .c-ag { flex-wrap: wrap; row-gap: 2px; }
 @media (max-width: 1280px) { .c-ag .prazo { display: inline; } }
 @media (min-width: 900px) and (max-width: 1100px) { .l-grade { grid-template-columns: minmax(180px, 1.05fr) minmax(0, 1fr) minmax(0, 1.6fr) minmax(128px, .95fr) minmax(0, .75fr); } }
+
+/* ---------------------------------------------------------------- Nova com a Data de Início alcançada e sem acionamento */
+.linha-dem.nv-venc { box-shadow: 0 0 0 1px var(--danger-line), 0 1px 3px rgba(16, 24, 40, .08); }
+.linha-dem.nv-venc:hover { box-shadow: 0 0 0 1px var(--danger-line), 0 8px 20px rgba(15, 23, 35, .10), 0 1px 3px rgba(15, 23, 35, .06); }
+.postit.nv-venc { filter: drop-shadow(0 0 1px #E0675E) drop-shadow(0 0 .5px #E0675E) drop-shadow(0 6px 8px rgba(16,24,40,.10)); }
+
+/* ---------------------------------------------------------------- usuário de cada pessoa na Equipe */
+.eq-usr { font-size: 11.5px; color: var(--muted); font-weight: 400; }

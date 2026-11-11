@@ -13,13 +13,14 @@ usada hoje pelo setor.
 - Tickets principais e subtickets do 4Biz, por empresa contratada e serviço
 - Mudança automática de status conforme as datas do agendamento
 - Contagem dos dias até o início do atendimento
-- Histórico de cada demanda e movimentações do dia
+- Histórico de cada demanda, com quem fez o quê e quando
 - Lixeira com restauração em até 30 dias
 - Texto de acionamento para o SEI e relatório de execução em PDF
-- Custo do relatório calculado para CDS e WECOM, com valores editáveis pelo gestor
+- Custo do relatório calculado para CDS e WECOM, com valores editáveis pelo coordenador
 
-**Fluxo de status:** Nova → Acionada → Em Atendimento → Para Validação → Concluída. Até a conclusão, o gestor pode
-cancelar a demanda.
+**Fluxo de status:** Nova → Acionada → Em Atendimento → Para Validação → Concluída. Técnico e coordenador criam,
+editam e concluem demandas; a mudança automática de status não tira a demanda do responsável. Até a conclusão,
+o coordenador pode cancelar a demanda.
 
 ## Tecnologias
 
@@ -65,7 +66,7 @@ db/                        scripts do banco (em construção)
 ## Próximos passos
 
 1. Banco de dados e API, com as regras de status e permissão no servidor
-2. Login individual para gestores e técnicos
+2. Login individual para coordenadores e técnicos
 3. Status automáticos e limpeza da lixeira no servidor
 4. Integração das telas com a API
 

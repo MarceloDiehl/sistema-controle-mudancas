@@ -1,2 +1,2 @@
-/** Carga do usuário gestor para o login. */
+/** Carga do usuário coordenador para o login. */
 package br.jus.tjrs.ditic.mudancas.security;

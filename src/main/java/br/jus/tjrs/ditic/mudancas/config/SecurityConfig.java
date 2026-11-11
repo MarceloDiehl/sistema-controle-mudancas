@@ -8,7 +8,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /*
  * Por enquanto só serve a tela: ainda não há API nem login.
- * As permissões do gestor (docs/ESPECIFICACAO.md, seção 5) entram aqui junto com os endpoints.
+ * As permissões do coordenador (docs/ESPECIFICACAO.md, seção 5) entram aqui junto com os endpoints.
  */
 @Configuration
 public class SecurityConfig {

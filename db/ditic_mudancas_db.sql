@@ -6,7 +6,7 @@
 -- e o banco ainda não tem dados, rode antes: DROP DATABASE ditic_mudancas_db;
 -- Antes de rodar, troque TROCAR_SENHA pela senha do ditic_user e use a mesma em
 -- src/main/resources/application-local.properties. Se o usuário já existir, a senha dele não muda.
--- O gestor "admin" não é criado aqui: a aplicação o cria ao iniciar (mudancas.admin.senha-inicial).
+-- O coordenador "admin" não é criado aqui: a aplicação o cria ao iniciar (mudancas.admin.senha-inicial).
 
 SET NAMES utf8mb4;
 
@@ -18,7 +18,7 @@ USE ditic_mudancas_db;
 
 -- ---------- pessoas ----------
 
--- quem usa o sistema: gestores e técnicos (a Equipe é este cadastro)
+-- quem usa o sistema: coordenadores e técnicos (a Equipe é este cadastro)
 CREATE TABLE IF NOT EXISTS pessoa (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     login VARCHAR(60) NOT NULL UNIQUE,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS pessoa (
     nome_curto VARCHAR(30) NOT NULL,
     iniciais CHAR(2) NOT NULL,
     cor CHAR(7) NOT NULL,                              -- #RRGGBB
-    perfil ENUM('GESTOR','TECNICO') NOT NULL DEFAULT 'TECNICO',
+    perfil ENUM('COORDENADOR','TECNICO') NOT NULL DEFAULT 'TECNICO',
     senha_hash VARCHAR(100) NULL,                      -- BCrypt; NULL só se a autenticação vier a ser pela rede
     deve_trocar_senha BOOLEAN NOT NULL DEFAULT TRUE,   -- primeiro acesso ou senha temporária
     senha_temporaria_expira_em DATETIME NULL,
@@ -34,6 +34,21 @@ CREATE TABLE IF NOT EXISTS pessoa (
     bloqueado_ate DATETIME NULL,
     ultimo_acesso DATETIME NULL,
     ativo BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- pedidos de acesso feitos na tela de login; o coordenador aprova (cria a pessoa) ou recusa
+CREATE TABLE IF NOT EXISTS solicitacao_acesso (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    login VARCHAR(60) NOT NULL,
+    nome VARCHAR(60) NOT NULL,
+    pedida_em DATETIME NOT NULL,
+    situacao ENUM('PENDENTE','APROVADA','RECUSADA') NOT NULL DEFAULT 'PENDENTE',
+    decidida_por BIGINT NULL,                          -- coordenador que aprovou ou recusou
+    decidida_em DATETIME NULL,
+    pessoa_id BIGINT NULL,                             -- conta criada na aprovação
+    CONSTRAINT fk_solicitacao_decidida_por FOREIGN KEY (decidida_por) REFERENCES pessoa(id),
+    CONSTRAINT fk_solicitacao_pessoa FOREIGN KEY (pessoa_id) REFERENCES pessoa(id),
+    INDEX idx_solicitacao_situacao (situacao)
 );
 
 -- ---------- catálogos ----------
@@ -75,18 +90,19 @@ CREATE TABLE IF NOT EXISTS demanda (
     excluida_em DATETIME NULL,                         -- preenchido = está na lixeira; apagar depois de 30 dias
     excluida_por_id BIGINT NULL,
     motivo_exclusao VARCHAR(100) NULL,
-    carga ENUM('TECNICO','GESTOR','SETOR','SEM_RESPONSAVEL') NOT NULL,  -- GESTOR = carga compartilhada por todos os gestores
-    tecnico_id BIGINT NULL,                            -- responsável (carga TECNICO) ou quem atendeu (GESTOR/SETOR)
-    ticket_principal VARCHAR(8) NULL,
+    carga ENUM('TECNICO','COORDENADOR','SETOR') NOT NULL,  -- sempre há responsável (no mínimo COORDENADOR, compartilhada); SETOR só na concluída
+    tecnico_id BIGINT NULL,                            -- responsável (carga TECNICO) ou quem atendeu (COORDENADOR/SETOR)
+    ticket_principal CHAR(6) NULL,                    -- sempre 6 dígitos
     ticket_em DATETIME NULL,
     ticket_por_id BIGINT NULL,
     acionada_em DATE NULL,
     informacoes VARCHAR(100) NULL,
     aviso_tipo ENUM('NOVA','RETORNOU','ATENDIMENTO','PARA_VALIDACAO','STATUS') NULL,
-    aviso_para VARCHAR(60) NULL,                       -- 'GESTOR' ou id do técnico
+    aviso_para VARCHAR(60) NULL,                       -- 'COORDENADOR' ou id do técnico
     aviso_em DATETIME NULL,
     criada_em DATETIME NOT NULL,
     atualizada_em DATETIME NOT NULL,
+    CONSTRAINT ck_demanda_ticket CHECK (ticket_principal IS NULL OR ticket_principal REGEXP '^[0-9]{6}$'),
     CONSTRAINT fk_demanda_local FOREIGN KEY (local_id) REFERENCES `local`(id),
     CONSTRAINT fk_demanda_tecnico FOREIGN KEY (tecnico_id) REFERENCES pessoa(id),
     CONSTRAINT fk_demanda_ticket_por FOREIGN KEY (ticket_por_id) REFERENCES pessoa(id),
@@ -109,10 +125,11 @@ CREATE TABLE IF NOT EXISTS subticket (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     demanda_id BIGINT NOT NULL,
     empresa_id BIGINT NOT NULL,
-    numero VARCHAR(8) NOT NULL,
+    numero CHAR(6) NOT NULL,                           -- sempre 6 dígitos
     servico_id BIGINT NULL,
     quantidade SMALLINT NOT NULL DEFAULT 1,
-    metro_linear INT NULL,                             -- só WECOM em Instalação ou Infraestrutura; opcional
+    metro_linear INT NULL,                             -- só WECOM em Infraestrutura; opcional
+    CONSTRAINT ck_subticket_numero CHECK (numero REGEXP '^[0-9]{6}$'),
     CONSTRAINT ck_subticket_quantidade CHECK (quantidade BETWEEN 1 AND 999),
     CONSTRAINT ck_subticket_metro CHECK (metro_linear IS NULL OR metro_linear BETWEEN 1 AND 9999),
     CONSTRAINT fk_subticket_demanda FOREIGN KEY (demanda_id) REFERENCES demanda(id) ON DELETE CASCADE,
@@ -131,7 +148,7 @@ CREATE TABLE IF NOT EXISTS historico (
     texto VARCHAR(500) NOT NULL,
     CONSTRAINT fk_historico_demanda FOREIGN KEY (demanda_id) REFERENCES demanda(id) ON DELETE CASCADE,
     CONSTRAINT fk_historico_autor FOREIGN KEY (autor_id) REFERENCES pessoa(id),
-    INDEX idx_historico_data_hora (data_hora)          -- Movimentações do dia
+    INDEX idx_historico_data_hora (data_hora)
 );
 
 -- auditoria da exclusão; demanda_id não tem chave estrangeira porque o registro sobrevive à remoção definitiva
@@ -146,7 +163,7 @@ CREATE TABLE IF NOT EXISTS demanda_excluida (
     motivo VARCHAR(100) NULL,
     texto VARCHAR(250) NULL,                           -- usado na remoção definitiva
     CONSTRAINT fk_excluida_por FOREIGN KEY (excluida_por_id) REFERENCES pessoa(id),
-    INDEX idx_excluida_em (excluida_em)                -- Movimentações do dia
+    INDEX idx_excluida_em (excluida_em)
 );
 
 -- ---------- valores do custo do relatório (tela Configuração) ----------
@@ -161,7 +178,8 @@ CREATE TABLE IF NOT EXISTS preco_cds (
     UNIQUE KEY uq_preco_cds (regiao, servico_id)
 );
 
--- valores avulsos da WECOM: WECOM_REALOCACAO, WECOM_INSTALACAO (Instalação/Infraestrutura) e WECOM_METRO_LINEAR
+-- valores avulsos da WECOM: WECOM_REALOCACAO, WECOM_INSTALACAO e WECOM_METRO_LINEAR
+-- (a verba da Infraestrutura sem metro linear usa 15 metros, valor fixo da aplicação)
 CREATE TABLE IF NOT EXISTS preco_parametro (
     chave VARCHAR(40) PRIMARY KEY,
     valor DECIMAL(10,2) NOT NULL
