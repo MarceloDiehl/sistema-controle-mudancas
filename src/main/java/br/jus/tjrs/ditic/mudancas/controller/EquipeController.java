@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/** /api/pessoas é para todos que entraram; /api/equipe e as solicitações, só para o coordenador (SecurityConfig). */
+/** /api/pessoas é aberta (consulta); /api/equipe e as solicitações, só para o coordenador (SecurityConfig). */
 @RestController
 @RequestMapping("/api")
 public class EquipeController {
@@ -31,8 +31,13 @@ public class EquipeController {
         this.acesso = acesso;
     }
 
+    /** Nomes e cores de todos (aparecem nas demandas e no histórico). Sem login, sem o usuário e a situação do acesso. */
     @GetMapping("/pessoas")
-    public List<EquipeDtos.Pessoa> pessoas() { return equipe.listar(); }
+    public List<EquipeDtos.Pessoa> pessoas(@AuthenticationPrincipal UsuarioLogado u) {
+        List<EquipeDtos.Pessoa> ls = equipe.listar();
+        if (u != null) return ls;
+        return ls.stream().map(p -> new EquipeDtos.Pessoa(p.id(), null, p.nome(), p.curto(), p.ini(), p.cor(), p.perfil(), p.ativo(), null, null)).toList();
+    }
 
     @PostMapping("/equipe")
     @ResponseStatus(HttpStatus.CREATED)

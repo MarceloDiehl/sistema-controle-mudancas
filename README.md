@@ -23,15 +23,17 @@ flowchart LR
 
 ## Quem faz o quê
 
-| | Técnico | Coordenador |
-|---|:---:|:---:|
-| Incluir, editar, acionar e concluir demandas | ✓ | ✓ |
-| Gerar o texto de acionamento e o relatório em PDF | ✓ | ✓ |
-| Cancelar, excluir e restaurar da lixeira | | ✓ |
-| Equipe, pedidos de acesso e Configuração de valores | | ✓ |
+| | Sem login | Técnico | Coordenador |
+|---|:---:|:---:|:---:|
+| Ver a lista, os cards e o histórico | ✓ | ✓ | ✓ |
+| Incluir, editar, acionar e concluir demandas | | ✓ | ✓ |
+| Gerar o texto de acionamento e o relatório em PDF | | ✓ | ✓ |
+| Cancelar, excluir e restaurar da lixeira | | | ✓ |
+| Equipe, pedidos de acesso e Configuração de valores | | | ✓ |
 
-Todos entram com usuário e senha. Quem não tem conta pede acesso na tela de entrada, e o coordenador aprova em
-**Equipe**.
+Qualquer pessoa vê no que o setor está trabalhando, só para consulta. Para alterar, é preciso clicar em **Entrar**,
+com usuário e senha; a **Nova demanda** só aparece depois disso. Quem não tem conta pede acesso na tela de entrada, e o
+coordenador aprova em **Equipe**.
 
 ## Instalação
 

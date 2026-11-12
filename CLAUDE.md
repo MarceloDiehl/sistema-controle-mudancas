@@ -23,7 +23,8 @@ uso e o fluxo.
 - Fluxo: Nova → Acionada (à mão, exige ticket principal e Data de Início) → Em Atendimento (na Data de Início) →
   Para Validação (um dia depois da Data para Conclusão) → Concluída (fica com o Setor). Para Validação nunca volta.
   A mudança automática não troca o responsável. Concluída e Cancelada são finais e somente leitura.
-- Perfis: tudo exige login. O técnico faz tudo nas demandas; só o coordenador cancela, exclui, restaura da lixeira,
+- Perfis: sem login, só consulta (lista, cards e histórico; sem custo, valores e dados das contas). Alterar exige
+  login, e a Nova demanda só aparece depois de entrar. O técnico faz tudo nas demandas; só o coordenador cancela, exclui, restaura da lixeira,
   aprova acessos e mantém Equipe e Configuração. Toda demanda tem responsável (no mínimo, o Coordenador, carga
   compartilhada); só a Concluída fica com o Setor. A conta inicial `admin` se chama "Coordenador".
 - Tickets: principal e subtickets com 8 dígitos. Subticket é único entre todas as demandas (repetido bloqueia).

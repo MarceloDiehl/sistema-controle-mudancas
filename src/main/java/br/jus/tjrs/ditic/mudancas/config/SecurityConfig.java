@@ -16,7 +16,8 @@ import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 /**
- * Tudo fica atrás do login, menos a tela, a entrada e o pedido de acesso.
+ * Consulta aberta: sem login, a lista e os cards (com o histórico) podem ser vistos, sem alterar nada. Toda alteração,
+ * o custo do relatório, os valores da Configuração e os dados das contas exigem login.
  * Sessão no servidor com cookie protegido e proteção CSRF (o JavaScript devolve o cookie XSRF-TOKEN no
  * cabeçalho X-XSRF-TOKEN). As ações só do coordenador são barradas aqui; o cancelamento, na regra da demanda.
  */
@@ -38,9 +39,9 @@ public class SecurityConfig {
                 .securityContext(c -> c.securityContextRepository(repositorio))
                 .sessionManagement(s -> s.sessionFixation(f -> f.migrateSession()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/css/**", "/js/**", "/fonts/**", "/vendor/**", "/favicon.ico").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/css/**", "/js/**", "/fonts/**", "/vendor/**", "/favicon.svg", "/favicon.ico").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessao").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/sessao", "/api/catalogos", "/api/pessoas", "/api/mudancas", "/api/mudancas/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/login", "/api/acesso/solicitar").permitAll()
                         .requestMatchers("/api/equipe/**", "/api/lixeira/**", "/api/acesso/solicitacoes/**").hasRole("COORDENADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/precos").hasRole("COORDENADOR")

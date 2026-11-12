@@ -30,6 +30,7 @@ def api(pg, caminho): return pg.evaluate("async (c) => { const r = await fetch('
 def dem(pg, i): return api(pg, f'mudancas/{i}')
 def ids(pg): return [d['id'] for d in api(pg, 'mudancas')]
 def entra(pg, usuario, senha):
+    if pg.query_selector('form[data-form=login]') is None: clk(pg, '[data-acao=login]')
     pg.fill('#l-usr', usuario); pg.fill('#l-sen', senha); enviar(pg, 'form[data-form=login]')
 def cria_senha(pg, nova, atual=None):
     if atual: pg.fill('#s-atual', atual)
@@ -69,7 +70,9 @@ def aciona(pg):
 def pessoa(pg, login): return next(p for p in api(pg, 'pessoas') if p['login'] == login)
 def inclui_pessoa(pg, nome, login, perfil='TECNICO'):
     pg.fill('#eq-nome', nome); pg.fill('#eq-login', login); pg.select_option('#eq-perfil', perfil); enviar(pg, 'form[data-form=equipe-add]')
-    senha = texto(pg, '.senha-tmp').strip(); clk(pg, '.confirma [data-acao=fechar-modal]'); return senha
+    senha = texto(pg, '.senha-tmp').strip()
+    chk(pg.query_selector('.senha-tmp [data-acao=copiar-senha]') is not None, 'a senha temporária tem o botão de copiar')
+    clk(pg, '.confirma [data-acao=fechar-modal]'); return senha
 
 with sync_playwright() as p:
     b = p.chromium.launch(); ctx = b.new_context(viewport={'width': 1440, 'height': 900}, accept_downloads=True); pg = ctx.new_page()
@@ -77,9 +80,11 @@ with sync_playwright() as p:
     pg.goto(URL); espera(pg, 600)
 
     # ------------------------------------------------------------------ entrada
-    chk(pg.query_selector('form[data-form=login]') is not None and pg.query_selector('.login .fechar-canto') is None, 'sem sessão, a tela abre na entrada, que não fecha')
-    chk(pg.query_selector('[data-acao=nova]') is None and not pg.query_selector_all('.linha-dem'), 'sem sessão não aparece nenhuma demanda nem a Nova demanda')
-    chk(api(pg, 'mudancas').get('status') == 401, 'a API recusa quem não entrou')
+    chk(pg.query_selector('form[data-form=login]') is None and pg.query_selector('.sit-abas') is not None, 'sem login, a tela abre na consulta, sem pedir para entrar')
+    chk(pg.evaluate("fetch(document.querySelector('link[rel=icon]').href).then(r => r.ok && r.headers.get('content-type').includes('svg'))"), 'favicon carregado')
+    chk(pg.query_selector('[data-acao=login]') is not None and pg.query_selector('[data-acao=nova]') is None, 'sem login: botão Entrar no topo e nenhuma Nova demanda')
+    chk(api(pg, 'precos').get('status') == 401 and api(pg, 'lixeira').get('status') == 401, 'sem login, a API não entrega valores nem a lixeira')
+    clk(pg, '[data-acao=login]'); chk(pg.query_selector('form[data-form=login]') is not None and pg.query_selector('.login .fechar-canto') is not None, 'Entrar abre a entrada, que fecha pelo X')
     chk('Acesso do protótipo' not in pg.content() and pg.query_selector('[data-acao=proto-gestor]') is None, 'sem o acesso de demonstração do protótipo')
     entra(pg, 'admin', 'errada'); chk('incorretos' in texto(pg, '.login .erro'), 'senha errada é recusada')
     entra(pg, 'admin', 'admin-inicial')
@@ -108,6 +113,7 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=equipe]')
     senha_ana = inclui_pessoa(pg, 'Ana Souza', 'ana.souza')
     chk(re.fullmatch(r'[A-Za-z2-9]{10}', senha_ana or '') is not None, 'incluir pessoa mostra a senha temporária uma vez')
+    larg_eq = pg.evaluate("(() => { const r = document.querySelector('.modal-content.equipe').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()")
     chk(pg.query_selector('.modal-content.equipe') is not None, 'fechar a senha temporária volta à Equipe')
     senha_bruno = inclui_pessoa(pg, 'Bruno Lima', 'bruno')
     pg.fill('#eq-nome', 'ana souza'); pg.fill('#eq-login', 'outra'); enviar(pg, 'form[data-form=equipe-add]')
@@ -122,6 +128,10 @@ with sync_playwright() as p:
     chk(texto(pg, '.combo-vazio').strip() == 'Nenhum local encontrado.', 'local fora da lista: só "Nenhum local encontrado."')
     pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Teste'); enviar(pg, 'form[data-form=nova]')
     chk('na lista' in texto(pg, '.modal-n .erro') and not api(pg, 'mudancas'), 'local que não está na lista não é aceito')
+    clk(pg, '.modal-n [data-acao=fechar-modal]')
+    clk(pg, '[data-acao=nova]')
+    larg_nova = pg.evaluate("(() => { const r = document.querySelector('.modal-n').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()")
+    chk(larg_eq == larg_nova, f'Equipe com a mesma largura e altura da Nova demanda {larg_eq} {larg_nova}')
     clk(pg, '.modal-n [data-acao=fechar-modal]')
     d1 = nova_demanda(pg, '8.2026.9745/000101-1', 'Canoas', em_dias(5), resp=ana)
     chk(pg.query_selector('.sucesso') is not None and 'atribuída a Ana Souza' in texto(pg, '.suc-desc'), 'inclusão mostra a confirmação com o responsável')
@@ -216,7 +226,15 @@ with sync_playwright() as p:
     clk(pg, f'[data-acao=restaurar][data-id="{d3}"]'); chk(d3 in ids(pg), 'restaurar devolve a demanda'); clk(pg, '[data-acao=fechar-modal]')
 
     # ------------------------------------------------------------------ o técnico entra com a senha temporária
-    sai(pg); chk(pg.query_selector('form[data-form=login]') is not None and 'saiu' in texto(pg, '.login-cab'), 'sair volta à entrada')
+    sai(pg); chk(pg.query_selector('form[data-form=login]') is None and pg.query_selector('[data-acao=login]') is not None and pg.query_selector('[data-acao=nova]') is None and 'saiu' in flash(pg), 'sair volta à consulta, sem a Nova demanda')
+    # consulta sem login: o card abre, mas nada se altera
+    abre(pg, d1)
+    chk('Somente consulta' in texto(pg, '.det-id') and pg.query_selector('#d-status') is None and pg.is_disabled('#f-desc'), 'sem login, o card abre só para consulta')
+    clk(pg, '[data-acao=aba][data-v=hist]'); chk(pg.query_selector('form[data-form=nota]') is None and 'Empresas acionadas' in texto(pg, '.linha-tempo'), 'sem login, o histórico aparece, sem registrar andamento')
+    clk(pg, '[data-acao=menu-mais]'); chk(pg.query_selector('[data-acao=acionamento]') is None and pg.query_selector('[data-acao=copiar-tickets]') is not None, 'sem login, Mais ações só copia os tickets'); clk(pg, '[data-acao=menu-mais]')
+    clk(pg, '[data-acao=aba][data-v=tickets]'); chk(pg.query_selector('form[data-form=principal]') is None and pg.query_selector('form[data-form=sub]') is None, 'sem login, os tickets não se alteram')
+    fecha(pg)
+    chk(all(p.get('login') is None for p in api(pg, 'pessoas')), 'sem login, a lista de pessoas não mostra o usuário de ninguém')
     entra(pg, 'ana.souza', senha_ana); chk(pg.query_selector('form[data-form=senha]') is not None, 'senha temporária exige criar a senha pessoal')
     cria_senha(pg, 'senha-da-ana-1')
     chk('Ana Souza' in texto(pg, '.topo'), 'técnico entra depois de criar a senha')
@@ -234,7 +252,7 @@ with sync_playwright() as p:
     chk(pg.evaluate("fetch('api/mudancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(r => r.status)") == 403, 'alteração sem o token CSRF é recusada')
 
     # ------------------------------------------------------------------ pedido de acesso pela tela de entrada
-    sai(pg); clk(pg, '[data-acao=pedir-acesso]')
+    sai(pg); clk(pg, '[data-acao=login]'); clk(pg, '[data-acao=pedir-acesso]')
     pg.fill('#pa-nome', 'Carla Dias'); pg.fill('#pa-usr', 'carla'); enviar(pg, 'form[data-form=pedido]')
     chk('Pedido Enviado' in texto(pg, '.login'), 'pedido de acesso enviado pela tela de entrada')
     clk(pg, '[data-acao=pedir-voltar]'); entra(pg, 'admin', SENHA_ADMIN)

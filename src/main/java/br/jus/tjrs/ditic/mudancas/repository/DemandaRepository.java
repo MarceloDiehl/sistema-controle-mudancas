@@ -14,13 +14,13 @@ public interface DemandaRepository extends JpaRepository<Demanda, Long> {
 
     /** Demandas fora da lixeira, com os subtickets (a lista principal). */
     @Query("""
-            select distinct d from Demanda d
+            select distinct d from Demanda d left join fetch d.local
             left join fetch d.subtickets s left join fetch s.empresa left join fetch s.servico
             where d.excluidaEm is null""")
     List<Demanda> listarComSubtickets();
 
     @Query("""
-            select distinct d from Demanda d
+            select distinct d from Demanda d left join fetch d.local
             left join fetch d.subtickets s left join fetch s.empresa left join fetch s.servico
             where d.excluidaEm is not null""")
     List<Demanda> listarLixeira();

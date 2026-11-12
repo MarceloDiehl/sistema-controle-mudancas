@@ -331,7 +331,9 @@ em { font-style: normal; }
 .com-ico .olho:hover { background: #F0F3F7; color: var(--ink); }
 .login-ajuda { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.6; }
 /* senha temporária: aparece uma vez, para o coordenador anotar */
-.senha-tmp { margin: 2px 0 6px; padding: 10px 14px; border: 1px dashed var(--line-inp); border-radius: 10px; background: var(--surface-3); font-size: 20px; font-weight: 600; letter-spacing: .08em; text-align: center; user-select: all; }
+.senha-tmp { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 2px 0 6px; padding: 10px 14px; border: 1px dashed var(--line-inp); border-radius: 10px; background: var(--surface-3); font-size: 20px; font-weight: 600; letter-spacing: .08em; text-align: center; user-select: all; }
+.senha-tmp .senha-copia { flex: none; font-size: 14px; }
+.senha-tmp .senha-copia.copiado { color: var(--ok-ink); }
 /* esperando o servidor */
 body.ocupado, body.ocupado * { cursor: progress !important; }
 
@@ -773,13 +775,12 @@ textarea.txt { resize: none; }
 .eq-edit { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .eq-edit .campo { flex: 1; min-width: 180px; margin: 0; }
 .eq-erro { padding-left: 40px; }
-.tr-de-para { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 16px; align-items: end; }
-.tr-pessoa { display: inline-flex; align-items: center; gap: 10px; height: 40px; }
-.tr-pessoa > span { display: flex; flex-direction: column; line-height: 1.2; }
-.tr-pessoa small { font-size: 11.5px; color: var(--muted); font-weight: 600; }
-.tr-pessoa b { font-size: 14px; font-weight: 600; }
-.tr-seta { display: inline-flex; align-items: center; height: 40px; color: var(--faint); }
-.tr-para { margin: 0; }
+.tr-de-para { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: end; }
+.tr-de-para .campo { margin: 0; min-width: 0; }
+/* De e Para com o mesmo rótulo em cima e uma caixa da mesma altura do select */
+.tr-pessoa { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px; border: 1px solid var(--line-inp); border-radius: var(--r); background: var(--surface-3); min-width: 0; }
+.tr-pessoa b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-seta { display: inline-flex; align-items: center; justify-content: center; height: 40px; color: var(--faint); }
 .tr-item { display: grid; grid-template-columns: 18px minmax(150px, auto) minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; cursor: pointer; }
 .tr-lista li:first-child .tr-item { border-top: 0; }
 .tr-item:hover { background: #F7F9FA; }
@@ -1356,7 +1357,7 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 
 /* modais de tamanho único: a altura não depende do conteúdo; o que excede rola por dentro. No celular, segue o adaptativo. */
 @media (min-width: 701px) {
-  .modal-content.equipe { height: min(730px, 100%); }
+  .modal-content.equipe { height: min(810px, 100%); }
   .equipe .modal-body > :not(.tabela-bloco) { flex: none; }
   .equipe .tabela-bloco { flex: 1 1 0; min-height: 130px; }
   .equipe .tabela-bloco .bloco-corpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
@@ -1399,7 +1400,7 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .eq-usr { font-size: 11.5px; color: var(--muted); font-weight: 400; }
 
 /* ---------------------------------------------------------------- Configuração com a mesma dimensão da Nova demanda */
-.modal-content.config { max-width: 960px; width: 100%; }
+.modal-content.config, .modal-content.equipe { max-width: 960px; width: 100%; }
 @media (min-width: 701px) { .modal-content.config { height: min(810px, 100%); } }
 
 /* ---------------------------------------------------------------- navbar mais baixo, marca maior (11/11/2026) */

@@ -3,6 +3,7 @@ package br.jus.tjrs.ditic.mudancas.controller;
 import br.jus.tjrs.ditic.mudancas.service.RegraException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -26,6 +27,13 @@ public class TratadorErros {
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
     public ResponseEntity<Map<String, String>> invalido(Exception e) {
         return ResponseEntity.badRequest().body(Map.of("mensagem", "Dados inválidos. Confira os campos e tente de novo."));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> conflito(DataIntegrityViolationException e) {
+        LOG.warn("Gravação recusada pelo banco: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("mensagem", "Outra pessoa acabou de gravar o mesmo número ou nome. Recarregue a página e confira."));
     }
 
     @ExceptionHandler(Exception.class)

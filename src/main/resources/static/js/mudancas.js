@@ -349,7 +349,7 @@
   // o card foi aberto: a demanda foi vista e a bolinha sai, para todos (chamado só no momento da abertura, em desenhar())
   function marcarVisto() {
     const d = E.aberta && demanda(E.aberta);
-    if (!d || !d.aviso) return;
+    if (!d || !d.aviso || !E.usuario) return; // sem login, a bolinha fica para quem é responsável
     d.aviso = null;
     api('POST', 'mudancas/' + d.id + '/visto').catch(() => { /* a bolinha volta na próxima atualização da lista */ });
   }
@@ -505,14 +505,15 @@
     <b>DITIC-DSUP</b><span>&nbsp;| <span class="longo">Controle de </span>Mudanças</span>
   </button>
   ${E.carregado ? `<div class="topo-acoes">
-    <button type="button" class="btn btn-primary btn-pill btn-nova" data-acao="nova" title="Nova demanda de mudança">${I.mais}<span>Nova demanda</span></button>
-    <div class="sep-v" aria-hidden="true"></div>
+    ${E.usuario ? `<button type="button" class="btn btn-primary btn-pill btn-nova" data-acao="nova" title="Nova demanda de mudança">${I.mais}<span>Nova demanda</span></button>
+    <div class="sep-v" aria-hidden="true"></div>` : ''}
     ${telaConta()}
   </div>` : ''}
 </div></header>`;
   }
 
   function telaConta() {
+    if (!E.usuario) return `<button type="button" class="btn btn-auth" data-acao="login">${I.usuario}Entrar</button>`;
     const u = usr(E.usuario); if (!u) return '';
     return `<div class="menu-ancora">
       <button type="button" class="conta" data-acao="menu-conta" aria-haspopup="menu" aria-expanded="${E.menu === 'conta'}" aria-label="Conta de ${esc(u.nome)}">
@@ -600,7 +601,7 @@
         <span class="vazio-ico">${svg(26, '<rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M9 14.5h6"/>', 1.7)}</span>
         <b>Nenhuma demanda por aqui</b>
         <span>Ajuste a pesquisa ou escolha outra situação nas abas acima.</span>
-        ${filtrando ? '<button type="button" class="btn btn-sm" data-acao="limpar">Limpar pesquisa e filtros</button>' : E.carregado ? `<button type="button" class="btn btn-sm" data-acao="nova">${I.mais}Nova demanda</button>` : ''}
+        ${filtrando ? '<button type="button" class="btn btn-sm" data-acao="limpar">Limpar pesquisa e filtros</button>' : E.usuario ? `<button type="button" class="btn btn-sm" data-acao="nova">${I.mais}Nova demanda</button>` : ''}
       </div>`}
     </div>
     <div class="l-pe">
@@ -690,8 +691,8 @@
     <div class="menu-ancora">
       <button type="button" class="btn btn-link btn-suave" data-acao="menu-mais" aria-haspopup="menu" aria-expanded="${E.menu === 'mais'}">${I.pontos}Mais ações</button>
       ${E.menu === 'mais' ? `<div class="dropdown-menu show cima" role="menu">
-        ${['pendente', 'concluida'].includes(d.situacao) ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
-        <button type="button" role="menuitem" class="dropdown-item" data-acao="acionamento" data-id="${d.id}">${I.texto}Gerar informação de acionamento</button>
+        ${E.usuario && ['pendente', 'concluida'].includes(d.situacao) ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
+        ${E.usuario ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="acionamento" data-id="${d.id}">${I.texto}Gerar informação de acionamento</button>` : ''}
         <button type="button" role="menuitem" class="dropdown-item" data-acao="copiar-tickets" data-id="${d.id}">${I.copiar}Copiar tickets em texto</button>
         ${ehGestor() && d.situacao !== 'concluida' ? `<hr class="dropdown-divider">
         ${d.situacao !== 'cancelada' ? `<button type="button" role="menuitem" class="dropdown-item perigo" data-acao="cancelar" data-id="${d.id}">${svg(16, '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>', 2)}Cancelar demanda</button>` : ''}
@@ -702,7 +703,7 @@
     <span class="esp"></span>
     ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-det">Fechar</button>
-    ${d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
+    ${E.usuario && d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
     ${E.aba === 'dados' && podeEditar(d) ? `<button type="submit" form="form-dados" id="btn-salvar" class="btn btn-primary btn-lg" ${E.sujo || E.statusRascunho ? '' : 'disabled'}>Salvar alterações</button>`
     : E.statusRascunho ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-status">Salvar alterações</button>` : ''}
   </footer>
@@ -915,11 +916,11 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (!d.historico) return bloco('Histórico', '', '<p class="vazio-bloco">Carregando o histórico…</p>');
     const ls = [...d.historico].reverse();
     return bloco('Histórico', ls.length + ' registro' + (ls.length > 1 ? 's' : ''), `
-<form class="linha-form" data-form="nota" novalidate>
+${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <label class="visually-hidden" for="h-nota">Registrar andamento</label>
   <input id="h-nota" data-rascunho class="form-control" placeholder="Registrar andamento, ex.: Solicitado ao DMP em 26/10" autocomplete="off">
   <button type="submit" class="btn btn-outline-secondary btn-lg">Registrar</button>
-</form>
+</form>` : ''}
 <ol class="linha-tempo">
   ${ls.map((h, i) => `<li class="${i === 0 ? 'ultimo' : ''}"><span class="ponto" aria-hidden="true"></span><div class="conteudo"><p>${esc(h.texto)}</p><small>${esc(nomeUsr(h.usuario))} · ${esc(brHora(h.data))}</small></div></li>`).join('')}
 </ol>`);
@@ -1034,12 +1035,13 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }
 
   // ------------------------------------------------------------------ entrada, primeiro acesso e pedido de acesso
-  // Tudo fica atrás do login: sem sessão, a tela mostra só o modal de entrada (que não fecha).
+  // Sem login, a lista e os cards ficam abertos só para consulta; para alterar, a pessoa entra pelo botão Entrar.
   function modalLogin() {
     const v = E.modalDados || {};
     if (v.pedir) return modalPedido(v);
     return `
 <form class="modal-content modal-p login" role="dialog" aria-modal="true" aria-labelledby="ml-tit" data-form="login" novalidate>
+  <button type="button" class="btn btn-icone fechar-canto" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button>
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="ml-tit">Entrar no Controle de Mudanças</h2>
@@ -1125,12 +1127,13 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     E.modal = 'login'; E.modalDados = { motivo }; E.erros = {}; E.limparRascunho = true; E.aberta = null; E.menu = null;
     desenhar(); focar('l-usr');
   }
-  // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): limpa a tela e volta à entrada
-  function sessaoEncerrada(msg) {
-    Object.assign(E, { usuario: null, perfil: null, carregado: false, demandas: [], pessoas: [], equipe: [], lixeira: [], solicitacoes: [], precos: null,
-      aberta: null, statusRascunho: null, sujo: false, cfg: null, filtroResp: '', filtroLocal: '', busca: '' });
-    abrirLogin(msg);
+  // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): volta à consulta sem login
+  async function sairDaSessao() {
+    Object.assign(E, { usuario: null, perfil: null, lixeira: [], solicitacoes: [], precos: null,
+      aberta: null, statusRascunho: null, sujo: false, cfg: null, modal: null, modalDados: null, menu: null });
+    try { await carregarTudo(); } catch (e) { E.carregado = false; }
   }
+  function sessaoEncerrada(msg) { sairDaSessao().then(() => abrirLogin(msg)); }
   // com a sessão aberta: cria a senha pessoal, se for o caso, e carrega os dados do banco
   async function iniciarSessao(s, senhaDigitada) {
     E.usuario = s.id; E.perfil = s.perfil;
@@ -1143,8 +1146,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     desenhar();
   }
   async function carregarTudo() {
-    const [cat, pessoas, precos, demandas] = await Promise.all([api('GET', 'catalogos'), api('GET', 'pessoas'), api('GET', 'precos'), api('GET', 'mudancas')]);
-    aplicarCatalogo(cat); aplicarPessoas(pessoas); E.precos = precos; E.demandas = demandas;
+    // os valores do custo só servem à Configuração e ao relatório, que exigem login
+    const [cat, pessoas, demandas, precos] = await Promise.all([api('GET', 'catalogos'), api('GET', 'pessoas'), api('GET', 'mudancas'), E.usuario ? api('GET', 'precos') : null]);
+    aplicarCatalogo(cat); aplicarPessoas(pessoas); E.demandas = demandas; E.precos = precos;
     if (ehGestor()) await carregarCoordenador();
     E.carregado = true;
   }
@@ -1154,6 +1158,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }
   // relê demandas e pessoas (mudanças de outras pessoas e status automáticos do servidor); o card aberto vem completo
   async function recarregar() {
+    if (E.usuario) {
+      try { await api('GET', 'sessao'); } catch (e) {
+        if (e.status !== 401) throw e;
+        await sairDaSessao(); aviso('A sessão expirou. Entre de novo para alterar.', true); return;
+      }
+    }
     const [pessoas, demandas] = await Promise.all([api('GET', 'pessoas'), api('GET', 'mudancas')]);
     aplicarPessoas(pessoas); E.demandas = demandas;
     if (ehGestor()) await carregarCoordenador();
@@ -1174,10 +1184,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   const podeEditar = (d) => !!d && !!E.usuario && !FINAIS.includes(d.situacao);
   function precisaGestor() {
     if (ehGestor()) return false;
+    if (!E.usuario) { abrirLogin('Esta ação é do coordenador. Entre com o seu usuário.'); return true; }
     aviso('Somente o coordenador pode fazer isso.', true); desenhar(); return true;
   }
   function precisaEditar(d) {
     if (podeEditar(d)) return false;
+    if (!E.usuario) { abrirLogin('Entre com o seu usuário para alterar a demanda.'); return true; }
     if (d) { aviso('Demanda encerrada: somente consulta.', true); desenhar(); }
     return true;
   }
@@ -1187,7 +1199,10 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     E.ocupado = true; document.body.classList.add('ocupado');
     try { await fn(); } catch (e) {
       if (!(e instanceof ErroApi)) { console.error(e); aviso('Erro inesperado na tela. Recarregue a página.', true); desenhar(); }
-      else if (e.status !== 401) { aviso(e.message, true); desenhar(); }
+      else if (e.status !== 401) {
+        if (e.status === 404 || e.status === 409) { try { await recarregar(); } catch (x) { /* a mensagem abaixo já orienta */ } }
+        aviso(e.message, true); desenhar();
+      }
     } finally { E.ocupado = false; document.body.classList.remove('ocupado'); }
   }
 
@@ -1273,7 +1288,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     <button type="button" class="btn btn-icone" data-acao="eq-voltar" aria-label="Voltar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     <div class="tr-de-para">
-      <span class="tr-pessoa">${avatar(de.id)}<span><small>De</small><b>${esc(de.nome)}</b></span></span>
+      <span class="campo tr-de"><span class="form-label">De</span><span class="tr-pessoa">${avatar(de.id, 'sm')}<b>${esc(de.nome)}</b></span></span>
       <span class="tr-seta" aria-hidden="true">${svg(18, '<path d="M5 12h14M13 6l6 6-6 6"/>', 2)}</span>
       <span class="campo tr-para"><label class="form-label" for="tr-dest">Para</label>
         <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${esc(u.id)}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="${COORD}" ${t.para === COORD ? 'selected' : ''}>Coordenador · ${abertasDe(COORD).length} em aberto</option></select>
@@ -1551,7 +1566,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   <span class="conf-ico">${c.perigo ? I.triangulo : c.ok ? svg(22, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', 2.4) : I.alerta}</span>
   <h2 id="mc-tit">${esc(c.titulo)}</h2>
   <p id="mc-txt">${esc(c.texto)}</p>
-  ${c.senha ? `<p class="senha-tmp mono" aria-label="Senha temporária">${esc(c.senha)}</p>` : ''}
+  ${c.senha ? `<p class="senha-tmp"><span class="mono" aria-label="Senha temporária">${esc(c.senha)}</span><button type="button" class="btn btn-icone senha-copia" data-acao="copiar-senha" data-v="${esc(c.senha)}" aria-label="Copiar a senha" title="Copiar a senha">${I.copiar}</button></p>` : ''}
   ${c.motivo ? `<div class="campo conf-motivo">
     <span class="rotulo-l"><label class="form-label" for="mc-motivo">Motivo</label><span class="cont" id="mc-motivo-cont">0/100</span></span>
     <textarea id="mc-motivo" data-rascunho data-cont="100" class="form-control txt" rows="2" maxlength="100" ${erM ? 'aria-invalid="true"' : ''}></textarea>
@@ -1674,6 +1689,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       const quando = d.situacao === 'atendimento' && d.inicio ? 'Vai para validação em ' + br(diaSeguinte(d.fim || d.inicio)).slice(0, 5)
         : d.situacao === 'pendente' ? 'Aguardando a conclusão' : '';
       return `<span class="badge st-fixo" title="Status automático: não pode ser alterado à mão">${I.cadeadoP}<span>${sit(d.situacao).um}</span></span>${quando ? `<span class="st-nota">${quando}</span>` : ''}`;
+    }
+    if (!E.usuario && !FINAIS.includes(d.situacao)) {
+      return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Entre para alterar">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span><span class="st-nota">Somente consulta · entre para alterar</span>`;
     }
     if (FINAIS.includes(d.situacao)) {
       return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Status final: não pode ser alterado">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span><span class="st-nota">Demanda encerrada · somente consulta</span>`;
@@ -1914,7 +1932,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       case 'ver-senha': { const el = document.getElementById('l-sen'); if (el) { el.type = el.type === 'password' ? 'text' : 'password'; alvo.setAttribute('aria-label', el.type === 'password' ? 'Mostrar senha' : 'Ocultar senha'); } break; }
       case 'pedir-acesso': E.modalDados = { pedir: true }; E.erros = {}; E.limparRascunho = true; desenhar(); focar('pa-nome'); break;
       case 'pedir-voltar': abrirLogin(); break;
-      case 'sair': acao(async () => { await api('POST', 'logout'); sessaoEncerrada('Você saiu da conta.'); }); break;
+      case 'login': abrirLogin(); break;
+      case 'sair': acao(async () => { await api('POST', 'logout'); await sairDaSessao(); aviso('Você saiu da conta.'); desenhar(); }); break;
       case 'eq-editar': E.modalDados = { editar: v }; E.erros = {}; E.limparRascunho = true; desenhar(); { const el = document.getElementById('ed-nome'); if (el) { el.focus(); el.select(); } } break;
       case 'eq-cancelar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-transferir': E.modalDados = { transf: { de: v } }; E.erros = {}; E.limparRascunho = true; desenhar(); break;
@@ -1945,7 +1964,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       }
       case 'equipe': E.menu = null; E.modal = 'equipe'; E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar();
         acao(async () => { aplicarPessoas(await api('GET', 'pessoas')); await carregarCoordenador(); if (E.modal === 'equipe') desenhar(); }); break;
-      case 'nova': E.modal = 'nova'; E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); focar('n-sei'); break;
+      case 'nova': if (!E.usuario) { abrirLogin('Entre com o seu usuário para incluir uma demanda.'); break; } E.modal = 'nova'; E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); focar('n-sei'); break;
       case 'incluir-outra': E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); focar('n-sei'); break;
       case 'abrir-nova': E.modal = null; E.modalDados = null; abrirCard(id).then(() => { E.aba = 'tickets'; desenhar(); focar('t-principal'); }); break;
       case 'ordenar': {
@@ -2010,6 +2029,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         E.modal = volta || null; E.modalDados = volta ? {} : null; E.erros = {}; desenhar(); break;
       }
       case 'copiar': copiar(v, 'Copiado: ' + v); break;
+      // a confirmação fica no próprio botão (a senha não aparece em aviso nenhum)
+      case 'copiar-senha': navigator.clipboard.writeText(v).then(() => { alvo.innerHTML = I.check; alvo.title = 'Senha copiada'; alvo.setAttribute('aria-label', 'Senha copiada'); alvo.classList.add('copiado'); },
+        () => { alvo.title = 'Não foi possível copiar: selecione a senha e use Ctrl+C'; }); break;
       case 'relatorio': if (!d) break; E.menu = null; acao(async () => {
         const custo = await api('GET', 'mudancas/' + d.id + '/custo');
         E.modal = 'relatorio'; E.modalDados = { id: d.id, custo }; E.limparRascunho = true; desenhar();
@@ -2210,11 +2232,20 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }, true);
 
 
-  // a data muda e outras pessoas alteram demandas: com a tela parada (sem card nem janela aberta), relê a lista a cada 5 minutos
+  // a cada minuto: encerra a sessão depois de 30 minutos sem uso (a releitura automática mantém a sessão viva no
+  // servidor, então quem conta a inatividade é a tela); a cada 5 minutos, com a tela parada (sem card nem janela
+  // aberta), relê a lista, porque a data muda e outras pessoas alteram demandas
+  const INATIVIDADE = 30 * 60000;
+  let ultimoUso = Date.now(); let minutos = 0;
+  ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { ultimoUso = Date.now(); }, { capture: true, passive: true }));
   setInterval(() => {
-    if (!E.carregado || E.aberta || E.modal || E.ocupado || document.hidden) return;
+    if (E.usuario && !E.ocupado && Date.now() - ultimoUso > INATIVIDADE) {
+      api('POST', 'logout').catch(() => null).then(sairDaSessao).then(() => { aviso('Sessão encerrada depois de 30 minutos sem uso.', true); desenhar(); });
+      return;
+    }
+    if (++minutos % 5 || !E.carregado || E.aberta || E.modal || E.ocupado || document.hidden) return;
     recarregar().then(desenhar, () => { /* sem conexão: tenta de novo na próxima vez */ });
-  }, 300000);
+  }, 60000);
 
   // caixas de texto crescem até mostrar todo o conteúdo (descrição até 250 caracteres sem rolagem)
   function alturaDetalhe() {
@@ -2236,5 +2267,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   document.addEventListener('input', (ev) => { if (ev.target.matches && ev.target.matches('textarea.txt')) { ev.target.style.height = 'auto'; ev.target.style.height = (ev.target.scrollHeight + 2) + 'px'; } });
 
   desenhar();
-  api('GET', 'sessao').then((s) => iniciarSessao(s), (e) => abrirLogin(e.status === 401 ? '' : e.message));
+  // com sessão, carrega tudo; sem ela, abre a consulta (o botão Entrar fica no topo)
+  api('GET', 'sessao').then((s) => iniciarSessao(s), (e) => {
+    if (e.status !== 401) { aviso(e.message, true); desenhar(); return; }
+    carregarTudo().then(desenhar, (x) => { aviso(x.message, true); desenhar(); });
+  });
 })();

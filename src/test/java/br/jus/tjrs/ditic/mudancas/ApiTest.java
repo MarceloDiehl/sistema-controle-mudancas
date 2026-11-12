@@ -53,10 +53,26 @@ class ApiTest {
     }
 
     @Test
-    void semLoginNadaAbre() throws Exception {
-        assertThat(mvc.perform(get("/api/mudancas")).andReturn().getResponse().getStatus()).isEqualTo(401);
-        assertThat(mvc.perform(get("/api/catalogos")).andReturn().getResponse().getStatus()).isEqualTo(401);
+    void semLoginSoConsulta() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String id = criar(tec, LocalDate.now().plusDays(2).toString(), "Canoas");
+        // a lista, o card e os catálogos abrem para consulta
+        assertThat(mvc.perform(get("/api/mudancas")).andReturn().getResponse().getStatus()).isEqualTo(200);
+        assertThat(mvc.perform(get("/api/mudancas/" + id)).andReturn().getResponse().getStatus()).isEqualTo(200);
+        assertThat(mvc.perform(get("/api/catalogos")).andReturn().getResponse().getStatus()).isEqualTo(200);
         assertThat(mvc.perform(get("/index.html")).andReturn().getResponse().getStatus()).isEqualTo(200);
+        assertThat(mvc.perform(get("/favicon.svg")).andReturn().getResponse().getStatus()).isEqualTo(200);
+        // as pessoas aparecem sem o usuário e sem a situação do acesso
+        String ps = mvc.perform(get("/api/pessoas")).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat((List<Object>) JsonPath.read(ps, "$[*].login")).allMatch(java.util.Objects::isNull);
+        assertThat((List<Object>) JsonPath.read(ps, "$[*].ultimoAcesso")).allMatch(java.util.Objects::isNull);
+        // o resto exige login
+        assertThat(mvc.perform(get("/api/mudancas/" + id + "/custo")).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(get("/api/precos")).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(get("/api/lixeira")).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(json(post("/api/mudancas"), "{}")).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"12345678\"}")).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(post("/api/mudancas/" + id + "/visto").with(csrf())).andReturn().getResponse().getStatus()).isEqualTo(401);
     }
 
     @Test
