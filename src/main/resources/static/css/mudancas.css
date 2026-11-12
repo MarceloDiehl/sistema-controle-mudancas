@@ -329,10 +329,11 @@ em { font-style: normal; }
 .com-ico .form-control { height: 44px; padding-left: 40px; }
 .com-ico .olho { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
 .com-ico .olho:hover { background: #F0F3F7; color: var(--ink); }
-.proto-box { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 12px; border: 1px dashed var(--line-inp); border-radius: 10px; background: var(--surface-3); }
-.proto-box span { display: flex; flex-direction: column; font-size: 13px; }
-.proto-box b { font-weight: 600; color: var(--ink-2); }
-.proto-box small { font-size: 11.5px; color: var(--muted); }
+.login-ajuda { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.6; }
+/* senha temporária: aparece uma vez, para o coordenador anotar */
+.senha-tmp { margin: 2px 0 6px; padding: 10px 14px; border: 1px dashed var(--line-inp); border-radius: 10px; background: var(--surface-3); font-size: 20px; font-weight: 600; letter-spacing: .08em; text-align: center; user-select: all; }
+/* esperando o servidor */
+body.ocupado, body.ocupado * { cursor: progress !important; }
 
 /* confirmação */
 .confirma { padding: 28px 28px 24px; align-items: center; text-align: center; gap: 8px; }
@@ -512,7 +513,6 @@ em { font-style: normal; }
   .modal-footer:not(.det-pe) { flex-wrap: wrap; padding-left: 16px; padding-right: 16px; padding-bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
   .modal-footer:not(.det-pe) .esp { flex-basis: 100%; }
   .login, .confirma { padding-left: 20px; padding-right: 20px; }
-  .proto-box { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -745,7 +745,7 @@ textarea.txt { resize: none; }
 .cor-op:hover span { transform: scale(1.08); }
 .cor-op input:checked + span { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
 .cor-op input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 4px; }
-.eq-add { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: end; }
+.eq-add { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 128px auto auto; gap: 14px; align-items: end; }
 .eq-add .campo { margin: 0; }
 .eq-lista, .tr-lista { list-style: none; margin: 0; padding: 0; }
 .eq-linha { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); min-height: 58px; }
@@ -758,7 +758,12 @@ textarea.txt { resize: none; }
 .eq-carga { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .eq-carga b { color: var(--ink); font-weight: 700; }
 .eq-tot { margin-left: 4px; color: var(--faint); }
-.eq-acoes { display: grid; grid-template-columns: 32px 112px 86px; align-items: center; justify-items: end; gap: 6px; flex: none; }
+.eq-acoes { display: grid; grid-template-columns: 32px 112px 118px 86px; align-items: center; justify-items: end; gap: 6px; flex: none; }
+.eq-id { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.eq-id .eq-usr { line-height: 1.35; overflow-wrap: anywhere; }
+.eq-nome .tag-inativo { flex: none; }
+.sol-acoes { display: flex; align-items: center; gap: 6px; flex: none; }
+.sol-acoes .form-select { width: 140px; }
 .eq-edit .eq-acoes { display: inline-flex; }
 .eq-acoes .btn svg { margin-right: 5px; }
 .eq-acoes .btn-icone svg { margin: 0; }
@@ -790,7 +795,8 @@ textarea.txt { resize: none; }
   .eq-linha { flex-wrap: wrap; row-gap: 8px; }
   .eq-nome { flex: 1 1 calc(100% - 46px); }
   .eq-carga { width: 100%; padding-left: 40px; margin-top: -6px; }
-  .eq-acoes { width: 100%; padding-left: 40px; grid-template-columns: 32px auto 1fr; justify-items: start; }
+  .eq-acoes { width: 100%; padding-left: 40px; grid-template-columns: 32px auto auto 1fr; justify-items: start; }
+  .sol-acoes { width: 100%; padding-left: 40px; flex-wrap: wrap; }
   .eq-acoes > :last-child { justify-self: end; }
   .tr-de-para { grid-template-columns: 1fr; gap: 10px; }
   .tr-seta { display: none; }
@@ -1455,3 +1461,17 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 /* ---------------------------------------------------------------- ordenar post-its: mais espaço entre os campos em telas largas */
 @media (min-width: 1101px) { .l-ord { column-gap: 30px; } .l-ord .ord-rot { margin-right: 6px; } }
 @media (min-width: 1400px) { .l-ord { column-gap: 40px; } }
+
+/* ------------------------------------------------------------------ telas estreitas */
+/* abaixo de 900 px a página rola: o rodapé fica no fim da janela mesmo com a lista vazia */
+@media (max-width: 899px) {
+  .moldura { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+  .moldura > .painel { flex: 1 0 auto; }
+}
+@media (max-width: 700px) {
+  /* o botão Nova demanda, só com o ícone, fica redondo */
+  .topo-acoes .btn-nova { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; flex: none; }
+  /* os modais abrem de baixo para cima, mas afastados das bordas da janela */
+  .modal { padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)) !important; }
+  .modal-content, .modal-dialog-scrollable .modal-content { border-radius: var(--r-modal); max-height: 100%; }
+}
