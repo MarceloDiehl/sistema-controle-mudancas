@@ -57,8 +57,8 @@
           let xx = x; if (o.alinha === 'centro') xx = x - largura(txt, f, t) / 2; else if (o.alinha === 'direita') xx = x - largura(txt, f, t);
           atual.push('BT /' + (f === 'B' ? 'F2' : 'F1') + ' ' + t + ' Tf ' + xx.toFixed(2) + ' ' + (A - y).toFixed(2) + ' Td (' + escPdf(txt) + ') Tj ET');
         },
-        linha(x1, y1, x2, y2) { atual.push('0.6 w ' + x1.toFixed(2) + ' ' + (A - y1).toFixed(2) + ' m ' + x2.toFixed(2) + ' ' + (A - y2).toFixed(2) + ' l S'); },
-        caixa(x, y, w, h) { atual.push('0.6 w ' + x.toFixed(2) + ' ' + (A - y - h).toFixed(2) + ' ' + w.toFixed(2) + ' ' + h.toFixed(2) + ' re S'); },
+        linha(x1, y1, x2, y2) { atual.push('0.4 w ' + x1.toFixed(2) + ' ' + (A - y1).toFixed(2) + ' m ' + x2.toFixed(2) + ' ' + (A - y2).toFixed(2) + ' l S'); },
+        caixa(x, y, w, h) { atual.push('0.4 w ' + x.toFixed(2) + ' ' + (A - y - h).toFixed(2) + ' ' + w.toFixed(2) + ' ' + h.toFixed(2) + ' re S'); },
         bytes() {
           const obj = []; const add = (s) => { obj.push(s); return obj.length; };
           const cat = add('<< /Type /Catalog /Pages 2 0 R >>');
@@ -85,7 +85,7 @@
     }
 
     // ------------------------------------------------------------------ relatório no layout do modelo-mestre
-    // r = { acionamento, execucao, servicos: {predio, desinst, local, inst}, origem: [], destino: [], custo, itens: [], global }
+    // r = { lugar, acionamento, execucao, servicos: {predio, desinst, local, inst}, origem: [], destino: [], custo, itens: [], global }
     function gerarRelatorioPDF(r) {
       const pdf = NovoPdf().pagina();
       const L = 85; const R = 510; const W = R - L; const M = L + W / 2; const Q = W / 4;
@@ -96,11 +96,12 @@
       ['Direção de Tecnologia da Informação e Comunicação', 'Departamento de Suporte', 'Serviço de Projetos e Contrato de Suporte'].forEach((l) => { pdf.texto(297.5, y, l, { negrito: true, tam: 10.5, alinha: 'centro' }); y += 13; });
       let topo = y - 4;
       // linha de duas células com texto centralizado (quebra se precisar)
-      const duas = (a, b, negrito) => {
-        const la = quebrar(a, negrito ? 'B' : 'H', T, W / 2 - 12); const lb = quebrar(b, negrito ? 'B' : 'H', T, W / 2 - 12);
+      // negritoB: a segunda célula pode ter peso diferente da primeira (o valor do custo vai em negrito)
+      const duas = (a, b, negrito, negritoB = negrito) => {
+        const la = quebrar(a, negrito ? 'B' : 'H', T, W / 2 - 12); const lb = quebrar(b, negritoB ? 'B' : 'H', T, W / 2 - 12);
         const n = Math.max(la.length, lb.length); const h = n * 12 + 5;
         la.forEach((l, i) => pdf.texto(L + W / 4, topo + 12 + i * 12, l, { negrito, tam: T, alinha: 'centro' }));
-        lb.forEach((l, i) => pdf.texto(M + W / 4, topo + 12 + i * 12, l, { negrito, tam: T, alinha: 'centro' }));
+        lb.forEach((l, i) => pdf.texto(M + W / 4, topo + 12 + i * 12, l, { negrito: negritoB, tam: T, alinha: 'centro' }));
         pdf.caixa(L, topo, W, h); pdf.linha(M, topo, M, topo + h); topo += h;
       };
       const quatro = (vals, negrito) => {
@@ -112,32 +113,33 @@
       duas(r.acionamento || ' ', r.execucao || ' ', false);
       quatro(['Mudança de Prédio', 'Desinstalação', 'Mudança de Local', 'Instalação'], false);
       const s = r.servicos || {};
-      quatro([s.predio, s.desinst, s.local, s.inst].map((x) => (x ? '( X )' : '(   )')), true);
+      quatro([s.predio, s.desinst, s.local, s.inst].map((x) => (x ? '( X )' : '(   )')), false);
       duas('Local de origem:', 'Local de destino:', true);
-      // listas a), b)…
-      const lista = (itens, x0, largMax) => {
-        const out = []; itens.filter(Boolean).forEach((it, i) => { quebrar(it, 'H', T, largMax - 30).forEach((l, j) => out.push([j ? '' : String.fromCharCode(97 + i) + ')', l])); });
+      // um local por linha, sem a), b): o que muda entre origem e destino é o DMP, e o local da demanda fica na mesma linha nas duas colunas
+      const lista = (itens, largMax) => {
+        const out = []; itens.filter(Boolean).forEach((it) => { quebrar(it, 'H', T, largMax - 30).forEach((l) => out.push(l)); });
         return out;
       };
-      const lo = lista(r.origem || [], L, W / 2); const ld = lista(r.destino || [], M, W / 2);
+      const lo = lista(r.origem || [], W / 2); const ld = lista(r.destino || [], W / 2);
       const hl = Math.max(80, Math.max(lo.length, ld.length) * 12.5 + 14);
-      lo.forEach(([m, l], i) => { if (m) pdf.texto(L + 14, topo + 15 + i * 12.5, m, { tam: T }); pdf.texto(L + 32, topo + 15 + i * 12.5, l, { tam: T }); });
-      ld.forEach(([m, l], i) => { if (m) pdf.texto(M + 14, topo + 15 + i * 12.5, m, { tam: T }); pdf.texto(M + 32, topo + 15 + i * 12.5, l, { tam: T }); });
+      lo.forEach((l, i) => pdf.texto(L + 14, topo + 15 + i * 12.5, l, { tam: T }));
+      ld.forEach((l, i) => pdf.texto(M + 14, topo + 15 + i * 12.5, l, { tam: T }));
       pdf.caixa(L, topo, W, hl); pdf.linha(M, topo, M, topo + hl); topo += hl;
-      duas('Custo (aproximado):', r.custo || ' ', false);
+      duas('Custo (aproximado):', r.custo || ' ', false, true);
       // corpo do relatório, numa caixa que segue até o fim (quebra de página se precisar)
       const LH = 18; const TB = 10.5; let cx = topo; let yy = topo + 16;
       const fechaCaixa = (fim) => { pdf.caixa(L, cx, W, fim - cx); };
       const garante = () => { if (yy > 790) { fechaCaixa(800); pdf.pagina(); cx = 60; yy = 76; } };
-      quebrar('Em atendimento à demanda solicitada a esse DITIC-DSUP, referente às mudanças de equipamentos de informática, informo que foram realizadas:', 'H', TB, W - 12)
+      quebrar('Em atendimento à demanda solicitada a esse DITIC-DSUP, referente às mudanças de equipamentos de informática' + (r.lugar ? ' no ' + r.lugar : '') + ', informo que foram realizadas:', 'H', TB, W - 12)
         .forEach((l) => { garante(); pdf.texto(L + 5, yy, l, { tam: TB }); yy += LH; });
       yy += LH * 0.6;
       (r.itens || []).filter((x) => String(x).trim()).forEach((it, i) => {
         quebrar(it.trim(), 'H', TB, R - (L + 46) - 8).forEach((l, j) => { garante(); if (!j) pdf.texto(L + 28, yy, (i + 1) + ' -', { tam: TB }); pdf.texto(L + 46, yy, l, { tam: TB }); yy += LH; });
       });
       yy += LH * 0.6;
+      (r.notas || []).forEach((n) => quebrar(n, 'H', TB, R - (L + 46) - 8).forEach((l) => { garante(); pdf.texto(L + 46, yy, l, { tam: TB }); yy += LH; }));
       if (r.global) { garante(); pdf.texto(L + 46, yy, 'Custo incluído no valor global do contrato.', { tam: TB }); yy += LH; }
-      garante(); pdf.texto(L + 46, yy, 'Era o que cabia informar.', { tam: TB }); yy += LH;
+      yy += LH * 0.6; garante(); pdf.texto(L + 46, yy, 'Era o que cabia informar.', { tam: TB }); yy += LH;
       fechaCaixa(Math.max(yy + 6, cx === 60 ? yy + 6 : 755));
       return pdf.bytes();
     }
@@ -148,13 +150,13 @@
   // ================================================================== 3. aplicação
 
   // ------------------------------------------------------------------ catálogos
-  // Equipe: técnicos que recebem demandas. Cadastro mantido pelo gestor; técnicos não têm login.
-  // O sistema começa sem nenhum técnico: até o gestor cadastrar a equipe, só ele existe.
+  // Equipe: técnicos que recebem demandas. Cadastro mantido pelo coordenador; técnicos não têm login.
+  // O sistema começa sem nenhum técnico: até o coordenador cadastrar a equipe, só ele existe.
   // API: GET/POST/PUT /api/equipe (tabela responsavel: id, nome, iniciais, cor, ativo)
   const CORES_EQUIPE = ['#3E7C8A', '#8A6B3D', '#7B6397', '#5A6370', '#4F7A4A', '#A0573C', '#3D5F8F', '#8C4F72'];
-  // Login: só o gestor (Administrador) entra no sistema. API: tabela usuario (login, senha_hash, perfil = GESTOR)
-  // 'gestor' é o id usado nas versões anteriores do protótipo; fica como apelido para o histórico antigo.
-  const GESTORES = [{ id: 'admin', nome: 'Administrador', curto: 'Gestor', ini: 'AD', cor: '#374151', gestor: true, apelidos: ['gestor', 'administrador'] }];
+  // Login: coordenador (Administrador) e técnicos da Equipe. API: tabela pessoa (login, senha_hash, perfil = COORDENADOR | TECNICO)
+  // 'coordenador' é o id usado nas versões anteriores do protótipo; fica como apelido para o histórico antigo.
+  const GESTORES = [{ id: 'admin', nome: 'Administrador', curto: 'Coordenador', ini: 'AD', cor: '#374151', gestor: true, apelidos: ['gestor', 'coordenador', 'administrador'] }];
   const EMPRESAS = ['CADI', 'CDS', 'Selbetti', 'WECOM'];
   // demanda excluída fica na lixeira por este número de dias
   const DIAS_LIXEIRA = 30;
@@ -164,7 +166,7 @@
     { id: 'nova', nome: 'Novas', um: 'Nova', cor: 'nova', dica: 'Mostrar só as demandas novas, ainda sem acionamento' },
     { id: 'acionada', nome: 'Acionadas', um: 'Acionada', cor: 'acio', dica: 'Mostrar só as demandas acionadas' },
     { id: 'atendimento', nome: 'Em Atendimento', um: 'Em atendimento', cor: 'aten' },
-    { id: 'pendente', nome: 'Para Validação', um: 'Para validação', cor: 'pend', dica: 'Para validação: o atendimento terminou e aguarda o gestor' },
+    { id: 'pendente', nome: 'Para Validação', um: 'Para validação', cor: 'pend', dica: 'Para validação: o atendimento terminou e aguarda a conclusão' },
     { id: 'concluida', nome: 'Concluídas', um: 'Concluída', cor: 'conc' },
     { id: 'cancelada', nome: 'Canceladas', um: 'Cancelada', cor: 'canc' }
   ];
@@ -175,8 +177,46 @@
     CADI: ['Mudança de Local', 'Configuração', 'Habilitação de Pontos de Rede'],
     CDS: SERVICOS_CDS,
     Selbetti: ['Mudança de Local', 'Instalação', 'Desinstalação', 'Mudança de Prédio'],
-    WECOM: ['Instalação', 'Desinstalação', 'Mudança de Local', 'Mudança de Prédio', 'Instalação de Infraestrutura']
+    WECOM: ['Instalação', 'Realocação', 'Infraestrutura']
   };
+  // valores iniciais do custo do relatório (o coordenador altera em Configuração)
+  // CDS: por região e serviço, na ordem de REGIOES, como no sistema de faturamento do DSUP
+  const REGIOES = ['Noroeste', 'Nordeste', 'Centro Ocidental', 'Centro Oriental', 'Metropolitana', 'Sudeste', 'Sudoeste'];
+  const PRECOS_INICIAIS = {
+    cds: {
+      'Instalação': [285, 229, 233, 272, 125, 273.95, 267],
+      'Rollout AC': [315, 261, 260, 302, 143, 307, 298.21],
+      'Rollout ABC': [352, 298, 298, 339, 170, 343, 335],
+      'Desinstalação': [248, 194, 194, 236, 130, 239, 231],
+      'Mudança de Local': [198, 152, 153, 185, 160, 187, 188],
+      'Mudança de Prédio': [354, 300, 300, 341, 150, 335, 327]
+    },
+    // metro: valor do metro linear da Infraestrutura
+    wecom: { realocacao: 4121.86, instalacao: 970.93, metro: 164.18 }
+  };
+  // Infraestrutura sem metro linear: verba estimada com a média de metros lineares por sala (média de 1.221 salas)
+  const METROS_ESTIMADOS = 15;
+  const SERVICOS_CDS_PRECO = Object.keys(PRECOS_INICIAIS.cds);
+  const valorOk = (v) => Number.isFinite(v) && v > 0;
+  function carregarPrecos(s) {
+    const p = JSON.parse(JSON.stringify(PRECOS_INICIAIS));
+    if (!s) return p;
+    SERVICOS_CDS_PRECO.forEach((sv) => { const ls = s.cds && s.cds[sv]; if (Array.isArray(ls) && ls.length === REGIOES.length && ls.every(valorOk)) p.cds[sv] = ls; });
+    // R$ 4.121,00 era o valor inicial antigo da Realocação: dá lugar ao novo valor inicial
+    Object.keys(p.wecom).forEach((k) => { if (s.wecom && valorOk(s.wecom[k]) && !(k === 'realocacao' && s.wecom[k] === 4121)) p.wecom[k] = s.wecom[k]; });
+    return p;
+  }
+  // WECOM: só a Infraestrutura usa o metro linear, que é opcional
+  const usaMetro = (emp, serv) => emp === 'WECOM' && serv === 'Infraestrutura';
+  const centavos = (v) => Math.round(v * 100);
+  const moeda = (c) => 'R$ ' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const valorCampo = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // aceita 125,00 / 1.250,00 / 125.00; devolve null se não for um valor maior que zero
+  function lerValor(t) {
+    let s = String(t).replace(/\s|R\$/g, '');
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    return /^\d{1,7}(\.\d{1,2})?$/.test(s) && Number(s) > 0 ? Number(s) : null;
+  }
   const opcoesServ = (emp, sel) => `<option value="">Escolher serviço…</option>${(SERVICOS[emp] || []).map((x) => `<option ${sel === x ? 'selected' : ''}>${x}</option>`).join('')}`;
   function regiaoDe(c) { return LOCAIS.poa.includes(c) ? 'Metropolitana' : (REGIAO[c] || null); }
   const RE_SEI = /^\d\.\d{4}\.\d{4}\/\d{6}-\d$/;
@@ -198,11 +238,13 @@
     _anim: {}, _k: {},
     demandas: (salvo && Array.isArray(salvo.demandas)) ? salvo.demandas : [],
     equipe: (salvo && Array.isArray(salvo.equipe)) ? salvo.equipe : [],
-    usuario: (salvo && GESTORES.some((g) => g.id === salvo.usuario)) ? salvo.usuario : null,
+    // o login guardado vale para o coordenador e para quem está ativo na Equipe
+    usuario: (salvo && (GESTORES.some((g) => g.id === salvo.usuario) || (salvo.equipe || []).some((u) => u && u.id === salvo.usuario && u.ativo))) ? salvo.usuario : null,
     excluidas: (salvo && Array.isArray(salvo.excluidas)) ? salvo.excluidas : [],
     lixeira: (salvo && Array.isArray(salvo.lixeira)) ? salvo.lixeira : [],
-    senhaDefinida: !!(salvo && salvo.senhaDefinida), // primeiro acesso: o gestor precisa criar uma senha
-    sitAtivas: new Set((salvo && Array.isArray(salvo.sitAtivas) && salvo.sitAtivas.length === 1 && SITUACOES.some((x) => x.id === salvo.sitAtivas[0])) ? salvo.sitAtivas : ABERTAS),
+    senhaDefinida: !!(salvo && salvo.senhaDefinida), // primeiro acesso: o coordenador precisa criar uma senha
+    precos: carregarPrecos(salvo && salvo.precos),
+    sitAtivas: new Set((salvo && Array.isArray(salvo.sitAtivas) && (salvo.sitAtivas.length === 1 || salvo.sitAtivas.length === SITUACOES.length) && salvo.sitAtivas.every((v) => SITUACOES.some((x) => x.id === v))) ? salvo.sitAtivas : ABERTAS),
     busca: '', filtroResp: '', filtroLocal: '', localQ: '', ordCol: 'ag', ordDir: 'desc', folha: 1,
     vista: (salvo && salvo.vista === 'postits') ? 'postits' : 'linhas',
     aberta: null, aba: 'dados',
@@ -213,7 +255,7 @@
   };
   function persistir() {
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ demandas: E.demandas, equipe: E.equipe, usuario: E.usuario, sitAtivas: [...E.sitAtivas], vista: E.vista, excluidas: E.excluidas, lixeira: E.lixeira, senhaDefinida: E.senhaDefinida }));
+      localStorage.setItem(CHAVE, JSON.stringify({ demandas: E.demandas, equipe: E.equipe, usuario: E.usuario, sitAtivas: [...E.sitAtivas], vista: E.vista, excluidas: E.excluidas, lixeira: E.lixeira, senhaDefinida: E.senhaDefinida, precos: E.precos }));
     } catch (e) { /* ignora */ }
   }
 
@@ -243,8 +285,8 @@
     box.classList.toggle('rola-esq', box.scrollLeft > 2);
     box.classList.toggle('rola-dir', box.scrollLeft + box.clientWidth < box.scrollWidth - 2);
   }
-  // aba ativa do filtro de situação: 'abertas' (em desenvolvimento: as 4 situações em aberto) ou o id de uma situação
-  function abaSit() { return E.sitAtivas.size === 1 ? [...E.sitAtivas][0] : 'abertas'; }
+  // aba ativa do filtro de situação: 'todas', 'abertas' (as 4 situações em aberto) ou o id de uma situação
+  function abaSit() { return E.sitAtivas.size === 1 ? [...E.sitAtivas][0] : E.sitAtivas.size === SITUACOES.length ? 'todas' : 'abertas'; }
   const num4 = (n) => String(n).padStart(4, '0');
   const pad = (n) => String(n).padStart(2, '0');
   function hojeISO() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -290,28 +332,31 @@
   // muda o responsável e avisa quem recebe: NOVA na primeira vez que a demanda entra na caixa de alguém, RETORNOU nas outras
   function atribuir(d, novo) {
     novo = novo || null;
-    // Em atendimento e Para validação nunca ficam sem responsável: no mínimo, o gestor
-    if (!novo && TRAVADOS.includes(d.situacao)) novo = 'admin';
+    // a demanda nunca fica sem responsável: no mínimo, o coordenador (só a Concluída fica com o Setor)
+    if (!novo && d.situacao !== 'concluida') novo = 'admin';
     if (!d.passou) d.passou = d.responsavel ? [d.responsavel] : [];
     if (novo === d.responsavel) return;
-    // guarda quem tratou por último: é para ele que a devolução vai
+    // guarda o último técnico que tratou da demanda (aparece como "atendida por" na concluída)
     if (TRAVADOS.includes(d.situacao) && d.responsavel && d.responsavel !== 'admin') d.tecnico = d.responsavel;
     d.responsavel = novo;
     if (!novo) { if (d.aviso && d.aviso.tipo !== 'pendente') d.aviso = null; return; }
     avisar(d, d.passou.length ? 'retornou' : 'nova', novo);
     if (!d.passou.includes(novo)) d.passou.push(novo);
   }
-  // Carga de cada demanda: Cadastrada e Acionada ficam com o técnico; Em atendimento e Pendente ficam com o gestor;
+  // Carga de cada demanda: fica com o responsável em todas as etapas (a mudança automática de status não a move);
   // Concluída fica com o setor, sem atribuição. O técnico que atendeu fica guardado em d.tecnico (e no histórico).
-  const nomeResp = (id) => (id === 'admin' ? 'Gestor' : id ? nomeUsr(id) : 'sem responsável');
-  function regResp(d, de, para, motivo, autor) { registrar(d, 'Responsável alterado: ' + nomeResp(de) + ' → ' + (para === 'setor' ? 'Setor' : nomeResp(para)) + (motivo ? ' (' + motivo + ')' : '') + '.', autor); }
-  function paraGestor(d, autor) {
-    if (d.responsavel === 'admin') return;
-    const ant = d.responsavel;
-    if (ant) d.tecnico = ant;
-    d.responsavel = 'admin';
-    regResp(d, ant, 'admin', 'carga do gestor', autor);
+  const nomeResp = (id) => (id === 'admin' ? 'Coordenador' : id ? nomeUsr(id) : 'sem responsável');
+  // outra demanda (em aberto, encerrada ou na lixeira) que já usa este número de ticket ou este SEI: só avisa, não bloqueia
+  const nomeDem = (x) => (x.sei || 'demanda ' + num4(x.id));
+  const comTicket = (num, id) => E.demandas.concat(E.lixeira).find((x) => x.id !== id && (x.ticketPrincipal === num || x.subtickets.some((s) => s.numero === num)));
+  const comSei = (sei, id) => (sei ? E.demandas.concat(E.lixeira).find((x) => x.id !== id && x.sei === sei) : null);
+  function avisoRepetidos(nums, id) {
+    const ls = nums.map((n) => [n, comTicket(n, id)]).filter(([, x]) => x);
+    return ls.length ? ' Atenção: ' + ls.map(([n, x]) => 'o ticket ' + n + ' também está em ' + nomeDem(x)).join('; ') + '.' : '';
   }
+  // "atribuída ao Coordenador" / "atribuída a Ana"
+  const atribuidaA = (id) => (id === 'admin' ? 'atribuída ao Coordenador' : 'atribuída a ' + nomeResp(id));
+  function regResp(d, de, para, motivo, autor) { registrar(d, 'Responsável alterado: ' + nomeResp(de) + ' → ' + (para === 'setor' ? 'Setor' : nomeResp(para)) + (motivo ? ' (' + motivo + ')' : '') + '.', autor); }
   function paraSetor(d, autor) {
     const t = d.responsavel && d.responsavel !== 'admin' ? d.responsavel : d.tecnico;
     if (t) d.tecnico = t;
@@ -322,13 +367,13 @@
   }
   const avisoVisivel = (d) => d.aviso || null;
   function textoAviso(a) {
-    const quem = a.para === 'admin' ? 'o gestor' : (usr(a.para) ? usr(a.para).curto : '');
+    const quem = a.para === 'admin' ? 'o coordenador' : (usr(a.para) ? usr(a.para).curto : '');
     if (a.tipo === 'pendente') return 'Para validação · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'status') return 'Status alterado · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'atendimento') return 'Em atendimento · com ' + quem + ' · ainda não aberta';
     return (a.tipo === 'nova' ? 'Nova para ' : 'Retornou para ') + quem + ' · ainda não aberta';
   }
-  // quem está com a demanda: técnico, Gestor ou Setor (concluídas)
+  // quem está com a demanda: técnico, Coordenador ou Setor (concluídas)
   function avatarCarga(d, cls) {
     if (d.situacao === 'concluida' && !d.responsavel) return `<span class="avatar ${cls || 'sm'} setor" title="Setor${d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : ''}">${svg(cls === 'xs' ? 10 : 12, '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/>', 2)}</span>`;
     return avatar(d.responsavel, cls || 'sm');
@@ -338,12 +383,12 @@
     const nome = d.situacao === 'concluida' && !d.responsavel ? '<span class="resp-nome setor">Setor</span>' : `<span class="resp-nome">${u ? esc(u.curto) : 'Sem responsável'}</span>`;
     return nome + avatarCarga(d);
   }
-  // Nova cujo período já terminou sem acionamento: bolinha vermelha e data em vermelho
-  const vencida = (d) => d.situacao === 'nova' && !!d.inicio && (d.fim || d.inicio) < hojeISO();
+  // Nova cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
+  const vencida = (d) => d.situacao === 'nova' && !!d.inicio && d.inicio <= hojeISO();
   const pontoAviso = (d) => {
     const a = avisoVisivel(d); const v = vencida(d);
     const azul = a ? `<span class="nv-ponto ${v ? 'par' : ''}" title="${esc(textoAviso(a))}"><span class="visually-hidden">${esc(textoAviso(a))}</span></span>` : '';
-    return azul + (v ? `<span class="nv-ponto venc ${a ? 'par' : ''}" title="Data vencida, demanda ainda não acionada"><span class="visually-hidden">Data vencida, demanda ainda não acionada</span></span>` : '');
+    return azul + (v ? `<span class="nv-ponto venc ${a ? 'par' : ''}" title="A Data de Início chegou e a demanda não foi acionada"><span class="visually-hidden">A Data de Início chegou e a demanda não foi acionada</span></span>` : '');
   };
   // o card foi aberto: a demanda foi vista e a bolinha sai (chamado só no momento da abertura, em desenhar())
   function marcarVisto() {
@@ -352,25 +397,33 @@
   }
 
   // ------------------------------------------------------------------ status automáticos pela data de agendamento
-  // Acionada → Em atendimento no dia de início; Acionada/Em atendimento → Pendente de conclusão um dia depois do fim
-  // (vai para o gestor). Pendente não volta mais: só avança para Concluída (o gestor pode devolver ao técnico, ainda Pendente).
+  // Acionada → Em atendimento no dia de início. Nova também, se já tem ticket principal e ao menos um subticket
+  // (sem tickets, fica Nova e ganha o sinal vermelho). Acionada/Em atendimento → Para validação um dia depois do fim.
+  // A carga continua com quem está (não vai para o coordenador). Para validação não volta mais: só avança para Concluída.
   // API: no sistema real isto roda no servidor (tarefa agendada diária, ex.: @Scheduled no Spring), não no navegador
   function automatizar() {
     const hoje = hojeISO(); let n = 0;
     E.demandas.forEach((d) => {
       if (!d.inicio) return;
       const fim = d.fim || d.inicio;
+      // a Data de Início foi corrigida para antes do acionamento: o acionamento acompanha (nunca é depois do início)
+      if (d.acionadaEm && d.acionadaEm > d.inicio) { d.acionadaEm = d.inicio; n++; }
+      if (d.situacao === 'nova' && d.inicio <= hoje && d.ticketPrincipal && d.subtickets.length) {
+        d.situacao = 'atendimento';
+        // a data do acionamento é a do registro do ticket principal (quando as empresas foram acionadas)
+        d.acionadaEm = dataAcion(d.ticketEm && d.ticketEm.data ? String(d.ticketEm.data).slice(0, 10) : hoje, d);
+        registrar(d, 'Status alterado automaticamente: Nova → Em atendimento (tickets registrados e início do agendamento em ' + br(d.inicio) + ').', 'sistema');
+        avisar(d, 'atendimento', d.responsavel); n++;
+      }
       if (['acionada', 'atendimento'].includes(d.situacao) && fim < hoje) {
         const de = sit(d.situacao).um;
         d.situacao = 'pendente';
         registrar(d, 'Status alterado automaticamente: ' + de + ' → Para validação (o atendimento previsto terminou em ' + br(fim) + ').', 'sistema');
-        paraGestor(d, 'sistema');
-        avisar(d, 'pendente', 'admin'); n++;
+        avisar(d, 'pendente', d.responsavel); n++;
       } else if (d.situacao === 'acionada' && d.inicio <= hoje) {
         d.situacao = 'atendimento';
         registrar(d, 'Status alterado automaticamente: Acionada → Em atendimento (início do agendamento em ' + br(d.inicio) + ').', 'sistema');
-        paraGestor(d, 'sistema');
-        avisar(d, 'atendimento', 'admin'); n++;
+        avisar(d, 'atendimento', d.responsavel); n++;
       }
     });
     return n + limparLixeira();
@@ -388,15 +441,9 @@
   }
 
   function prazo(d) {
-    if (!ABERTAS.includes(d.situacao)) return '';
-    if (!d.inicio) return d.situacao === 'nova' ? '<span class="badge prazo">A agendar</span>' : '';
-    const ini = dias(d.inicio); const fim = dias(d.fim || d.inicio);
-    if (d.situacao === 'pendente') return fim < 0 ? '<span class="badge prazo pend">Há ' + (-fim) + (fim === -1 ? ' dia' : ' dias') + '</span>' : '';
-    if (d.situacao === 'atendimento') return fim <= 0 ? '<span class="badge prazo aten">Último dia</span>' : (ini <= 0 ? '<span class="badge prazo aten">Até ' + br(d.fim || d.inicio).slice(0, 5) + '</span>' : '<span class="badge prazo">Em ' + ini + (ini === 1 ? ' dia' : ' dias') + '</span>');
-    if (fim < 0) return d.situacao === 'acionada' ? '<span class="badge prazo">Há ' + (-fim) + (fim === -1 ? ' dia' : ' dias') + '</span>' : '';
-    if (ini < 0) return ''; // Nova já dentro do período, sem acionamento: não é "hoje"
-    if (ini === 0) return '<span class="badge prazo hoje">Hoje</span>';
-    // contagem até o início: 02 dias, 01 dia, 120 dias (no máximo 3 dígitos)
+    // só a demanda Acionada conta os dias até passar a Em Atendimento: 02 dias, 01 dia, 120 dias (no máximo 3 dígitos)
+    if (d.situacao !== 'acionada' || !d.inicio) return '';
+    const ini = dias(d.inicio); if (ini <= 0) return '';
     const n = Math.min(ini, 999);
     return '<span class="badge prazo">' + String(n).padStart(2, '0') + (n === 1 ? ' dia' : ' dias') + '</span>';
   }
@@ -432,36 +479,39 @@
     xP: svg(12, '<path d="M6 6l12 12M18 6 6 18"/>', 2.4)
   };
 
-  // concluída fica com o setor: não é uma demanda "sem responsável"
-  const semResponsavel = (d) => !d.responsavel && d.situacao !== 'concluida';
+  // ícones de visualização (linhas ou post-its), ao lado do filtro de Responsável
+  function vistasHtml() {
+    return `<div class="btn-group vistas" role="group" aria-label="Visualização">
+      <button type="button" class="vista-btn" data-acao="vista" data-v="linhas" aria-pressed="${E.vista === 'linhas'}" aria-label="Ver em linhas" title="Ver em linhas">${I.vLinhas}</button>
+      <button type="button" class="vista-btn" data-acao="vista" data-v="postits" aria-pressed="${E.vista === 'postits'}" aria-label="Ver em post-its" title="Ver em post-its">${I.vPostits}</button>
+    </div>`;
+  }
   // filtro de responsável: lista própria, com o número de demandas de cada um num círculo na cor da pessoa
   function filtroResp() {
     // todos os cards que estão com cada um, independente de aba, pesquisa e demais filtros
-    const n = (id) => E.demandas.filter((d) => (id === '_sem' ? semResponsavel(d) : d.responsavel === id)).length;
-    const lista = ativos().concat(E.equipe.filter((x) => !x.ativo && (n(x.id) || E.filtroResp === x.id)).sort(porNome), [Object.assign({}, GESTORES[0], { nome: 'Gestor', ativo: true })]);
+    const n = (id) => E.demandas.filter((d) => d.responsavel === id).length;
+    const lista = ativos().concat(E.equipe.filter((x) => !x.ativo && (n(x.id) || E.filtroResp === x.id)).sort(porNome), [Object.assign({}, GESTORES[0], { nome: 'Coordenador', ativo: true })]);
     const max = Math.max(1, ...lista.map((x) => n(x.id)));
     const sel = E.filtroResp; const u = usr(sel); const aberto = E.menu === 'resp';
     const linha = (id, nome, av) => {
       const q = n(id); const on = sel === id;
       return `<button type="button" role="option" aria-selected="${on}" class="dropdown-item op-resp ${on ? 'escolhido' : ''}" data-acao="resp-escolher" data-v="${id}">
         ${av}
-        <span class="op-txt"><span class="op-nome">${esc(nome)}</span>${id === '_sem' ? '' : `<span class="carga" aria-hidden="true"><i style="width:${Math.round((q / max) * 100)}%;background:${usr(id) ? corOk(usr(id).cor) : 'var(--accent)'}"></i></span>`}</span>
+        <span class="op-txt"><span class="op-nome">${esc(nome)}</span>${`<span class="carga" aria-hidden="true"><i style="width:${Math.round((q / max) * 100)}%;background:${usr(id) ? corOk(usr(id).cor) : 'var(--accent)'}"></i></span>`}</span>
         <span class="op-n">${q}</span>
         <span class="op-check" aria-hidden="true">${on ? I.check : ''}</span>
       </button>`;
     };
-    return `<div class="menu-ancora filtro ${sel ? 'ativo' : ''} ${aberto ? 'aberto' : ''}">
+    return `<div class="menu-ancora filtro filtro-resp ${sel ? 'ativo' : ''} ${aberto ? 'aberto' : ''}">
       <button type="button" class="filtro-btn" data-acao="resp-pop" aria-haspopup="listbox" aria-expanded="${aberto}" aria-label="Filtrar por responsável${sel ? ': ' + esc(u ? u.nome : 'sem responsável') : ''}">
-        ${sel ? (u ? avatar(u.id, 'xs') : '<span class="avatar xs vazio">?</span>') : `<span class="filtro-ico">${I.pessoa}</span>`}
-        <span class="filtro-nome">${sel ? (u ? esc(u.curto) : 'Sem responsável') : 'Responsável'}</span>
-        ${sel ? `<span class="badge filtro-n">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
+        <span class="filtro-ico">${I.pessoa}</span>
+        <span class="filtro-nome">${sel ? esc((lista.find((x) => x.id === sel) || u || { nome: 'Sem responsável' }).nome) : 'Responsável'}</span>
+        ${sel ? `<span class="filtro-n" title="Demandas com ${esc((lista.find((x) => x.id === sel) || u || { nome: '' }).nome)} no momento">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
       </button>
       ${sel ? `<button type="button" class="filtro-limpa" data-acao="resp-escolher" data-v="" aria-label="Limpar filtro de responsável" title="Limpar filtro">${I.xP}</button>` : ''}
       ${aberto ? `<div class="dropdown-menu show pop-resp" role="listbox" aria-label="Responsável">
         <div class="pop-cab"><span>Responsável</span><span>Demandas</span></div>
         ${lista.map((x) => linha(x.id, x.nome + (x.ativo ? '' : ' (inativo)'), avatar(x.id, 'sm'))).join('')}
-        <hr class="dropdown-divider">
-        ${linha('_sem', 'Sem responsável', '<span class="avatar sm vazio">?</span>')}
       </div>` : ''}
     </div>`;
   }
@@ -480,7 +530,7 @@
       <button type="button" class="filtro-btn" data-acao="local-pop" aria-haspopup="listbox" aria-expanded="${aberto}" aria-label="Filtrar por local${sel ? ': ' + esc(sel) : ''}">
         <span class="filtro-ico">${I.local}</span>
         <span class="filtro-nome">${sel ? esc(sel) : 'Local'}</span>
-        ${sel ? `<span class="badge filtro-n">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
+        ${sel ? `<span class="filtro-n" title="Demandas neste local, na aba escolhida">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
       </button>
       ${sel ? `<button type="button" class="filtro-limpa" data-acao="local-escolher" data-v="" aria-label="Limpar filtro de local" title="Limpar filtro">${I.xP}</button>` : ''}
       ${aberto ? `<div class="dropdown-menu show pop-local">
@@ -504,7 +554,7 @@
   function visiveis() {
     const q = normal(E.busca.trim());
     let ls = E.demandas.filter((d) => E.sitAtivas.has(d.situacao));
-    if (E.filtroResp) ls = ls.filter((d) => (E.filtroResp === '_sem' ? semResponsavel(d) : d.responsavel === E.filtroResp));
+    if (E.filtroResp) ls = ls.filter((d) => d.responsavel === E.filtroResp);
     if (E.filtroLocal) ls = ls.filter((d) => d.comarca === E.filtroLocal);
     if (q) {
       ls = ls.filter((d) => normal([d.sei, d.descricao, d.comarca, d.informacoes, num4(d.id), d.ticketPrincipal,
@@ -539,8 +589,8 @@
     <b>DITIC-DSUP</b><span>&nbsp;| <span class="longo">Controle de </span>Mudanças</span>
   </button>
   <div class="topo-acoes">
-    ${ehGestor() ? `<button type="button" class="btn btn-primary btn-pill btn-nova" data-acao="nova" title="Nova demanda de mudança">${I.mais}<span>Nova demanda</span></button>
-    <div class="sep-v" aria-hidden="true"></div>` : ''}
+    <button type="button" class="btn btn-primary btn-pill btn-nova" data-acao="nova" title="Nova demanda de mudança">${I.mais}<span>Nova demanda</span></button>
+    <div class="sep-v" aria-hidden="true"></div>
     ${telaConta()}
   </div>
 </div></header>`;
@@ -556,8 +606,8 @@
       ${E.menu === 'conta' ? `<div class="dropdown-menu show" role="menu">
         <div class="dropdown-header menu-cab">${avatar(u.id, 'g')}<span><b>${esc(u.nome)}</b><small>Controle de Mudanças</small></span></div>
         ${u.gestor ? `        <button type="button" role="menuitem" class="dropdown-item" data-acao="equipe">${svg(16, '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.9-3 3.1-4.6 5.5-4.6s4.6 1.6 5.5 4.6"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.6c2.3-.2 4.2 1.2 5 4"/>', 1.8)}<span style="flex:1">Equipe</span><small class="menu-n">${ativos().length} ${ativos().length === 1 ? "pessoa" : "pessoas"}</small></button>
-        <button type="button" role="menuitem" class="dropdown-item" data-acao="movimentos">${svg(16, '<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16.5" r="3.5"/><path d="M18 15v1.6l1 .8"/>', 1.9)}<span style="flex:1">Movimentações do dia</span></button>
-        <button type="button" role="menuitem" class="dropdown-item" data-acao="lixeira">${I.lixo}<span style="flex:1">Lixeira</span><small class="menu-n">${E.lixeira.length}</small></button>` : ''}
+        <button type="button" role="menuitem" class="dropdown-item" data-acao="lixeira">${I.lixo}<span style="flex:1">Lixeira</span><small class="menu-n">${E.lixeira.length}</small></button>
+        <button type="button" role="menuitem" class="dropdown-item" data-acao="config">${svg(16, '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>', 1.9)}<span style="flex:1">Configuração</span></button>` : ''}
         <hr class="dropdown-divider">
         <button type="button" role="menuitem" class="dropdown-item perigo" data-acao="sair">${I.sair}Sair da conta</button>
       </div>` : ''}
@@ -590,8 +640,8 @@
     const filtrando = E.busca || E.filtroResp || E.filtroLocal;
     return `
 <main class="painel">
+  <h1 class="visually-hidden">Demandas de mudança</h1>
   <div class="titulo-linha">
-    <h1>Filtro de Demanda</h1>
     <div class="nav sit-abas" role="tablist" aria-label="Filtrar por situação">
       ${(() => {
         const atual = abaSit();
@@ -600,8 +650,9 @@
         const st = (x) => aba(x.id, x.nome, base.filter((d) => d.situacao === x.id).length, x.cor, x.dica || 'Mostrar só ' + x.nome.toLowerCase());
         const sep = '<span class="aba-sep" aria-hidden="true"></span>';
         return aba('abertas', 'Em aberto', nAb, '', 'Novas, acionadas, em atendimento e para validação')
-          + sep + SITUACOES.filter((x) => ABERTAS.includes(x.id)).map(st).join('')
-          + '<span class="aba-sep aba-grupo" aria-hidden="true"></span>' + SITUACOES.filter((x) => !ABERTAS.includes(x.id)).map(st).join('');
+          + SITUACOES.filter((x) => ABERTAS.includes(x.id)).map(st).join('')
+          + '<span class="aba-sep aba-grupo" aria-hidden="true"></span>' + SITUACOES.filter((x) => !ABERTAS.includes(x.id)).map(st).join('')
+          + sep + aba('todas', 'Todas', base.length, '', 'Todas as demandas, em aberto e encerradas');
       })()}
     </div>
   </div>
@@ -613,10 +664,7 @@
     </div>
     ${filtroLocal()}
     ${filtroResp()}
-    <div class="btn-group vistas" role="group" aria-label="Visualização">
-      <button type="button" class="vista-btn" data-acao="vista" data-v="linhas" aria-pressed="${E.vista === 'linhas'}" aria-label="Ver em linhas" title="Ver em linhas">${I.vLinhas}</button>
-      <button type="button" class="vista-btn" data-acao="vista" data-v="postits" aria-pressed="${E.vista === 'postits'}" aria-label="Ver em post-its" title="Ver em post-its">${I.vPostits}</button>
-    </div>
+    ${vistasHtml()}
   </div>
 
   <section class="lista vista-${E.vista}" aria-label="Demandas">
@@ -637,7 +685,7 @@
         <span class="vazio-ico">${svg(26, '<rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M9 14.5h6"/>', 1.7)}</span>
         <b>Nenhuma demanda por aqui</b>
         <span>Ajuste a pesquisa ou escolha outra situação nas abas acima.</span>
-        ${filtrando ? '<button type="button" class="btn btn-sm" data-acao="limpar">Limpar pesquisa e filtros</button>' : (ehGestor() ? `<button type="button" class="btn btn-sm" data-acao="nova">${I.mais}Nova demanda</button>` : '')}
+        ${filtrando ? '<button type="button" class="btn btn-sm" data-acao="limpar">Limpar pesquisa e filtros</button>' : `<button type="button" class="btn btn-sm" data-acao="nova">${I.mais}Nova demanda</button>`}
       </div>`}
     </div>
     <div class="l-pe">
@@ -655,7 +703,7 @@
   function telaLinha(d) {
     const s = sit(d.situacao); const u = usr(d.responsavel);
     return `
-<article class="linha-dem l-grade ${E.destaque === d.id ? 'destaque' + (E._anim.destaque ? ' pulsa' : '') : ''}" data-sit="${esc(d.situacao)}" data-acao="abrir" data-id="${d.id}" tabindex="0" role="button" title="${esc(d.descricao)}" aria-label="Demanda ${esc(d.sei || num4(d.id))}, ${esc(d.comarca)}, ${esc(s.um)}">
+<article class="linha-dem l-grade ${vencida(d) ? 'nv-venc' : ''} ${E.destaque === d.id ? 'destaque' + (E._anim.destaque ? ' pulsa' : '') : ''}" data-sit="${esc(d.situacao)}" data-acao="abrir" data-id="${d.id}" tabindex="0" role="button" title="${esc(d.descricao)}" aria-label="Demanda ${esc(d.sei || num4(d.id))}, ${esc(d.comarca)}, ${esc(s.um)}">
   <div class="cel c-sei">
     <span class="sei">${esc(d.sei || 'Fora do SEI')}</span>
     ${d.sei ? `<button type="button" class="mini-copia" data-acao="copiar" data-v="${esc(d.sei)}" aria-label="Copiar expediente ${esc(d.sei)}" title="Copiar número">${I.copiar}</button>` : ''}
@@ -673,7 +721,7 @@
   function telaPostit(d) {
     const s = sit(d.situacao); const u = usr(d.responsavel);
     return `
-<article class="postit ${E.destaque === d.id ? 'destaque' + (E._anim.destaque ? ' pulsa' : '') : ''}" data-sit="${esc(d.situacao)}" data-acao="abrir" data-id="${d.id}" tabindex="0" role="button" aria-label="Demanda ${esc(d.sei || num4(d.id))}, ${esc(d.comarca)}, ${esc(s.um)}">
+<article class="postit ${vencida(d) ? 'nv-venc' : ''} ${E.destaque === d.id ? 'destaque' + (E._anim.destaque ? ' pulsa' : '') : ''}" data-sit="${esc(d.situacao)}" data-acao="abrir" data-id="${d.id}" tabindex="0" role="button" aria-label="Demanda ${esc(d.sei || num4(d.id))}, ${esc(d.comarca)}, ${esc(s.um)}">
   ${pontoAviso(d)}
   <div class="pi-topo"><span class="pi-sei">${esc(d.sei || 'Fora do SEI')}</span>${avatarCarga(d)}</div>
   <h3 class="pi-local">${esc(d.comarca || 'Local não informado')}</h3>
@@ -697,7 +745,7 @@
   function telaDetalhe() {
     const d = demanda(E.aberta); if (!d) return '';
     const s = sit(d.situacao); const u = usr(d.responsavel);
-    const abas = [['dados', 'Detalhes', ''], ['tickets', 'Tickets', d.subtickets.length + (d.ticketPrincipal ? 1 : 0)], ['hist', 'Histórico', d.historico.length]];
+    const abas = [['dados', 'Detalhes', ''], ['tickets', 'Tickets', d.subtickets.length], ['hist', 'Histórico', d.historico.length]];
     return `
 <div class="modal d-block det-fundo ${E._anim.det ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal">
 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -707,10 +755,10 @@
       <div class="det-l1"><h2 id="det-titulo">${esc(predio(d.comarca) || 'Local não informado')}</h2>${statusCab(d)}</div>
       <div class="det-l2">
         ${d.sei ? `<span class="mono">${esc(d.sei)}</span><button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.sei)}" aria-label="Copiar expediente" title="Copiar número">${I.copiar}</button>` : '<span>Fora do SEI</span>'}
-        <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${I.agenda}${d.inicio ? esc(agendaComHora(d)) : 'A agendar'}</span>
         <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(regiaoDe(d.comarca) || 'não identificada')}</span>
-        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === 'admin' ? 'Gestor' : u.nome) + (u.id === 'admin' && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === 'admin' ? 'Coordenador' : u.nome) + (u.id === 'admin' && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
       </div>
     </div>
     <button type="button" class="btn btn-icone" data-acao="fechar-det" aria-label="Fechar">${I.fechar}</button>
@@ -727,9 +775,7 @@
     <div class="menu-ancora">
       <button type="button" class="btn btn-link btn-suave" data-acao="menu-mais" aria-haspopup="menu" aria-expanded="${E.menu === 'mais'}">${I.pontos}Mais ações</button>
       ${E.menu === 'mais' ? `<div class="dropdown-menu show cima" role="menu">
-        ${['pendente', 'concluida'].includes(d.situacao) && ehGestor() ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
-        ${d.situacao === 'pendente' && ehGestor() && d.responsavel === 'admin' && d.tecnico ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="devolver-tec" data-id="${d.id}">${svg(16, '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', 2)}Devolver a ${esc(nomeUsr(d.tecnico))} (atendimento extra)</button>` : ''}
-        ${d.situacao === 'atendimento' && ehGestor() ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="alterar-conclusao" data-id="${d.id}">${I.agenda}Alterar Data para Conclusão</button>` : ''}
+        ${['pendente', 'concluida'].includes(d.situacao) ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
         <button type="button" role="menuitem" class="dropdown-item" data-acao="acionamento" data-id="${d.id}">${I.texto}Gerar informação de acionamento</button>
         <button type="button" role="menuitem" class="dropdown-item" data-acao="copiar-tickets" data-id="${d.id}">${I.copiar}Copiar tickets em texto</button>
         ${ehGestor() && d.situacao !== 'concluida' ? `<hr class="dropdown-divider">
@@ -741,8 +787,7 @@
     <span class="esp"></span>
     ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-det">Fechar</button>
-    ${d.situacao === 'pendente' && !ehGestor() && d.responsavel && d.responsavel !== 'admin' ? `<button type="button" class="btn btn-outline-secondary btn-lg" data-acao="devolver-gestor" data-id="${d.id}">Devolver ao gestor</button>` : ''}
-    ${d.situacao === 'pendente' && ehGestor() ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
+    ${d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
     ${E.aba === 'dados' && podeEditar(d) ? `<button type="submit" form="form-dados" id="btn-salvar" class="btn btn-primary btn-lg" ${E.sujo || E.statusRascunho ? '' : 'disabled'}>Salvar alterações</button>`
     : E.statusRascunho ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-status">Salvar alterações</button>` : ''}
   </footer>
@@ -832,19 +877,17 @@
   function combo(id, valor, invalido) {
     return `<div class="combo"><input id="${id}" data-rascunho data-combo class="form-control" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-lista" autocomplete="off" spellcheck="false" value="${esc(valor)}" placeholder="Digite a comarca ou o prédio" ${invalido ? 'aria-invalid="true"' : ''}><span class="combo-seta" aria-hidden="true">${I.setaBaixo}</span><ul class="combo-lista" id="${id}-lista" role="listbox" hidden></ul></div>`;
   }
-  function opcoesResp(sel, obrigatorio) {
+  function opcoesResp(sel) {
     const atual = usr(sel); const extra = atual && atual.ativo === false ? [atual] : [];
-    return `${obrigatorio ? '' : '<option value="">Sem responsável</option>'}${ativos().concat(extra).map((u) => `<option value="${u.id}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}</option>`).join('')}<option value="admin" ${sel === 'admin' ? 'selected' : ''}>Gestor</option>`;
+    return `${ativos().concat(extra).map((u) => `<option value="${u.id}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}</option>`).join('')}<option value="admin" ${sel === 'admin' ? 'selected' : ''}>Coordenador</option>`;
   }
 
 
   function abaDados(d) {
     const er = E.erros;
-    // Em atendimento e Para validação: só o responsável e as informações adicionais continuam editáveis
-    const trava = TRAVADOS.includes(d.situacao) ? 'disabled' : '';
     return `
 <form id="form-dados" data-form="dados" novalidate><fieldset class="pilha-blocos" ${podeEditar(d) ? '' : 'disabled'}>
-  <fieldset class="trava-grupo" ${trava}>${bloco('Expediente', '', `
+  ${bloco('Expediente', '', `
     <div class="linha-sei">
       <div class="campo">
         <label class="form-label" for="f-sei">Número do SEI</label>
@@ -859,18 +902,18 @@
     <div class="campo">
       <span class="rotulo-l"><label class="form-label" for="f-desc">Descrição</label><span class="cont" id="f-desc-cont">${(d.descricao || '').length}/250</span></span>
       <textarea id="f-desc" data-rascunho data-cont="250" class="form-control txt txt-desc" rows="3" maxlength="250">${esc(d.descricao)}</textarea>
-    </div>`)}</fieldset>
+    </div>`)}
   ${bloco('Atendimento', '', `
     <div class="linha-atend-det">
       <div class="campo">
         <label class="form-label" for="f-resp">Responsável</label>
-        <select id="f-resp" data-rascunho class="form-select sel-g" ${!ehGestor() ? 'disabled title="Só o gestor atribui a demanda (entre como gestor)"' : ''}>${opcoesResp(d.responsavel, TRAVADOS.includes(d.situacao))}</select>
+        <select id="f-resp" data-rascunho class="form-select sel-g">${opcoesResp(d.responsavel || 'admin')}</select>
       </div>
-      <fieldset class="trava-grupo" ${trava}>
+      <div class="trava-grupo">
         <div class="campo"><label class="form-label" for="f-ini">Data de Início</label>${campoData('f-ini', d.inicio, E.erros.data)}</div>
         <div class="campo"><label class="form-label" for="f-fim">Data para Conclusão</label>${campoData('f-fim', d.fim, E.erros.data)}</div>
         <div class="campo"><label class="form-label" for="f-hora">Hora</label>${campoHora('f-hora', d.hora, E.erros.hora)}</div>
-      </fieldset>
+      </div>
       ${E.erros.data || E.erros.hora ? `<span class="erro campo-info">${esc(E.erros.data || E.erros.hora)}</span>` : ''}
       <div class="campo campo-info">
         <span class="rotulo-l"><label class="form-label" for="f-info">Informações adicionais</label><span class="cont" id="f-info-cont">${(d.informacoes || '').length}/100</span></span>
@@ -887,7 +930,7 @@
     return h ? { data: h.data, usuario: h.usuario } : { data: d.criadaEm, usuario: d.responsavel };
   }
   function blocoTicket(d) {
-    const ro = !podeEditar(d); const semAlterar = ro || TRAVADOS.includes(d.situacao);
+    const ro = !podeEditar(d); const semAlterar = ro;
     if (ro && !d.ticketPrincipal) return bloco('Ticket Principal', '', '<p class="vazio-bloco">Nenhum ticket principal registrado.</p>');
     if (d.ticketPrincipal && (!E.editTk || semAlterar)) {
       const inf = infoTicket(d);
@@ -906,7 +949,7 @@
       ${d.ticketPrincipal ? '' : '<p class="bloco-dica">Abra o ticket principal no 4Biz e registre o número aqui. Depois disso a demanda pode ser marcada como acionada.</p>'}
       <form class="linha-form" data-form="principal" novalidate>
         <label for="t-principal" class="visually-hidden">Número do ticket principal</label>
-        <input id="t-principal" data-rascunho class="form-control mono inp-tk" inputmode="numeric" value="${esc(d.ticketPrincipal || '')}" placeholder="Número do ticket, ex.: 1831576" ${E.erros.principal ? 'aria-invalid="true"' : ''}>
+        <input id="t-principal" data-rascunho class="form-control mono inp-tk" inputmode="numeric" value="${esc(d.ticketPrincipal || '')}" placeholder="Número do ticket, ex.: 183157" ${E.erros.principal ? 'aria-invalid="true"' : ''}>
         <span class="linha-form-btns">
           ${d.ticketPrincipal ? '<button type="button" class="btn btn-link btn-lg" data-acao="tk-cancelar">Cancelar</button>' : ''}
           <button type="submit" class="btn btn-primary btn-lg">${d.ticketPrincipal ? 'Salvar número' : 'Registrar ticket'}</button>
@@ -916,15 +959,17 @@
   }
 
   function abaTickets(d) {
-    // Em atendimento e Para validação: dá para incluir ticket novo, mas os já registrados ficam travados
-    const ro = !podeEditar(d); const fixos = ro || TRAVADOS.includes(d.situacao); const trava = fixos ? 'disabled' : '';
+    // em qualquer etapa em aberto dá para incluir, alterar e remover tickets; encerrada fica só para consulta
+    const ro = !podeEditar(d); const fixos = ro; const trava = fixos ? 'disabled' : '';
+    const temMetro = d.subtickets.some((s) => usaMetro(s.empresa, s.finalidade));
     const tabela = d.subtickets.length ? `<table class="table tabela">
-      <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th><th><span class="visually-hidden">Ações</span></th></tr></thead>
+      <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th>${temMetro ? '<th class="th-qtd">Metro</th>' : ''}<th><span class="visually-hidden">Ações</span></th></tr></thead>
       <tbody>${d.subtickets.map((s, i) => `<tr>
         <td><span class="badge emp-tag">${esc(s.empresa)}</span></td>
         <td class="mono">${esc(s.numero)}</td>
         <td><label class="visually-hidden" for="sf-${i}">Serviço</label><select id="sf-${i}" class="form-select sel-tab ${s.finalidade ? '' : 'falta'}" data-campo-sub="finalidade" data-i="${i}" ${trava}>${opcoesServ(s.empresa, s.finalidade)}${s.finalidade && !(SERVICOS[s.empresa] || []).includes(s.finalidade) ? `<option selected>${esc(s.finalidade)}</option>` : ''}</select></td>
         <td class="td-qtd"><label class="visually-hidden" for="sq-${i}">Quantidade</label><input id="sq-${i}" type="number" min="1" max="999" class="form-control inp-qtd ${s.quantidade ? '' : 'falta'}" value="${esc(s.quantidade || '')}" placeholder="—" data-campo-sub="quantidade" data-i="${i}" ${trava}></td>
+        ${temMetro ? `<td class="td-qtd">${usaMetro(s.empresa, s.finalidade) ? `<label class="visually-hidden" for="sm-${i}">Metro linear</label><input id="sm-${i}" type="number" min="1" max="9999" step="1" class="form-control inp-qtd" value="${esc(s.metro || '')}" placeholder="—" data-campo-sub="metro" data-i="${i}" ${trava}>` : ''}</td>` : ''}
         <td class="td-acao"><span class="acoes-sub">
           ${fixos ? '' : `<button type="button" class="btn btn-icone perigo-h" data-acao="sub-del" data-i="${i}" aria-label="Remover subticket ${esc(s.numero)}" title="Remover">${I.lixo}</button>`}
         </span></td>
@@ -937,11 +982,13 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       <span class="campo"><label class="form-label" for="n-emp">Empresa</label>
       <select id="n-emp" data-rascunho class="form-select sel-g" ${E.erros.emp ? 'aria-invalid="true"' : ''}><option value="">Escolher empresa…</option>${EMPRESAS.map((e) => `<option ${E.ultimaEmp === e ? 'selected' : ''}>${e}</option>`).join('')}</select></span>
       <span class="campo"><label class="form-label" for="n-num">Número do subticket</label>
-      <input id="n-num" data-rascunho class="form-control mono" inputmode="numeric" placeholder="Ex.: 1831365 / 1831398" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
+      <input id="n-num" data-rascunho class="form-control mono" inputmode="numeric" placeholder="183136 / 183139" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
       <span class="campo"><label class="form-label" for="n-fin">Serviço</label>
       <select id="n-fin" data-rascunho class="form-select sel-g" ${E.erros.fin ? 'aria-invalid="true"' : ''}>${opcoesServ(E.ultimaEmp || '', '')}</select></span>
       <span class="campo campo-qtd"><label class="form-label" for="n-qtd">Quantidade</label>
       <input id="n-qtd" data-rascunho type="number" min="1" max="999" class="form-control" value="1" ${E.erros.qtd ? 'aria-invalid="true"' : ''}></span>
+      <span class="campo campo-qtd campo-metro"><label class="form-label" for="n-metro">Metro Linear</label>
+      <input id="n-metro" data-rascunho type="number" min="1" max="9999" step="1" class="form-control" placeholder="Opc." title="Opcional" disabled ${E.erros.metro ? 'aria-invalid="true"' : ''}></span>
       <button type="submit" class="btn btn-primary btn-lg">${I.mais}Incluir</button>
     </form>
     ${E.erros.sub ? `<span class="erro">${esc(E.erros.sub)}</span>` : ''}
@@ -965,13 +1012,16 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   // ------------------------------------------------------------------ outros modais
   function telaModal() {
     if (!E.modal) return '';
-    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, relatorio: modalRelatorio, movimentos: modalMovimentos, lixeira: modalLixeira, senha: modalSenha, conclusao: modalConclusao }[E.modal];
-    return `<div class="modal d-block modal-camada ${E.modal === 'confirmar' || E.modal === 'conclusao' ? 'modal-topo' : ''} ${E._anim.modal ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">${m ? m() : ''}</div></div>`;
+    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, relatorio: modalRelatorio, lixeira: modalLixeira, senha: modalSenha, config: modalConfig }[E.modal];
+    // a confirmação da Configuração abre por cima dela; ao voltar, a Configuração não repete a animação
+    const camada = (fn, cls, anim) => `<div class="modal d-block modal-camada ${cls} ${anim ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">${fn ? fn() : ''}</div></div>`;
+    const voltou = E.modal === 'config' && E._k && E._k.modal === 'confirmar';
+    return (E.modal === 'confirmar' && E.cfg ? camada(modalConfig, '', false) : '') + camada(m, E.modal === 'confirmar' ? 'modal-topo' : '', E._anim.modal && !voltou);
   }
 
   function modalNova() {
     const er = E.erros; const v = E.modalDados || {};
-    const resp = v.responsavel !== undefined ? v.responsavel : '';
+    const resp = v.responsavel || 'admin'; // sem escolha, a demanda fica com o coordenador
     const suc = v.sucesso ? demanda(v.sucesso) : null;
     return `
 <form class="modal-content modal-n" role="dialog" aria-modal="true" aria-labelledby="mn-tit" data-form="nova" novalidate>
@@ -995,7 +1045,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
           <div class="campo"><label class="form-label" for="n-fim">Data para Conclusão</label>${campoData('n-fim', v.fim, er.data && v.fim !== '')}</div>
           <div class="campo"><label class="form-label" for="n-hora">Hora</label>${campoHora('n-hora', v.hora, er.hora)}</div>
         </div>
-        ${er.data || er.hora ? `<span class="erro">${esc(er.data || er.hora)}</span>` : '<p class="dica-datas">Sem a data para conclusão, o atendimento é de um dia só. Datas e horário podem ser definidos depois.</p>'}
+        ${er.data || er.hora ? `<span class="erro">${esc(er.data || er.hora)}</span>` : '<p class="dica-datas">Sem a data para conclusão, o atendimento é de um dia só. Datas e horário podem ser definidos depois. Data já passada registra uma demanda antiga.</p>'}
         <div class="campo">
           <span class="rotulo-l"><label class="form-label" for="n-desc">Descrição</label><span class="cont" id="n-desc-cont">${(v.descricao || '').length}/250</span></span>
           <textarea id="n-desc" data-rascunho data-cont="250" class="form-control txt txt-desc" rows="4" maxlength="250" placeholder="Ex.: Adequação de leiaute da sala 1001 - Cartório da 5ª Vara Cível" ${er.desc ? 'aria-invalid="true"' : ''}>${esc(v.descricao || '')}</textarea>
@@ -1006,8 +1056,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
           <legend class="rotulo">Responsável</legend>
           <div class="grade-resp" role="radiogroup">
             ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${u.id}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
-            <label class="tile-resp"><input type="radio" name="n-resp" value="admin" ${resp === 'admin' ? 'checked' : ''}>${avatar('admin', 'sm')}<span>Gestor</span></label>
-            <label class="tile-resp"><input type="radio" name="n-resp" value="" ${!resp ? 'checked' : ''}><span class="avatar sm vazio">?</span><span>Definir depois</span></label>
+            <label class="tile-resp"><input type="radio" name="n-resp" value="admin" ${resp === 'admin' ? 'checked' : ''}>${avatar('admin', 'sm')}<span>Coordenador</span></label>
           </div>
         </fieldset>`)}
     </div>
@@ -1028,7 +1077,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 <div class="sucesso ${E._anim.suc ? 'anim' : ''}" role="status">
   <span class="suc-ico">${I.checkG}</span>
   <h2 class="suc-tit">Demanda Incluída com Sucesso</h2>
-  <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · atribuída a ' + esc(nomeResp(u.id)) : ''}</p>
+  <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · ' + esc(atribuidaA(u.id)) : ''}</p>
+  ${comSei(d.sei, d.id) ? `<p class="suc-nota">Este SEI também está em outra demanda (${esc(comSei(d.sei, d.id).comarca || num4(comSei(d.sei, d.id).id))}). Confira se não é a mesma.</p>` : ''}
+  ${d.inicio && (d.fim || d.inicio) < hojeISO() ? '<p class="suc-nota">A data já passou: a demanda fica Nova até receber o ticket principal e um subticket, e então vai para Para Validação.</p>' : ''}
   <div class="suc-campo">
     <span class="suc-rot">${d.sei ? 'Expediente SEI' : 'Número da demanda'}</span>
     <div class="suc-valor"><span class="mono">${esc(d.sei || num4(d.id))}</span><button type="button" class="btn btn-outline-secondary btn-sm" data-acao="copiar" data-v="${esc(d.sei || num4(d.id))}">Copiar</button></div>
@@ -1074,7 +1125,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="ml-tit">Entrar no Controle de Mudanças</h2>
-    <p>${v.motivo ? esc(v.motivo) : 'Acesso do gestor do DSUP, para incluir, distribuir e concluir demandas. Os técnicos atualizam as demandas sem login.'}</p>
+    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e coordenador entram com o próprio usuário para incluir e alterar demandas. Sem entrar, o sistema fica só para consulta.'}</p>
   </div>
   <div class="campo">
     <label class="form-label" for="l-usr">Usuário da rede</label>
@@ -1087,8 +1138,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Entrar</button>
   <div class="proto-box">
-    <span><b>Acesso do protótipo</b><small>Usuário <code>admin</code>, qualquer senha. O primeiro acesso pede uma nova senha.</small></span>
-    <button type="button" class="btn btn-outline-secondary" data-acao="proto-gestor">Entrar como gestor</button>
+    <span><b>Acesso do protótipo</b><small>Coordenador: <code>admin</code> (o primeiro acesso pede uma nova senha). Técnico: o usuário mostrado na Equipe. Qualquer senha.</small></span>
+    <button type="button" class="btn btn-outline-secondary" data-acao="proto-gestor">Entrar como coordenador</button>
   </div>
 </form>`;
   }
@@ -1125,30 +1176,27 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   // pede login antes de qualquer alteração; depois de entrar, segue o que a pessoa ia fazer
   function precisaLogin(motivo, depois) {
     if (E.usuario) return false;
-    E.modal = 'login'; E.modalDados = { motivo: motivo || 'Esta ação é do gestor. Entre com o usuário do gestor.', depois }; E.erros = {}; E.limparRascunho = true;
+    E.modal = 'login'; E.modalDados = { motivo: motivo || 'Esta ação é do coordenador. Entre com o usuário do coordenador.', depois }; E.erros = {}; E.limparRascunho = true;
     desenhar(); setTimeout(() => { const el = document.getElementById('l-usr'); if (el) el.focus(); }, 0);
     return true;
   }
 
-  // Perfis: o gestor entra (login) e faz tudo; o técnico não tem login e atualiza as demandas sem entrar
+  // Perfis: técnico e coordenador entram com login; sem login, só consulta. O técnico faz tudo nas demandas; o coordenador
+  // também cancela, exclui, restaura da lixeira e mantém Equipe e Configuração (no sistema real, aprova os acessos)
   const ehGestor = () => E.usuario === 'admin';
-  // Concluída e Cancelada ficam só para consulta (no histórico ainda se registra andamento)
-  const podeEditar = (d) => !!d && !FINAIS.includes(d.situacao);
+  // alterar exige login; Concluída e Cancelada ficam só para consulta (no histórico ainda se registra andamento)
+  const podeEditar = (d) => !!d && !!E.usuario && !FINAIS.includes(d.situacao);
   function precisaGestor(motivo, depois) {
-    if (!E.usuario) return precisaLogin(motivo || 'Esta ação é do gestor. Entre com o usuário do gestor.', depois);
+    if (!E.usuario) return precisaLogin(motivo || 'Esta ação é do coordenador. Entre com o usuário do coordenador.', depois);
     if (ehGestor()) return false;
-    aviso('Somente o gestor pode fazer isso.', true); desenhar(); return true;
+    aviso('Somente o coordenador pode fazer isso.', true); desenhar(); return true;
   }
+  const MSG_LOGIN = 'Para alterar a demanda, entre com o seu usuário.';
   function precisaEditar(d) {
     if (podeEditar(d)) return false;
+    if (!E.usuario) return precisaLogin(MSG_LOGIN);
     if (d) { aviso('Demanda encerrada: somente consulta.', true); desenhar(); }
     return true;
-  }
-
-  // Em atendimento e Para validação os dados registrados não mudam mais
-  function precisaDestravar(d) {
-    if (!d || !TRAVADOS.includes(d.situacao)) return false;
-    aviso('Em Atendimento e Para Validação, os dados registrados ficam travados.', true); desenhar(); return true;
   }
 
   // ------------------------------------------------------------------ equipe
@@ -1172,7 +1220,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       }
       return `<li class="list-group-item eq-linha ${u.ativo ? '' : 'inativa'}">
         ${avatar(u.id)}
-        <span class="eq-nome"><b>${esc(u.nome)}</b>${u.ativo ? '' : '<span class="badge tag-inativo">Inativo</span>'}</span>
+        <span class="eq-nome"><b>${esc(u.nome)}</b><small class="eq-usr mono" title="Usuário para entrar">${esc(u.id)}</small>${u.ativo ? '' : '<span class="badge tag-inativo">Inativo</span>'}</span>
         <span class="eq-carga"><b>${ab}</b> em aberto<span class="eq-tot">· ${tot} no total</span></span>
         <span class="eq-acoes">
           ${u.ativo ? `<button type="button" class="btn btn-icone" data-acao="eq-editar" data-v="${u.id}" aria-label="Editar ${esc(u.nome)}" title="Editar">${svg(15, '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', 1.9)}</button>` : '<span></span>'}
@@ -1214,7 +1262,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       <span class="tr-pessoa">${avatar(de.id)}<span><small>De</small><b>${esc(de.nome)}</b></span></span>
       <span class="tr-seta" aria-hidden="true">${svg(18, '<path d="M5 12h14M13 6l6 6-6 6"/>', 2)}</span>
       <span class="campo tr-para"><label class="form-label" for="tr-dest">Para</label>
-        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${u.id}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="_sem" ${t.para === '_sem' ? 'selected' : ''}>Deixar sem responsável</option></select>
+        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${u.id}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="admin" ${t.para === 'admin' ? 'selected' : ''}>Coordenador · ${abertasDe('admin').length} em aberto</option></select>
       </span>
     </div>
     ${E.erros.transf ? `<span class="erro">${esc(E.erros.transf)}</span>` : ''}
@@ -1225,8 +1273,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         <span class="tr-data">${d.inicio ? esc(agendaTexto(d)) : 'Sem data'}</span>
         <span class="badge tr-sit" data-sit="${esc(d.situacao)}">${esc(sit(d.situacao).um)}</span>
       </label></li>`).join('')}</ul>`, '', 'tabela-bloco')}
-    ${ls.some((x) => TRAVADOS.includes(x.situacao)) ? '<p class="tr-nota">Em Atendimento e Para Validação não ficam sem responsável: nesse caso, vão para o Gestor.</p>' : ''}
-    ${t.desativar ? '<p class="tr-nota">As demandas desmarcadas continuam com a pessoa desativada; dá para transferi-las depois pela Equipe.</p>' : ''}
+    ${t.desativar ? '<p class="tr-nota">As demandas desmarcadas vão para o Coordenador: ninguém desativado fica com demanda em aberto.</p>' : ''}
   </div>
   <footer class="modal-footer">
     <button type="button" class="btn btn-link btn-lg" data-acao="eq-voltar">Voltar</button><span class="esp"></span>
@@ -1276,26 +1323,78 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const h = d.historico.slice().reverse().find((x) => /→ Acionada|para Acionada|Empresas acionadas/i.test(x.texto));
     return h ? br(String(h.data).slice(0, 10)) : '';
   }
+  // custo de um subticket, em centavos; null quando não há como calcular
+  function custoSub(s, regiao) {
+    const p = E.precos;
+    if (s.empresa === 'CDS') {
+      const ls = p.cds[s.finalidade]; const i = REGIOES.indexOf(regiao);
+      return ls && i >= 0 && s.quantidade ? centavos(ls[i]) * s.quantidade : null;
+    }
+    if (s.empresa === 'WECOM') {
+      if (s.finalidade === 'Realocação') return s.quantidade ? centavos(p.wecom.realocacao) * s.quantidade : null;
+      if (s.finalidade === 'Instalação') return s.quantidade ? centavos(p.wecom.instalacao) * s.quantidade : null;
+      if (s.finalidade === 'Infraestrutura') return s.metro ? s.metro * centavos(p.wecom.metro) : (s.quantidade ? verbaInfra() * s.quantidade : null);
+    }
+    return null;
+  }
+  // verba da Infraestrutura sem metro linear: metros estimados × valor do metro linear, em centavos
+  function verbaInfra() { return METROS_ESTIMADOS * centavos(E.precos.wecom.metro); }
+  const reais = (c) => 'R$' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function montarRelatorio(d) {
     const tem = (serv) => d.subtickets.some((x) => x.finalidade === serv);
-    const sv = { predio: tem('Mudança de Prédio'), desinst: tem('Desinstalação'), local: tem('Mudança de Local'), inst: tem('Instalação') };
+    // a Realocação da WECOM aparece no quadro do relatório como Mudança de Local
+    const sv = { predio: tem('Mudança de Prédio'), desinst: tem('Desinstalação'), local: tem('Mudança de Local') || tem('Realocação'), inst: tem('Instalação') };
     const lugar = predio(d.comarca) || d.comarca || '';
     const origem = []; const destino = [];
+    // a Desinstalação da Selbetti (multifuncional) não vai para lugar nenhum: não conta para origem e destino
+    const desinstLocal = d.subtickets.some((x) => x.finalidade === 'Desinstalação' && x.empresa !== 'Selbetti');
+    // o local da demanda vem primeiro nas duas colunas; o DMP (de onde vem ou para onde vai o equipamento) depois
+    if (sv.local || sv.predio || desinstLocal) origem.push(lugar);
     if (sv.inst) origem.push('DMP');
-    if (sv.local || sv.predio || sv.desinst) origem.push(lugar);
-    if (sv.local || sv.predio || sv.inst || !(sv.desinst)) destino.push(lugar);
-    if (sv.desinst) destino.push('DMP – Carga CDS');
+    if (sv.local || sv.predio || sv.inst || !desinstLocal) destino.push(lugar);
+    if (desinstLocal) destino.push('DMP – Carga CDS');
     // um item por subticket, na ordem das empresas
     // serviços de rede não são "de equipamentos de informática" no texto do relatório
-    const SO_REDE = ['Instalação de Infraestrutura', 'Habilitação de Pontos de Rede'];
-    const frase = (serv) => (serv || 'Atendimento').replace(/ de (Local|Prédio|Infraestrutura|Pontos de Rede)$/, (m) => m.toLowerCase()) + (SO_REDE.includes(serv) ? '' : ' de equipamentos de informática');
+    const SO_REDE = ['Infraestrutura', 'Habilitação de Pontos de Rede'];
+    const frase = (serv) => (serv || 'Atendimento').replace(/ de (Local|Prédio|Pontos de Rede)$/, (m) => m.toLowerCase()) + (SO_REDE.includes(serv) ? '' : ' de equipamentos de informática');
+    // descrição própria por empresa e serviço; o que não está aqui usa a frase padrão acima
+    // WECOM: contrato das Salas de Audiência Digital. Selbetti: só multifuncionais (impressoras).
+    // CADI: os pontos de rede habilitados são para as multifuncionais da Selbetti.
+    const FRASE_EMPRESA = {
+      WECOM: {
+        'Instalação': 'Instalação de novos equipamentos de informática',
+        'Infraestrutura': 'Instalação de Infraestrutura (redes lógicas, elétricas, canaletas e suportes para TV)',
+        'Realocação': 'Realocação de equipamentos de informática'
+      },
+      Selbetti: {
+        'Instalação': 'Instalação de nova multifuncional Selbetti',
+        'Desinstalação': 'Desinstalação de multifuncional Selbetti',
+        'Mudança de Local': 'Mudança de local de multifuncional Selbetti',
+        'Mudança de Prédio': 'Mudança de prédio de multifuncional Selbetti'
+      },
+      CADI: { 'Habilitação de Pontos de Rede': 'Habilitação de pontos de rede para multifuncionais Selbetti' }
+    };
+    // o local fica só no texto de abertura do relatório, não em cada item
     const itens = [];
     EMPRESAS.forEach((e) => d.subtickets.filter((x) => x.empresa === e).forEach((x) => {
-      const q = x.quantidade;
-      itens.push(frase(x.finalidade) + (q ? ', em total de ' + q + (q === 1 ? ' serviço' : ' serviços') : '') + ', no ' + lugar + '. A atividade foi executada pela contratada ' + e + ' através do ticket ' + x.numero + '.');
+      const q = x.quantidade; const wecom = e === 'WECOM';
+      itens.push(((FRASE_EMPRESA[e] || {})[x.finalidade] || frase(x.finalidade)) + (q ? ', em total de ' + String(q).padStart(2, '0') + (q === 1 ? ' serviço' : ' serviços') : '') + (wecom ? ', se tratando de contrato referente às Salas de Audiência Digital' : '') + '. A atividade foi executada pela contratada ' + e + ' através do ticket ' + x.numero + '.');
     }));
-    const pago = d.subtickets.some((x) => ['CDS', 'WECOM'].includes(x.empresa));
-    return { acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: pago ? '' : '-', itens, global: !pago };
+    const pagos = d.subtickets.filter((x) => ['CDS', 'WECOM'].includes(x.empresa)); const pago = pagos.length > 0;
+    const regiao = regiaoDe(d.comarca); let total = 0; let infra = 0; const notas = []; const semPreco = [];
+    pagos.forEach((x) => {
+      const c = custoSub(x, regiao);
+      if (c !== null) total += c; else semPreco.push(x.numero);
+      // Infraestrutura da WECOM: guardada à parte para o check "Somar a Infraestrutura (WECOM) no custo"
+      if (c !== null && usaMetro(x.empresa, x.finalidade)) {
+        infra += c;
+      }
+      // Infraestrutura sem metro linear: entra a verba estimada, explicada antes de "Era o que cabia informar."
+      if (c !== null && usaMetro(x.empresa, x.finalidade) && !x.metro) {
+        notas.push('A demanda referente a Instalação de Infraestrutura (WECOM), ticket ' + x.numero + ', utiliza o valor de verba de ' + reais(c) + ' somado ao valor total do relatório. Valor estimado com base em uma média de ' + METROS_ESTIMADOS + ' metros lineares de instalação. O valor por metro linear consiste em ' + reais(centavos(E.precos.wecom.metro)) + '.');
+      }
+    });
+    return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (total ? moeda(total) : ''), total, infra, itens, global: !pago, notas, notasSemInfra: infra ? [OBS_SEM_INFRA] : [], semPreco };
   }
   function modalRelatorio() {
     const d = demanda(E.modalDados && E.modalDados.id); if (!d) return '';
@@ -1303,10 +1402,11 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const ck = (id, rot, on) => `<label class="check rl-ck"><input type="checkbox" id="${id}" data-rascunho ${on ? 'checked' : ''}><span>${rot}</span></label>`;
     return `
 <div class="modal-content modal-m relat" role="dialog" aria-modal="true" aria-labelledby="rl-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, cabe revisão. O PDF segue o modelo-mestre do DSUP.</p></div>
+  <header class="modal-header"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, conferir os dados antes de gerar o relatório.</p></div>
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${d.subtickets.length ? '' : `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda não tem subtickets. Marque os serviços, preencha os itens e confira a frase de custo antes de baixar.</span></p>`}
+    ${r.semPreco.length ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Sem valor na soma: ${r.semPreco.length > 1 ? 'tickets' : 'ticket'} ${esc(r.semPreco.join(', '))}. Confira a região do local e o serviço, e ajuste o custo antes de baixar.</span></p>` : ''}
     ${bloco('Datas e serviços', '', `
       <div class="row duplo">
         <div class="col-md-6 campo"><label class="form-label" for="rl-acion">Data do acionamento</label><input id="rl-acion" data-rascunho class="form-control" value="${esc(r.acionamento)}" placeholder="dd/mm/aaaa"></div>
@@ -1318,16 +1418,77 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         <div class="col-md-6 campo"><label class="form-label" for="rl-origem">Local de origem <em>(um por linha)</em></label><textarea id="rl-origem" data-rascunho class="form-control txt" rows="3">${esc(r.origem.join('\n'))}</textarea></div>
         <div class="col-md-6 campo"><label class="form-label" for="rl-destino">Local de destino <em>(um por linha)</em></label><textarea id="rl-destino" data-rascunho class="form-control txt" rows="3">${esc(r.destino.join('\n'))}</textarea></div>
       </div>
-      <div class="campo rl-custo"><label class="form-label" for="rl-custo">Custo (aproximado)</label><input id="rl-custo" data-rascunho class="form-control" value="${esc(r.custo)}" placeholder="R$ 0,00"></div>`)}
-    ${bloco('Serviços executados', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
-      <div class="campo"><label for="rl-itens" class="visually-hidden">Itens</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="6">${esc(r.itens.join('\n\n'))}</textarea>
-      <span class="dica-datas">Um item por parágrafo (separados por uma linha em branco); a numeração entra no PDF. ${r.global ? 'Sem CDS nem WECOM: entra a frase “Custo incluído no valor global do contrato.”' : 'Com CDS ou WECOM há valor a pagar, então a frase do valor global do contrato não entra.'}</span></div>`)}
+      <div class="campo rl-custo"><label class="form-label" for="rl-custo">Custo (aproximado)</label><input id="rl-custo" data-rascunho class="form-control" value="${esc(r.custo)}" placeholder="R$ 0,00"></div>
+      ${r.infra ? ck('rl-infra', 'Somar a Infraestrutura (WECOM) no custo', true) : ''}`)}
+    ${bloco('Descrição', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
+      <div class="campo"><label for="rl-itens" class="visually-hidden">Descrição</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="8">${esc(r.itens.concat(r.notas).join('\n\n'))}</textarea></div>`)}
   </div>
   <footer class="modal-footer">${flash('relatorio')}<span class="esp"></span>
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-modal">Fechar</button>
     <button type="button" class="btn btn-primary btn-lg" data-acao="baixar-relatorio">${I.baixar}Baixar PDF</button>
   </footer>
 </div>`;
+  }
+  // Configuração de valores: edita em rascunho (E.cfg.v) e só salva depois do Sim
+  // metro: o valor é por metro linear, mas o campo leva só o nome do serviço
+  const WECOM_CAMPOS = [['realocacao', 'Realocação'], ['instalacao', 'Instalação'], ['metro', 'Infraestrutura']];
+  function cfgCampos() {
+    const p = E.precos; const ls = [];
+    SERVICOS_CDS_PRECO.forEach((sv, si) => REGIOES.forEach((r, ri) => ls.push({ id: 'pc-' + si + '-' + ri, atual: p.cds[sv][ri] })));
+    WECOM_CAMPOS.forEach(([k]) => ls.push({ id: 'pw-' + k, atual: p.wecom[k] }));
+    return ls;
+  }
+  function cfgRascunho() { const v = {}; cfgCampos().forEach((c) => { v[c.id] = valorCampo(c.atual); }); return v; }
+  function cfgEstado() {
+    const campos = cfgCampos().map((c) => { const novo = lerValor(E.cfg.v[c.id]); return Object.assign(c, { invalido: novo === null, mudou: novo !== null && centavos(novo) !== centavos(c.atual) }); });
+    return { campos, mudancas: campos.filter((c) => c.mudou), invalidos: campos.filter((c) => c.invalido) };
+  }
+  function modalConfig() {
+    const c = E.cfg;
+    const celula = (sv, si, ri) => `<td><input id="pc-${si}-${ri}" data-cfg="1" class="form-control inp-valor" inputmode="decimal" autocomplete="off" aria-label="${esc(sv)}, ${esc(REGIOES[ri])}" value="${esc(c.v['pc-' + si + '-' + ri])}"></td>`;
+    const wecom = ([k, rot]) => `<div class="col-md-4 campo"><label class="form-label" for="pw-${k}">${esc(rot)}</label><input id="pw-${k}" data-cfg="1" class="form-control" inputmode="decimal" autocomplete="off" value="${esc(c.v['pw-' + k])}"></div>`;
+    return `
+<form class="modal-content modal-m config" role="dialog" aria-modal="true" aria-labelledby="cf-tit" data-form="config" novalidate>
+  <header class="modal-header"><div><h2 class="modal-title" id="cf-tit">Configuração de Valores</h2><p>Valores usados no custo do relatório.</p></div>
+    <button type="button" class="btn btn-icone" data-acao="cfg-fechar" aria-label="Fechar">${I.fechar}</button></header>
+  <div class="modal-body corpo-blocos">
+    ${bloco('CDS', 'Por região e serviço', `<table class="table tabela cfg-tab">
+      <thead><tr><th>Região</th>${SERVICOS_CDS_PRECO.map((sv) => `<th>${esc(sv)}</th>`).join('')}</tr></thead>
+      <tbody>${REGIOES.map((r, ri) => `<tr><td>${esc(r)}</td>${SERVICOS_CDS_PRECO.map((sv, si) => celula(sv, si, ri)).join('')}</tr>`).join('')}</tbody>
+    </table>`, '', 'tabela-bloco')}
+    ${bloco('WECOM', '', `<div class="row duplo">${WECOM_CAMPOS.map(wecom).join('')}</div>`)}
+  </div>
+  <footer class="modal-footer"><span id="cfg-erro" class="erro" role="alert"></span><span class="esp"></span>
+    <button type="button" class="btn btn-link btn-lg" data-acao="cfg-fechar">Fechar</button>
+    <button type="submit" id="cfg-salvar" class="btn btn-primary btn-lg">Salvar Alterações</button>
+  </footer>
+</form>`;
+  }
+  // atualiza a tela enquanto a pessoa digita, sem redesenhar (o foco e o cursor ficam onde estão)
+  function atualizaConfig() {
+    if (!E.cfg) return;
+    const st = cfgEstado(); const erro = (c) => c.invalido && (E.cfg.tentou || E.cfg.tocados[c.id]);
+    st.campos.forEach((c) => { const el = document.getElementById(c.id); if (!el) return; if (erro(c)) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid'); });
+    const msg = document.getElementById('cfg-erro'); if (msg) msg.textContent = st.campos.some(erro) ? 'Confira os valores destacados. Use o formato 125,00.' : '';
+    const bt = document.getElementById('cfg-salvar'); if (bt) bt.disabled = !st.mudancas.length && !st.invalidos.length;
+  }
+  function cfgFechar() { E.cfg = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); }
+  function cfgPedirSalvar() {
+    const st = cfgEstado();
+    if (st.invalidos.length) { E.cfg.tentou = true; atualizaConfig(); const el = document.getElementById(st.invalidos[0].id); if (el) el.focus(); return; }
+    const n = st.mudancas.length; if (!n) return;
+    E.modal = 'confirmar';
+    E.modalDados = { titulo: 'Salvar Alterações?', texto: (n === 1 ? '1 valor será alterado' : n + ' valores serão alterados') + ' nos relatórios gerados a partir de agora.', botao: 'Sim', voltar: 'Não', acao: () => cfgSalvar(n) };
+    desenhar();
+  }
+  function cfgSalvar(n) { // API: PUT /api/precos { cds, wecom }
+    const v = E.cfg.v; const cds = {}; const wecom = {};
+    SERVICOS_CDS_PRECO.forEach((sv, si) => { cds[sv] = REGIOES.map((r, ri) => lerValor(v['pc-' + si + '-' + ri])); });
+    WECOM_CAMPOS.forEach(([k]) => { wecom[k] = lerValor(v['pw-' + k]); });
+    E.precos = { cds, wecom }; E.cfg = { v: cfgRascunho(), tocados: {} }; persistir();
+    // o resultado aparece na mesma janela da confirmação; Fechar volta à tela de valores
+    E.modal = 'confirmar'; E.modalDados = { titulo: 'Valores Atualizados', texto: n === 1 ? '1 valor foi atualizado.' : n + ' valores foram atualizados.', ok: true, soFechar: true };
+    desenhar();
   }
   // salva o arquivo: no claude.ai pelo recurso de downloads; fora dele, pelo download do navegador
   async function salvarArquivo(nome, bytes) {
@@ -1341,63 +1502,37 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     return 'ok';
   }
+  // observações de custo da Infraestrutura (WECOM): entram no PDF sem número, antes de "Era o que cabia informar."
+  const RE_OBS = /^(A demanda referente a Instalação de Infraestrutura|O valor d[ae] Instalação de Infraestrutura)/;
+  // Infraestrutura fora da soma: uma frase só, qualquer que seja o número de tickets
+  const OBS_SEM_INFRA = 'O valor de Instalação de Infraestrutura (WECOM) referente ao Contrato de Salas de Audiências Digitais, não consta na soma do valor total de custo discriminado neste relatório.';
+  const paragrafos = (t) => String(t).split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
+  // o check tira (ou devolve) a Infraestrutura da soma e troca a observação dela na Descrição, sem perder o resto do que foi editado
+  function atualizaInfra(somar) {
+    const d = demanda(E.modalDados && E.modalDados.id); if (!d) return;
+    const r = montarRelatorio(d);
+    const custo = document.getElementById('rl-custo'); if (custo) custo.value = moeda(r.total - (somar ? 0 : r.infra));
+    const desc = document.getElementById('rl-itens');
+    if (desc) desc.value = paragrafos(desc.value).filter((x) => !RE_OBS.test(x)).concat(somar ? r.notas : r.notasSemInfra).join('\n\n');
+  }
   async function baixarRelatorio() {
     const d = demanda(E.modalDados && E.modalDados.id); if (!d) return;
     const ln = (id) => val(id).split('\n').map((x) => x.trim()).filter(Boolean);
     const chk = (id) => { const x = document.getElementById(id); return !!(x && x.checked); };
+    const base = montarRelatorio(d);
     const r = {
       acionamento: val('rl-acion'), execucao: val('rl-exec'),
       servicos: { predio: chk('rl-predio'), desinst: chk('rl-desinst'), local: chk('rl-local'), inst: chk('rl-inst') },
       origem: ln('rl-origem'), destino: ln('rl-destino'), custo: val('rl-custo'),
-      itens: val('rl-itens').split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean),
-      global: montarRelatorio(d).global
+      // na Descrição, as observações de custo (sem número no PDF) vêm depois dos itens numerados
+      itens: paragrafos(val('rl-itens')).filter((x) => !RE_OBS.test(x)),
+      global: base.global, lugar: base.lugar, notas: paragrafos(val('rl-itens')).filter((x) => RE_OBS.test(x))
     };
     const nome = 'Relatório de execução - ' + (d.sei ? d.sei.replace(/\//g, '-') : 'demanda ' + num4(d.id)) + '.pdf';
     const res = await salvarArquivo(nome, RelatorioPDF.gerar(r));
     if (res === 'ok') { registrar(d, 'Relatório de execução de mudança gerado (PDF).'); persistir(); aviso('Relatório gerado.'); }
     else aviso(res === 'recusado' ? 'Download cancelado.' : 'Já há um download aguardando confirmação.', true);
     desenhar();
-  }
-
-  const RE_STATUS = /Status alterado|Demanda registrada|excluída|restaurada|Demanda removida/i;
-  function modalMovimentos() {
-    if (!ehGestor()) return '';
-    const v = E.modalDados || {}; const dia = v.dia || hojeISO(); const so = v.so || 'todas';
-    const todos = [];
-    // inclui as demandas da lixeira; a linha da exclusão vem do registro em E.excluidas, para não aparecer duas vezes
-    E.demandas.concat(E.lixeira).forEach((d) => d.historico.forEach((h) => { if (String(h.data).slice(0, 10) === dia && !/^Demanda excluída\./.test(h.texto)) todos.push({ h, d }); }));
-    (E.excluidas || []).forEach((x) => { if (x.data.slice(0, 10) === dia) todos.push({ h: { data: x.data, usuario: x.usuario, texto: x.texto || ('Demanda excluída (estava ' + ((sit(x.situacao) || {}).um || '').toLowerCase() + ').' + (x.motivo ? ' Motivo: ' + x.motivo + '.' : '')) }, d: null, x }); });
-    todos.sort((a, b) => String(b.h.data).localeCompare(String(a.h.data)));
-    const nStatus = todos.filter((t) => RE_STATUS.test(t.h.texto)).length;
-    const ls = so === 'status' ? todos.filter((t) => RE_STATUS.test(t.h.texto)) : todos;
-    const nDem = new Set(ls.map((t) => (t.d || t.x).id)).size;
-    const hora = (iso) => (String(iso).length > 10 ? String(iso).slice(11, 16) : '—');
-    const rot = dia === hojeISO() ? 'Hoje, ' + br(dia) : br(dia);
-    const linha = (t) => {
-      const ref = t.d || t.x;
-      const alvo = `<span class="mv-sei mono">${esc(ref.sei || 'Fora do SEI')}</span><span class="mv-local">${esc(ref.comarca || '')}</span>`;
-      return `<li class="list-group-item mv-item ${RE_STATUS.test(t.h.texto) ? 'mv-status' : ''}">
-        <span class="mv-hora mono">${hora(t.h.data)}</span>
-        <span class="mv-corpo">${t.d && demanda(t.d.id) ? `<button type="button" class="mv-dem" data-acao="mov-abrir" data-id="${t.d.id}" data-sit="${esc(t.d.situacao)}">${alvo}</button>` : `<span class="mv-dem excl">${alvo}</span>`}<span class="mv-txt">${esc(t.h.texto)}</span></span>
-        <span class="mv-quem">${avatar(t.h.usuario, 'xs')}<span>${esc(t.h.usuario === 'admin' ? 'Gestor' : (usr(t.h.usuario) ? usr(t.h.usuario).curto : nomeUsr(t.h.usuario)))}</span></span>
-      </li>`;
-    };
-    return `
-<div class="modal-content modal-m movs" role="dialog" aria-modal="true" aria-labelledby="mv-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="mv-tit">Movimentações do Dia</h2><p>Tudo o que mudou nas demandas, com hora e autor. Visível só para o gestor.</p></div>
-    <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
-  <div class="mv-barra">
-    <div class="mv-dia"><button type="button" class="btn btn-icone" data-acao="mov-dia" data-v="-1" aria-label="Dia anterior">${svg(16, '<path d="m15 6-6 6 6 6"/>', 2.2)}</button><b>${rot}</b><button type="button" class="btn btn-icone" data-acao="mov-dia" data-v="1" aria-label="Próximo dia" ${dia >= hojeISO() ? 'disabled' : ''}>${svg(16, '<path d="m9 6 6 6-6 6"/>', 2.2)}</button></div>
-    <div class="btn-group vistas mv-filtro" role="group" aria-label="Mostrar">
-      <button type="button" class="vista-btn mv-op" data-acao="mov-filtro" data-v="todas" aria-pressed="${so === 'todas'}">Todas <span>${todos.length}</span></button>
-      <button type="button" class="vista-btn mv-op" data-acao="mov-filtro" data-v="status" aria-pressed="${so === 'status'}">Só status <span>${nStatus}</span></button>
-    </div>
-  </div>
-  <div class="modal-body mv-corpo-lista">
-    ${ls.length ? `<p class="mv-resumo">${ls.length} ${ls.length === 1 ? 'movimentação' : 'movimentações'} em ${nDem} ${nDem === 1 ? 'demanda' : 'demandas'}</p><ol class="list-group list-group-flush mv-lista">${ls.map(linha).join('')}</ol>` : '<p class="vazio-bloco">Nenhuma movimentação neste dia.</p>'}
-  </div>
-  <footer class="modal-footer">${flash('movimentos')}<span class="esp"></span><button type="button" class="btn btn-primary btn-lg" data-acao="fechar-modal">Fechar</button></footer>
-</div>`;
   }
 
   // API: GET /api/lixeira
@@ -1426,29 +1561,10 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 </div>`;
   }
 
-  // Em atendimento os dados travam; só o gestor altera a Data para Conclusão, com motivo
-  function modalConclusao() {
-    const d = demanda(E.modalDados && E.modalDados.id); if (!d) return '';
-    const er = E.erros.conclusao; const atual = d.fim || d.inicio;
-    return `
-<form class="modal-content modal-p confirma" role="dialog" aria-modal="true" aria-labelledby="pr-tit" aria-describedby="pr-txt" data-form="conclusao" novalidate>
-  <span class="conf-ico">${I.triangulo}</span>
-  <h2 id="pr-tit">Alterar Data para Conclusão</h2>
-  <p id="pr-txt">A data atual é ${esc(br(atual))}.</p>
-  <div class="campo conf-motivo"><label class="form-label" for="pr-fim">Nova Data para Conclusão</label>${campoData('pr-fim', atual, !!er)}</div>
-  <div class="campo conf-motivo">
-    <span class="rotulo-l"><label class="form-label" for="pr-motivo">Motivo</label><span class="cont" id="pr-motivo-cont">0/100</span></span>
-    <textarea id="pr-motivo" data-rascunho data-cont="100" class="form-control txt" rows="2" maxlength="100" ${er ? 'aria-invalid="true"' : ''}></textarea>
-    ${er ? `<span class="erro">${esc(er)}</span>` : ''}
-  </div>
-  <div class="conf-btns"><button type="button" class="btn btn-outline-secondary btn-lg" data-acao="fechar-modal">Voltar</button><button type="submit" class="btn btn-primary btn-lg">Salvar</button></div>
-</form>`;
-  }
-
   function modalConfirmar() {
     const c = E.modalDados; const erM = E.erros.motivo;
     return `
-<div class="modal-content modal-p confirma ${c.perigo ? 'perigo' : c.ok ? 'ok' : ''}" role="alertdialog" aria-modal="true" aria-labelledby="mc-tit" aria-describedby="mc-txt">
+<div class="modal-content modal-p confirma ${c.perigo ? 'perigo' : c.ok ? 'ok' : ''} ${E.cfg ? 'cfg-conf' : ''}" role="alertdialog" aria-modal="true" aria-labelledby="mc-tit" aria-describedby="mc-txt">
   <span class="conf-ico">${c.perigo ? I.triangulo : c.ok ? svg(22, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', 2.4) : I.alerta}</span>
   <h2 id="mc-tit">${esc(c.titulo)}</h2>
   <p id="mc-txt">${esc(c.texto)}</p>
@@ -1457,14 +1573,14 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     <textarea id="mc-motivo" data-rascunho data-cont="100" class="form-control txt" rows="2" maxlength="100" ${erM ? 'aria-invalid="true"' : ''}></textarea>
     ${erM ? `<span class="erro">${esc(erM)}</span>` : ''}
   </div>` : ''}
-  <div class="conf-btns"><button type="button" class="btn btn-outline-secondary btn-lg" data-acao="fechar-modal">${esc(c.voltar || 'Voltar')}</button><button type="button" class="btn btn-lg ${c.perigo ? 'btn-danger' : c.ok ? 'btn-success' : 'btn-primary'}" data-acao="confirmar">${esc(c.botao)}</button></div>
+  ${c.soFechar ? '<div class="conf-btns um"><button type="button" class="btn btn-primary btn-lg" data-acao="fechar-modal">Fechar</button></div>' : `<div class="conf-btns"><button type="button" class="btn btn-outline-secondary btn-lg" data-acao="fechar-modal">${esc(c.voltar || 'Voltar')}</button><button type="button" class="btn btn-lg ${c.perigo ? 'btn-danger' : c.ok ? 'btn-success' : 'btn-primary'}" data-acao="confirmar">${esc(c.botao)}</button></div>`}
 </div>`;
   }
 
   // mensagens de confirmação: aparecem dentro da tela em uso, em verde com check
   function ondeFlash() {
     if (E.modal === 'nova') return (E.modalDados && E.modalDados.sucesso) ? 'suc' : 'nova';
-    if (E.modal === 'sobre' || E.modal === 'equipe' || E.modal === 'acionamento' || E.modal === 'relatorio' || E.modal === 'movimentos' || E.modal === 'lixeira') return E.modal;
+    if (E.modal === 'sobre' || E.modal === 'equipe' || E.modal === 'acionamento' || E.modal === 'relatorio' || E.modal === 'lixeira') return E.modal;
     if (E.aberta) return 'det';
     return 'pagina';
   }
@@ -1487,7 +1603,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     // posição de rolagem de cada área, para nada pular depois do clique
     const rol = {};
     ['.rolagem', '.det-corpo', '.modal-camada .modal-body'].forEach((q) => { const el = document.querySelector(q); if (el) rol[q] = el.scrollTop; });
-    const mesmaTela = ant.det === k.det && ant.aba === E.aba && ant.modal === k.modal;
+    const mesmaTela = ant.det === k.det && ant.aba === E.aba && (ant.modal === k.modal || !!E.cfg);
     // preserva o que a pessoa está digitando quando a tela é redesenhada (ex.: um aviso aparece)
     const chave = (E.aberta || '') + '|' + E.aba + '|' + (E.aberta ? '' : (E.modal || ''));
     const rasc = {};
@@ -1500,7 +1616,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (k.startsWith('radio:')) { const r = app.querySelector(`input[name="${k.slice(6)}"][value="${rasc[k]}"]`); if (r) r.checked = true; return; }
       const el = document.getElementById(k); if (el) { if (el.type === 'checkbox') el.checked = rasc[k]; else el.value = rasc[k]; }
     });
-    trocarFinalidade(); atualizaTransf(); filtrarLocais(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
+    trocarFinalidade(); ajustarMetro(); atualizaConfig(); atualizaTransf(); filtrarLocais(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
     E.chaveRasc = chave; E.limparRascunho = false; E.recemTk = false; k.aba = E.aba; E._k = k;
     Object.keys(rol).forEach((q) => { const el = document.querySelector(q); if (el && (q === '.rolagem' ? !E.zerarLista : mesmaTela)) el.scrollTop = rol[q]; });
     E.zerarLista = false;
@@ -1543,14 +1659,17 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 
   // ------------------------------------------------------------------ regras do fluxo
   // API: PATCH /api/mudancas/{id}/situacao
-  function setSituacao(d, nova, texto) { d.situacao = nova; E.statusRascunho = null; if (FINAIS.includes(nova)) { E.sujo = false; E.editTk = false; E.limparRascunho = true; } if (nova === 'acionada') d.acionadaEm = hojeISO(); registrar(d, texto || ('Situação alterada para ' + sit(nova).um + '.')); }
+  // a data do acionamento nunca é depois da Data de Início: numa demanda antiga, registrada depois do período, vale o início
+  const dataAcion = (iso, d) => (d.inicio && iso > d.inicio ? d.inicio : iso);
+  function setSituacao(d, nova, texto) { d.situacao = nova; E.statusRascunho = null; if (FINAIS.includes(nova)) { E.sujo = false; E.editTk = false; E.limparRascunho = true; } if (nova === 'acionada') d.acionadaEm = dataAcion(hojeISO(), d); registrar(d, texto || ('Situação alterada para ' + sit(nova).um + '.')); }
   function irAba(id, aba, foco, msg) {
     E.aberta = id; E.aba = aba; E.sujo = false; E.menu = null; E.erros = {};
     if (msg) aviso(msg, true);
     desenhar(); const el = foco && document.getElementById(foco); if (el) el.focus();
   }
   // regras do select de status: Em atendimento e Pendente nunca são escolhidos à mão, mudam sozinhos pela data;
-  // depois de acionada, a demanda não volta para Nova; cancelar fica só em Mais ações (gestor); Concluída e Cancelada são finais
+  // depois de acionada, a demanda não volta para Nova; cancelar fica só em Mais ações (coordenador); Concluída e Cancelada são finais
+  // TRAVADOS: o status é automático (os dados continuam editáveis)
   const TRAVADOS = ['atendimento', 'pendente'];
   const FINAIS = ['concluida', 'cancelada'];
   function destinosStatus(d) {
@@ -1569,15 +1688,15 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para marcar como Acionada, registre antes o ticket principal e salve.'); return; }
       // sem data, a automação nunca levaria a demanda adiante
       if (!d.inicio) { irAba(d.id, 'dados', 'f-ini', 'Para marcar como Acionada, informe a Data de Início e salve.'); return; }
-      if (!d.responsavel) { irAba(d.id, 'dados', 'f-resp', ehGestor() ? 'Para marcar como Acionada, escolha o responsável e salve.' : 'Para marcar como Acionada, a demanda precisa de um responsável. Peça ao gestor.'); return; }
-      // com o agendamento já vencido, a regra automática levaria direto para Pendente: pede uma nova data
-      if (d.inicio && (d.fim || d.inicio) < hojeISO()) { irAba(d.id, 'dados', 'f-ini', 'O agendamento já passou. Informe a nova data e salve.'); return; }
+      if (!d.responsavel) { irAba(d.id, 'dados', 'f-resp', 'Para marcar como Acionada, escolha o responsável e salve.'); return; }
+      // período já encerrado (demanda antiga): pode acionar; a automação leva direto para Para Validação
     }
     setSituacao(d, novo, (novo === 'acionada' ? 'Empresas acionadas. ' : '') + 'Status alterado: ' + sit(d.situacao).um + ' → ' + rot + '.');
     if (d.responsavel) avisar(d, 'status', d.responsavel);
-    // agendada para hoje: automatizar(), em mudou(), já leva para Em atendimento e para a carga do gestor
+    // agendada para hoje: automatizar(), em mudou(), já leva para Em atendimento (a carga continua com o responsável)
     const jaHoje = novo === 'acionada' && d.inicio && d.inicio <= hojeISO();
-    aviso((jaHoje ? 'Demanda acionada e já Em Atendimento, com o gestor.' : 'Status alterado para ' + rot + '.'));
+    const jaPassou = novo === 'acionada' && d.inicio && (d.fim || d.inicio) < hojeISO();
+    aviso(jaPassou ? 'Demanda acionada; como o período já terminou, foi para Para Validação.' : jaHoje ? 'Demanda acionada e já Em Atendimento.' : 'Status alterado para ' + rot + '.');
     destacar(d.id); mudou();
   }
   function somarDias(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
@@ -1585,8 +1704,11 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   function statusCab(d) {
     if (TRAVADOS.includes(d.situacao)) {
       const quando = d.situacao === 'atendimento' && d.inicio ? 'Vai para validação em ' + br(diaSeguinte(d.fim || d.inicio)).slice(0, 5)
-        : d.situacao === 'pendente' ? (d.responsavel && d.responsavel !== 'admin' ? 'Com ' + nomeUsr(d.responsavel) + ' para atendimento extra' : 'Aguardando a conclusão pelo gestor') : '';
+        : d.situacao === 'pendente' ? 'Aguardando a conclusão' : '';
       return `<span class="badge st-fixo" title="Status automático: não pode ser alterado à mão">${I.cadeadoP}<span>${sit(d.situacao).um}</span></span>${quando ? `<span class="st-nota">${quando}</span>` : ''}`;
+    }
+    if (!E.usuario && !FINAIS.includes(d.situacao)) {
+      return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Entre para alterar">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span><span class="st-nota">Somente consulta · entre para alterar</span>`;
     }
     if (FINAIS.includes(d.situacao)) {
       return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Status final: não pode ser alterado">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span><span class="st-nota">Demanda encerrada · somente consulta</span>`;
@@ -1599,15 +1721,15 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const marcado = ops.includes(E.statusRascunho) ? E.statusRascunho : d.situacao;
     return `<span class="st-sel-wrap"><label for="d-status" class="visually-hidden">Status</label><select id="d-status" class="st-sel" data-status="${d.id}" title="Escolha o status e clique em Salvar alterações">${SITUACOES.filter((x) => ops.includes(x.id)).map((x) => `<option value="${x.id}" ${x.id === marcado ? 'selected' : ''}>${x.um}</option>`).join('')}</select></span>`;
   }
-  // botão Concluir demanda (só em Pendente), com confirmação
+  // botão Concluir demanda (só em Para validação, para qualquer pessoa), com confirmação
   function pedirConclusao(d) {
     if (d.situacao !== 'pendente') return;
     if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para concluir, registre antes o ticket principal.'); return; }
     E.modal = 'confirmar';
-    E.modalDados = { titulo: 'Concluir Esta Demanda?', texto: 'A demanda passa para Concluída e sai da carga do gestor, ficando com o setor, sem atribuição. Essa ação não pode ser desfeita e fica registrada no histórico.', botao: 'Concluir demanda', ok: true, acao: () => { concluir(d); destacar(d.id); aviso('Demanda concluída.'); mudou(); } };
+    E.modalDados = { titulo: 'Concluir Esta Demanda?', texto: 'A demanda passa para Concluída e fica com o setor, sem atribuição. Essa ação não pode ser desfeita e fica registrada no histórico.', botao: 'Concluir demanda', ok: true, acao: () => { concluir(d); destacar(d.id); aviso('Demanda concluída.'); mudou(); } };
     desenhar();
   }
-  // API: PATCH /api/mudancas/{id}/situacao { situacao: 'CONCLUIDA' } (só o gestor)
+  // API: PATCH /api/mudancas/{id}/situacao { situacao: 'CONCLUIDA' } (técnico ou coordenador)
   function concluir(d) {
     const de = sit(d.situacao).um; const tec = d.responsavel && d.responsavel !== 'admin' ? d.responsavel : d.tecnico;
     setSituacao(d, 'concluida', 'Status alterado: ' + de + ' → Concluída' + (tec ? '. Atendida por ' + nomeUsr(tec) : '') + '.');
@@ -1633,44 +1755,37 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const d = demanda(E.aberta);
     E.erros = {};
     if (tipo === 'dados' && d) { // API: PUT /api/mudancas/{id} (sei, comarca, descricao, responsavel, inicio, fim, hora, informacoes)
-      const trava = TRAVADOS.includes(d.situacao); // Em atendimento e Para validação: só responsável e informações adicionais
+      // qualquer pessoa edita a demanda em aberto, em qualquer etapa; tudo fica no histórico
       const sei = val('f-sei'); const ini = dataISO('f-ini'); const fim = dataISO('f-fim'); const hora = horaVal('f-hora');
-      if (!trava) {
+      {
         if (sei && !RE_SEI.test(sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
         const ed = erroDatas(ini, fim); if (ed) E.erros.data = ed;
-        // demanda acionada não pode perder a data nem ir para o passado (cairia direto em Para validação)
-        else if (d.situacao === 'acionada' && !ini) E.erros.data = 'Demanda acionada precisa ter Data de Início.';
+        // depois de acionada, a demanda não perde a Data de Início
+        else if (d.situacao !== 'nova' && !ini) E.erros.data = 'Depois de acionada, a demanda precisa ter Data de Início.';
+        // acionada não vai para o passado (cairia direto em Para validação)
         else if (d.situacao === 'acionada' && (fim || ini) < hojeISO()) E.erros.data = 'Em demanda acionada, o agendamento não pode estar no passado.';
+        // Em atendimento já começou: o início não passa para depois de hoje (o status não volta para Acionada)
+        else if (d.situacao === 'atendimento' && ini > hojeISO()) E.erros.data = 'Em atendimento, a Data de Início não pode ser depois de hoje.';
         // Nova: quem muda a data não pode pôr no passado; a data já vencida e não alterada não impede salvar o resto
-        else if (d.situacao === 'nova' && ((ini && ini !== d.inicio && ini < hojeISO()) || (fim && fim !== d.fim && fim < hojeISO()))) E.erros.data = 'As datas não podem ser anteriores a hoje.';
+        // Para Validação: o período já terminou; as datas podem ser corrigidas, mas continuam antes de hoje
+        else if (d.situacao === 'pendente' && (fim || ini) >= hojeISO()) E.erros.data = 'Em Para Validação, o período já terminou: a Data para Conclusão precisa ser anterior a hoje.';
         if (hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
         if (Object.keys(E.erros).length) { desenhar(); return; }
       }
-      const antes = { resp: d.responsavel, ini: d.inicio, fim: d.fim, hora: d.hora || '' };
-      if (ehGestor()) atribuir(d, val('f-resp') || null);
-      if (trava) d.informacoes = val('f-info');
-      else Object.assign(d, { sei, comarca: cidade(val('f-local')), descricao: val('f-desc'), inicio: ini || null, fim: (fim && fim !== ini) ? fim : null, hora: hora || null, informacoes: val('f-info') });
+      const antes = { resp: d.responsavel, ini: d.inicio, fim: d.fim, hora: d.hora || '', sei: d.sei };
+      atribuir(d, val('f-resp') || null);
+      Object.assign(d, { sei, comarca: cidade(val('f-local')), descricao: val('f-desc'), inicio: ini || null, fim: (fim && fim !== ini) ? fim : null, hora: hora || null, informacoes: val('f-info') });
       if (antes.resp !== d.responsavel) regResp(d, antes.resp, d.responsavel);
       if (antes.ini !== d.inicio || antes.fim !== d.fim || antes.hora !== (d.hora || '')) registrar(d, 'Agendamento alterado para ' + agendaComHora(d) + '.');
       else if (antes.resp === d.responsavel && E.sujo) registrar(d, 'Dados da demanda atualizados.');
       E.limparRascunho = true; E.sujo = false;
       if (E.statusRascunho) { persistir(); salvarStatus(d); return; }
-      aviso('Alterações salvas.'); mudou(); return;
-    }
-    if (tipo === 'conclusao' && d) { // API: PATCH /api/mudancas/{id}/conclusao { data, motivo } (só o gestor, só Em atendimento)
-      if (d.situacao !== 'atendimento') return;
-      const nova = dataISO('pr-fim'); const motivo = val('pr-motivo'); const atual = d.fim || d.inicio;
-      const erro = !nova ? 'Informe uma data válida.' : nova < d.inicio ? 'A data não pode ser antes da data de início.' : nova < hojeISO() ? 'A data não pode estar no passado.' : nova === atual ? 'Escolha uma data diferente da atual.' : !motivo ? 'Informe o motivo.' : '';
-      if (erro) { E.erros.conclusao = erro; desenhar(); return; }
-      d.fim = nova !== d.inicio ? nova : null;
-      registrar(d, 'Data para Conclusão alterada: ' + br(atual) + ' → ' + br(nova) + '. Motivo: ' + motivo + '.');
-      E.modal = null; E.modalDados = null; E.erros = {}; E.limparRascunho = true; E.sujo = false;
-      aviso('Data para Conclusão alterada.'); mudou(); return;
+      const seiRep = d.sei && d.sei !== antes.sei ? comSei(d.sei, d.id) : null;
+      aviso('Alterações salvas.' + (seiRep ? ' Atenção: este SEI também está na demanda ' + num4(seiRep.id) + ' (' + (seiRep.comarca || '') + ').' : ''), !!seiRep); mudou(); return;
     }
     if (tipo === 'principal' && d) { // API: PUT /api/mudancas/{id}/ticket { numero }
-      if (TRAVADOS.includes(d.situacao) && d.ticketPrincipal) return; // travada: não troca o ticket já registrado
       const bruto = val('t-principal'); const n = bruto.replace(/\D/g, '');
-      if (bruto && !/^\d{6,8}$/.test(n)) { E.erros.principal = 'Use só o número do ticket (6 a 8 dígitos).'; desenhar(); return; }
+      if (bruto && !/^\d{6}$/.test(n)) { E.erros.principal = 'O número do ticket tem 6 dígitos.'; desenhar(); return; }
       if (!n) { E.erros.principal = 'Informe o número do ticket.'; desenhar(); return; }
       if ((d.ticketPrincipal || '') === n) { E.editTk = false; desenhar(); return; }
       d.ticketPrincipal = n || null;
@@ -1678,25 +1793,32 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       E.editTk = false; E.recemTk = !!n;
       registrar(d, n ? 'Ticket principal ' + n + ' registrado.' : 'Ticket principal removido.');
       E.limparRascunho = true; E.manterRolagem = true;
-      aviso(d.situacao === 'nova' ? 'Ticket ' + n + ' registrado. Agora a demanda pode ser marcada como acionada.' : 'Ticket ' + n + ' registrado.');
+      const rep = avisoRepetidos([n], d.id);
+      aviso((d.situacao === 'nova' ? 'Ticket ' + n + ' registrado. Agora a demanda pode ser marcada como acionada.' : 'Ticket ' + n + ' registrado.') + rep, !!rep);
       mudou(); return;
     }
     if (tipo === 'sub' && d) { // API: POST /api/mudancas/{id}/subtickets [{ empresa, numero, servico, quantidade }]
       const emp = val('n-emp'); const fin = val('n-fin');
       if (!emp) { E.erros.sub = 'Escolha a empresa.'; E.erros.emp = true; desenhar(); document.getElementById('n-emp').focus(); return; }
-      const nums = (val('n-num').match(/\d{6,8}/g) || []);
-      if (!nums.length) { E.erros.sub = 'Informe ao menos um número de ticket (6 a 8 dígitos).'; E.ultimaEmp = emp; desenhar(); document.getElementById('n-num').focus(); return; }
+      // um ou mais números separados por barra, vírgula ou espaço; cada um com exatamente 6 dígitos
+      const nums = val('n-num').split(/\D+/).filter(Boolean);
+      if (!nums.length || nums.some((x) => x.length !== 6)) { E.erros.sub = nums.length ? 'Cada número de ticket tem 6 dígitos.' : 'Informe ao menos um número de ticket (6 dígitos).'; E.ultimaEmp = emp; desenhar(); document.getElementById('n-num').focus(); return; }
       if (!fin) { E.erros.sub = 'Escolha o serviço do subticket.'; E.erros.fin = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-fin'); if (el) el.focus(); return; }
       const qtd = parseInt(val('n-qtd'), 10);
       if (!(qtd >= 1 && qtd <= 999)) { E.erros.sub = 'Informe a quantidade de serviços (1 a 999).'; E.erros.qtd = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-qtd'); if (el) el.focus(); return; }
+      // metro linear: só WECOM em Instalação ou Infraestrutura, opcional e inteiro
+      const metroTxt = usaMetro(emp, fin) ? val('n-metro') : ''; const metro = metroTxt ? Number(metroTxt) : null;
+      if (metroTxt && !(Number.isInteger(metro) && metro >= 1 && metro <= 9999)) { E.erros.sub = 'Informe o metro linear em número inteiro (1 a 9999).'; E.erros.metro = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-metro'); if (el) el.focus(); return; }
       const novos = nums.filter((n) => !d.subtickets.some((s) => s.numero === n));
-      novos.forEach((n) => d.subtickets.push({ empresa: emp, numero: n, finalidade: fin, quantidade: qtd }));
+      novos.forEach((n) => d.subtickets.push(Object.assign({ empresa: emp, numero: n, finalidade: fin, quantidade: qtd }, metro ? { metro } : {})));
       E.ultimaEmp = '';
-      if (novos.length) registrar(d, 'Subticket' + (novos.length > 1 ? 's ' : ' ') + emp + ' ' + novos.join(', ') + (novos.length > 1 ? ' adicionados' : ' adicionado') + ' (' + fin + ', ' + qtd + (qtd === 1 ? ' serviço' : ' serviços') + ').');
+      if (novos.length) registrar(d, 'Subticket' + (novos.length > 1 ? 's ' : ' ') + emp + ' ' + novos.join(', ') + (novos.length > 1 ? ' adicionados' : ' adicionado') + ' (' + fin + ', ' + qtd + (qtd === 1 ? ' serviço' : ' serviços') + (metro ? ', ' + metro + ' m' : '') + ').');
       E.manterRolagem = true; E.limparRascunho = true;
-      aviso(novos.length ? (novos.length > 1 ? novos.length + ' subtickets incluídos.' : 'Subticket incluído.') : 'Esses tickets já estavam na lista.', !novos.length);
+      const rep = avisoRepetidos(novos, d.id);
+      aviso(novos.length ? (novos.length > 1 ? novos.length + ' subtickets incluídos.' : 'Subticket incluído.') + rep : 'Esses tickets já estavam na lista.', !novos.length || !!rep);
       mudou(); const el = document.getElementById('n-num'); if (el) el.focus(); return;
     }
+    if (tipo === 'config') { cfgPedirSalvar(); return; }
     if (tipo === 'nota' && d) { // API: POST /api/mudancas/{id}/historico { texto }
       const t = val('h-nota'); if (!t) return;
       registrar(d, t); E.limparRascunho = true; aviso('Andamento registrado.'); mudou(); return;
@@ -1723,27 +1845,33 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       const t = E.modalDados.transf; const para = val('tr-dest');
       const ids = [...form.querySelectorAll('input[name="tr-d"]:checked')].map((x) => Number(x.value));
       t.marcadas = ids; t.para = para;
-      if (!para) { E.erros.transf = 'Escolha para quem transferir.'; desenhar(); return; }
+      if (!para && (ids.length || !t.desativar)) { E.erros.transf = 'Escolha para quem transferir.'; desenhar(); return; }
       if (!ids.length && !t.desativar) { E.erros.transf = 'Marque ao menos uma demanda.'; desenhar(); return; }
-      const de = usr(t.de); const novo = para === '_sem' ? null : para;
+      const de = usr(t.de); const novo = para;
       // API: POST /api/equipe/{de}/transferir { para, demandas: [...] }
       ids.forEach((id) => { const d = demanda(id); atribuir(d, novo); registrar(d, 'Demanda transferida de ' + de.nome + ' para ' + nomeResp(d.responsavel) + '.'); });
+      // ao desativar, as demandas em aberto que não foram marcadas vão para o coordenador: ninguém inativo fica com demanda
+      const resto = t.desativar ? abertasDe(t.de) : [];
+      resto.forEach((d) => { atribuir(d, 'admin'); registrar(d, 'Demanda transferida de ' + de.nome + ' para o Coordenador (' + de.curto + ' foi desativado(a)).'); });
       if (t.desativar) de.ativo = false;
       if (E.filtroResp === t.de && t.desativar) E.filtroResp = '';
       E.modalDados = {}; E.limparRascunho = true;
-      aviso((ids.length ? ids.length + (ids.length === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (t.desativar ? '; ' + de.curto + ' desativado(a).' : '.'));
+      aviso((ids.length ? ids.length + (ids.length === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (resto.length ? '; ' + resto.length + (resto.length === 1 ? ' foi' : ' foram') + ' para o Coordenador' : '') + (t.desativar ? '; ' + de.curto + ' desativado(a).' : '.'));
       mudou(); return;
     }
-    if (tipo === 'login') { // API: POST /api/login { usuario, senha } — no protótipo qualquer senha serve para 'admin'
+    if (tipo === 'login') { // API: POST /api/login { usuario, senha } — no protótipo qualquer senha serve
       const login = normal(val('l-usr'));
-      const u = GESTORES.find((g) => g.id === login || (g.apelidos || []).includes(login));
-      if (!u || !val('l-sen')) { E.erros.login = !u ? 'Só o gestor entra no sistema. No protótipo, use o usuário admin.' : 'Informe a senha.'; E.modalDados = Object.assign(E.modalDados || {}, { usr: val('l-usr') }); desenhar(); return; }
+      // coordenador (admin) ou alguém ativo da Equipe, pelo usuário mostrado na Equipe
+      const u = GESTORES.find((g) => g.id === login || (g.apelidos || []).includes(login)) || E.equipe.find((x) => x.ativo && x.id === login);
+      if (!u || !val('l-sen')) { E.erros.login = !u ? 'Usuário não encontrado. No protótipo, use admin ou o usuário de alguém ativo da Equipe.' : 'Informe a senha.'; E.modalDados = Object.assign(E.modalDados || {}, { usr: val('l-usr') }); desenhar(); return; }
       const depois = E.modalDados && E.modalDados.depois;
+      // no protótipo, só o coordenador passa pela criação de senha do primeiro acesso
+      if (!u.gestor) { entrar(u.id, depois, 'Você entrou como ' + u.curto + '.'); return; }
       if (!E.senhaDefinida) {
         E.modal = 'senha'; E.modalDados = { usuario: u.id, atual: document.getElementById('l-sen').value, depois }; E.erros = {}; E.limparRascunho = true;
         desenhar(); document.getElementById('s-nova').focus(); return;
       }
-      entrar(u.id, depois, 'Você entrou como gestor.');
+      entrar(u.id, depois, 'Você entrou como coordenador.');
       return;
     }
     if (tipo === 'senha') { // API: POST /api/conta/senha { atual, nova } (grava o hash e zera deve_trocar_senha)
@@ -1751,31 +1879,30 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       const erro = nova.length < 8 ? 'A nova senha precisa ter pelo menos 8 caracteres.' : nova !== conf ? 'As senhas não são iguais.' : nova === m.atual ? 'A nova senha precisa ser diferente da senha inicial.' : '';
       if (erro) { E.erros.senha = erro; desenhar(); document.getElementById('s-nova').focus(); return; }
       E.senhaDefinida = true;
-      entrar(m.usuario, m.depois, 'Senha criada. Você entrou como gestor.');
+      entrar(m.usuario, m.depois, 'Senha criada. Você entrou como coordenador.');
       return;
     }
     if (tipo === 'nova') {
       if (E.modalDados && E.modalDados.sucesso) return;
       const semSei = document.getElementById('n-semsei').checked;
       const r = form.querySelector('input[name="n-resp"]:checked');
-      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : '', inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora'), informacoes: '' };
+      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : 'admin', inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora'), informacoes: '' };
       E.modalDados = v;
       if (!semSei && !v.sei) E.erros.sei = 'Informe o número do expediente ou marque “Demanda fora do SEI”.';
       else if (!semSei && !RE_SEI.test(v.sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
       if (!v.comarca) E.erros.local = 'Informe a comarca ou o prédio.';
       if (!v.descricao) E.erros.desc = 'Descreva a demanda.';
       const ed = erroDatas(v.inicio, v.fim); if (ed) E.erros.data = ed;
-      else if (v.inicio && v.inicio < hojeISO()) E.erros.data = 'A Data de Início não pode ser anterior a hoje.';
       if (v.hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (v.inicio === null) v.inicio = ''; if (v.fim === null) v.fim = ''; if (v.hora === null) v.hora = val('n-hora');
       if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) pri.focus(); return; }
       // API: POST /api/mudancas
       const id = Math.max(0, ...E.demandas.map((x) => x.id), ...E.excluidas.map((x) => x.id)) + 1; // não reaproveita número de demanda na lixeira
       const nova = { id, sei: v.sei, descricao: v.descricao, comarca: v.comarca, responsavel: v.responsavel || null, inicio: v.inicio || null, fim: (v.fim && v.fim !== v.inicio) ? v.fim : null, hora: v.hora || null, situacao: 'nova', ticketPrincipal: null, subtickets: [], informacoes: v.informacoes, historico: [], criadaEm: hojeISO(), passou: [], aviso: null };
-      registrar(nova, 'Demanda registrada a partir do expediente SEI' + (v.responsavel ? ' e atribuída a ' + nomeResp(v.responsavel) : '') + '.');
+      registrar(nova, 'Demanda registrada a partir do expediente SEI' + (v.responsavel ? ' e ' + atribuidaA(v.responsavel) : '') + '.');
       if (nova.responsavel) { avisar(nova, 'nova', nova.responsavel); nova.passou = [nova.responsavel]; }
       E.demandas.push(nova);
-      E.sitAtivas.add('nova');
+      if (!E.sitAtivas.has('nova')) E.sitAtivas = new Set(ABERTAS);
       irPara(id); destacar(id);
       E.modalDados = { sucesso: id };
       mudou();
@@ -1786,8 +1913,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   document.addEventListener('submit', (ev) => {
     const f = ev.target.closest('form[data-form]'); if (!f) return; ev.preventDefault();
     const tf = f.dataset.form;
-    if (tf === 'nova' || tf === 'conclusao' || tf.startsWith('equipe')) { if (precisaGestor()) return; }
-    else if (tf !== 'login' && tf !== 'senha' && tf !== 'nota' && precisaEditar(demanda(E.aberta))) return;
+    if (tf === 'config' || tf.startsWith('equipe')) { if (precisaGestor()) return; }
+    else if ((tf === 'nota' || tf === 'nova') && precisaLogin(MSG_LOGIN)) return;
+    else if (tf !== 'login' && tf !== 'senha' && tf !== 'nota' && tf !== 'nova' && precisaEditar(demanda(E.aberta))) return;
     enviar(f);
   });
 
@@ -1809,11 +1937,14 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     // clicar fora do modal não fecha nada; só recolhe um menu que esteja aberto
     if (a === 'fundo-modal') { if (E.menu) { E.menu = null; desenhar(); } return; }
     if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'menu-conta' && E.menu) E.menu = null;
-    const SO_GESTOR = ['relatorio', 'concluir-dem', 'cancelar', 'excluir', 'devolver-tec', 'movimentos', 'equipe', 'nova', 'lixeira', 'restaurar', 'alterar-conclusao'];
-    const EDITA = ['sub-del', 'tk-alterar', 'devolver-gestor'];
+    // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o coordenador
+    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config'];
+    const EDITA = ['sub-del', 'tk-alterar'];
+    // ações que registram no histórico pedem login (sem login, só consulta)
+    const LOGADO = ['acionamento', 'relatorio', 'concluir-dem'];
     if (SO_GESTOR.includes(a) && precisaGestor()) return;
+    if (LOGADO.includes(a) && precisaLogin(MSG_LOGIN)) return;
     if (EDITA.includes(a) && precisaEditar(demanda(E.aberta))) return;
-    if ((a === 'sub-del' || a === 'tk-alterar') && precisaDestravar(demanda(E.aberta))) return;
     const d = demanda(E.aberta);
     switch (a) {
       case 'inicio': E.aberta = null; window.scrollTo(0, 0); desenhar(); break;
@@ -1836,9 +1967,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         cbs.forEach((c) => { c.checked = !todas; }); alvo.textContent = todas ? 'Marcar todas' : 'Desmarcar todas'; atualizaTransf(); break;
       }
       case 'proto-gestor': { const a = document.getElementById('l-usr'); const b = document.getElementById('l-sen'); if (a) a.value = 'admin'; if (b) b.value = 'admin'; const f = document.querySelector('form.login'); if (f) f.requestSubmit(); break; }
-      case 'equipe': E.menu = null; if (precisaGestor('A Equipe é mantida pelo gestor. Entre para incluir, editar ou desativar pessoas.', () => { E.modal = 'equipe'; E.modalDados = {}; desenhar(); })) break; E.modal = 'equipe'; E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
+      case 'equipe': E.menu = null; if (precisaGestor('A Equipe é mantida pelo coordenador. Entre para incluir, editar ou desativar pessoas.', () => { E.modal = 'equipe'; E.modalDados = {}; desenhar(); })) break; E.modal = 'equipe'; E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'nova':
-        if (precisaGestor('Para incluir uma demanda, entre com o usuário do gestor.', () => { const b = document.querySelector('[data-acao=nova]'); if (b) b.click(); })) break;
+        if (precisaLogin('Para incluir uma demanda, entre com o seu usuário.', () => { const b = document.querySelector('[data-acao=nova]'); if (b) b.click(); })) break;
         E.modal = 'nova'; E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); setTimeout(() => { const el = document.getElementById('n-sei'); if (el) el.focus(); }, 0); break;
       case 'incluir-outra': E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); setTimeout(() => { const el = document.getElementById('n-sei'); if (el) el.focus(); }, 0); break;
       case 'abrir-nova': E.modal = null; E.modalDados = null; E.aberta = id; E.aba = 'tickets'; desenhar(); setTimeout(() => { const el = document.getElementById('t-principal'); if (el) el.focus(); }, 0); break;
@@ -1856,9 +1987,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       case 'resp-escolher': E.filtroResp = v || ''; E.menu = null; E.folha = 1; desenhar(); break;
       case 'menu-mais': E.menu = E.menu === 'mais' ? null : 'mais'; desenhar(); break;
       case 'sobre': E.modal = 'sobre'; E.modalDados = null; desenhar(); break;
-      // abas: Em aberto (em desenvolvimento) ou uma situação por vez
+      // abas: Todas, Em aberto ou uma situação por vez
       case 'sit-aba': E.folha = 1;
-        E.sitAtivas = new Set(v === 'abertas' ? ABERTAS : [v]);
+        E.sitAtivas = new Set(v === 'todas' ? SITUACOES.map((x) => x.id) : v === 'abertas' ? ABERTAS : [v]);
         mudou(); break;
       case 'limpar': E.folha = 1; E.busca = ''; E.filtroResp = ''; E.filtroLocal = ''; desenhar(); break;
       case 'folha': E.folha = Number(v); E.zerarLista = true; desenhar(); break;
@@ -1868,16 +1999,6 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       case 'salvar-status': if (d && E.statusRascunho) salvarStatus(d); break;
       case 'fechar-det': guardar(() => { E.aberta = null; E.erros = {}; desenhar(); }); break;
       case 'aba': if (v === E.aba) break; guardar(() => { E.aba = v; E.erros = {}; E.editTk = false; desenhar(); }, true); break;
-      // API: POST /api/mudancas/{id}/devolver-tecnico
-      case 'devolver-tec': { const x = demanda(id) || d; if (!x || !x.tecnico) break; const t = usr(x.tecnico);
-        if (!t || t.ativo === false) { aviso('O técnico não está mais ativo na Equipe. Atribua pelo campo Responsável.', true); desenhar(); break; }
-        x.responsavel = t.id; registrar(x, 'Demanda para validação devolvida a ' + t.nome + ' para atendimento extra.'); regResp(x, 'admin', t.id, 'atendimento extra'); avisar(x, 'retornou', t.id);
-        if (!(x.passou || []).includes(t.id)) (x.passou = x.passou || []).push(t.id);
-        E.menu = null; aviso('Demanda devolvida a ' + t.curto + ', ainda para validação.'); mudou(); break; }
-      // API: POST /api/mudancas/{id}/devolver-gestor
-      case 'devolver-gestor': { const x = demanda(id) || d; if (!x) break; const t = x.responsavel;
-        x.responsavel = 'admin'; if (t && t !== 'admin') x.tecnico = t; registrar(x, 'Atendimento extra concluído por ' + nomeUsr(t) + '; demanda devolvida ao gestor.', t); regResp(x, t, 'admin', 'carga do gestor', t); avisar(x, 'pendente', 'admin');
-        aviso('Demanda devolvida ao gestor.'); mudou(); break; }
       // API: DELETE /api/mudancas/{id} { motivo } (vai para a lixeira; o servidor guarda o registro da exclusão)
       case 'excluir': { const x = demanda(id) || d; if (!x || x.situacao === 'concluida') break; E.menu = null; // Concluída não vai para a lixeira
         E.modal = 'confirmar'; E.erros = {};
@@ -1889,19 +2010,19 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
             E.demandas = E.demandas.filter((y) => y.id !== x.id); E.aberta = null; E.statusRascunho = null; E.sujo = false; aviso('Demanda enviada para a Lixeira.'); mudou();
           } };
         desenhar(); document.getElementById('mc-motivo').focus(); break; }
-      case 'alterar-conclusao': { const x = demanda(id) || d; if (!x || x.situacao !== 'atendimento') break; E.menu = null; E.modal = 'conclusao'; E.modalDados = { id: x.id }; E.erros = {}; desenhar(); document.getElementById('pr-fim').focus(); break; }
       case 'lixeira': E.menu = null; E.modal = 'lixeira'; E.modalDados = null; desenhar(); break;
+      case 'config': E.menu = null; E.cfg = { v: cfgRascunho(), tocados: {} }; E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break;
+      case 'cfg-fechar': { const st = cfgEstado(); if (!st.mudancas.length && !st.invalidos.length) { cfgFechar(); break; }
+        E.modal = 'confirmar'; E.modalDados = { titulo: 'Descartar Alterações?', texto: 'Você mudou os valores e ainda não salvou.', botao: 'Descartar', perigo: true, acao: cfgFechar }; desenhar(); break; }
       // API: POST /api/lixeira/{id}/restaurar
       case 'restaurar': { const i = E.lixeira.findIndex((x) => x.id === id); if (i < 0) break;
         const x = E.lixeira.splice(i, 1)[0]; delete x.excluidaEm; delete x.excluidaPor; delete x.motivoExclusao;
         registrar(x, 'Demanda restaurada da lixeira.');
+        // quem estava com ela foi desativado enquanto estava na lixeira: volta para o coordenador
+        const resp = usr(x.responsavel);
+        if (ABERTAS.includes(x.situacao) && x.responsavel !== 'admin' && !(resp && resp.ativo)) { const ant = x.responsavel; atribuir(x, 'admin'); regResp(x, ant, 'admin', 'responsável desativado'); }
         if (x.responsavel) avisar(x, 'retornou', x.responsavel);
         E.demandas.push(x); aviso('Demanda restaurada.'); mudou(); break; }
-      // API: GET /api/movimentacoes?dia=AAAA-MM-DD
-      case 'movimentos': E.menu = null; E.modal = 'movimentos'; E.modalDados = { dia: hojeISO(), so: 'todas' }; desenhar(); break;
-      case 'mov-dia': { const m = E.modalDados || {}; const x = new Date((m.dia || hojeISO()) + 'T12:00'); x.setDate(x.getDate() + Number(v)); const nd = x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); if (nd <= hojeISO()) { m.dia = nd; desenhar(); } break; }
-      case 'mov-filtro': if (E.modalDados) { E.modalDados.so = v; desenhar(); } break;
-      case 'mov-abrir': if (demanda(id)) { E.modal = null; E.modalDados = null; E.aberta = id; E.aba = 'hist'; E.erros = {}; desenhar(); } break;
       case 'concluir-dem': { const x = demanda(id) || d; if (x) pedirConclusao(x); break; }
       case 'cancelar':
         if (!d) break; E.menu = null;
@@ -1914,7 +2035,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         if (c.motivo && !motivo) { E.erros.motivo = 'Informe o motivo.'; desenhar(); document.getElementById('mc-motivo').focus(); break; }
         const fn = c.acao; E.modal = null; E.modalDados = null; E.erros = {}; if (fn) fn(motivo); else desenhar(); break;
       }
-      case 'fechar-modal': if (E.modal === 'equipe') E.toast = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); break;
+      case 'fechar-modal': if (E.modal === 'confirmar' && E.cfg) { E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break; } // Não/Voltar: segue editando os valores
+        if (E.modal === 'equipe') E.toast = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); break;
       case 'copiar': copiar(v, 'Copiado: ' + v); break;
       case 'relatorio': if (!d) break; E.menu = null; E.modal = 'relatorio'; E.modalDados = { id: d.id }; E.limparRascunho = true; desenhar(); break;
       case 'baixar-relatorio': baixarRelatorio(); break;
@@ -1930,12 +2052,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   window.addEventListener('resize', () => mostrarAbaAtiva());
   // abas de situação: setas, Home e End trocam de aba (padrão de tablist)
   document.addEventListener('keydown', (ev) => {
-    const tab = ev.target.closest && ev.target.closest('.sit-aba');
+    const tab = ev.target.closest && ev.target.closest('.sit-abas .sit-aba');
     if (!tab || !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(ev.key)) return;
-    const ls = [...document.querySelectorAll('.sit-aba')]; const i = ls.indexOf(tab);
+    const ls = [...document.querySelectorAll('.sit-abas .sit-aba')]; const i = ls.indexOf(tab);
     const j = ev.key === 'Home' ? 0 : ev.key === 'End' ? ls.length - 1 : (i + (ev.key === 'ArrowRight' ? 1 : -1) + ls.length) % ls.length;
     ev.preventDefault(); ev.stopImmediatePropagation(); ls[j].click();
-    const nova = document.querySelector('.sit-aba[aria-selected="true"]'); if (nova) nova.focus();
+    const nova = document.querySelector('.sit-abas .sit-aba[aria-selected="true"]'); if (nova) nova.focus();
   });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && CAL) { const id = CAL.id; fecharCal(); const i = document.getElementById(id); if (i) i.focus(); return; }
@@ -1981,20 +2103,27 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (t.dataset.campo && t.dataset.campo !== 'busca') { E[t.dataset.campo] = t.value; E.folha = 1; desenhar(); return; }
     if (t.id === 'tr-dest' && E.erros.transf) { E.erros.transf = ''; const er = document.querySelector('.equipe .erro'); if (er) er.remove(); t.removeAttribute('aria-invalid'); }
     if (t.name === 'tr-d') { const all = [...document.querySelectorAll('input[name="tr-d"]')]; const l = document.querySelector('[data-acao=tr-todas]'); if (l) l.textContent = all.every((c) => c.checked) ? 'Desmarcar todas' : 'Marcar todas'; atualizaTransf(); return; }
-    if (t.id === 'n-emp') { E.ultimaEmp = t.value; trocarFinalidade(); return; }
-    if (t.dataset.campoSub && precisaDestravar(demanda(E.aberta))) return;
+    if (t.id === 'rl-infra') { atualizaInfra(t.checked); return; }
+    if (t.id === 'n-emp') { E.ultimaEmp = t.value; trocarFinalidade(); ajustarMetro(); return; }
+    if (t.id === 'n-fin') { ajustarMetro(); return; }
     if ((t.dataset.status || t.dataset.campoSub) && !podeEditar(demanda(E.aberta))) { const d = demanda(E.aberta); if (t.dataset.status && d) t.value = d.situacao; precisaEditar(d); return; }
     if (t.dataset.status) { const d = demanda(Number(t.dataset.status)); if (d) escolherStatus(d, t.value); return; }
     if (t.closest && t.closest('#form-dados')) marcarSujo();
     if (t.dataset.campoSub) {
       const d = demanda(E.aberta); if (!d) return; const sub = d.subtickets[Number(t.dataset.i)];
-      // API: PATCH /api/mudancas/{id}/subtickets/{numero} { servico | quantidade }
+      // API: PATCH /api/mudancas/{id}/subtickets/{numero} { servico | quantidade | metroLinear }
+      if (t.dataset.campoSub === 'metro') {
+        const m = t.value.trim() === '' ? null : Number(t.value);
+        if (m !== null && !(Number.isInteger(m) && m >= 1 && m <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
+        if (m !== (sub.metro || null)) { if (m) sub.metro = m; else delete sub.metro; registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': metro linear ' + (m ? m + ' m' : 'não informado') + '.'); E.manterRolagem = true; mudou(); }
+        return;
+      }
       if (t.dataset.campoSub === 'quantidade') {
         const q = parseInt(t.value, 10); if (!(q >= 1 && q <= 999)) { t.value = sub.quantidade || ''; return; }
         if (q !== sub.quantidade) { sub.quantidade = q; registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': quantidade ' + q + '.'); E.manterRolagem = true; mudou(); }
         return;
       }
-      sub.finalidade = t.value.trim(); persistir();
+      sub.finalidade = t.value.trim(); if (!usaMetro(sub.empresa, sub.finalidade)) delete sub.metro; persistir();
       if (t.tagName === 'SELECT') { registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': serviço ' + (sub.finalidade || 'não informado') + '.'); E.manterRolagem = true; mudou(); }
       return;
     }
@@ -2006,6 +2135,21 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (fin.dataset.emp === emp.value) return;
     const atual = fin.value; fin.innerHTML = opcoesServ(emp.value, atual); fin.dataset.emp = emp.value;
   }
+  // o campo Metro Linear só aparece para WECOM em Instalação ou Infraestrutura
+  function ajustarMetro() {
+    const m = document.getElementById('n-metro'); if (!m) return;
+    const ativo = usaMetro(val('n-emp'), val('n-fin')); m.disabled = !ativo; if (!ativo) m.value = '';
+    m.closest('.add-sub').classList.toggle('com-metro', ativo);
+  }
+  // Configuração de valores: guarda o rascunho, formata ao sair do campo e seleciona ao entrar
+  document.addEventListener('input', (ev) => { const t = ev.target; if (t.dataset && t.dataset.cfg && E.cfg) { E.cfg.v[t.id] = t.value; atualizaConfig(); } });
+  document.addEventListener('change', (ev) => {
+    const t = ev.target; if (!(t.dataset && t.dataset.cfg && E.cfg)) return;
+    E.cfg.tocados[t.id] = true; const x = lerValor(t.value);
+    if (x !== null) { t.value = valorCampo(x); E.cfg.v[t.id] = t.value; }
+    atualizaConfig();
+  });
+  document.addEventListener('focusin', (ev) => { if (ev.target.dataset && ev.target.dataset.cfg) ev.target.select(); });
   // botão de transferir mostra quantas demandas vão
   // a descrição do post-it mostra só as linhas inteiras que cabem, com reticências na última
   function ajustaPostits() {
@@ -2088,7 +2232,16 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   E.demandas = E.demandas.filter((d) => d && Number.isFinite(d.id) && sit(d.situacao) && Array.isArray(d.subtickets) && Array.isArray(d.historico));
   E.equipe = E.equipe.filter((u) => u && typeof u.id === 'string' && typeof u.nome === 'string');
   E.lixeira = E.lixeira.filter((d) => d && Number.isFinite(d.id) && sit(d.situacao) && Array.isArray(d.subtickets) && Array.isArray(d.historico) && d.excluidaEm);
-  if (automatizar()) persistir();
+  // toda demanda tem responsável (no mínimo, o coordenador); só a Concluída fica com o Setor
+  let semResp = 0;
+  // e ninguém desativado fica com demanda em aberto
+  E.demandas.concat(E.lixeira).forEach((d) => {
+    const inativo = ABERTAS.includes(d.situacao) && d.responsavel && d.responsavel !== 'admin' && !(E.equipe.find((u) => u.id === d.responsavel) || {}).ativo;
+    if ((!d.responsavel && d.situacao !== 'concluida') || inativo) { if (inativo) d.tecnico = d.responsavel; d.responsavel = 'admin'; semResp++; }
+  });
+  // o serviço da WECOM mudou de nome: atualiza o que já estava salvo no navegador
+  E.demandas.concat(E.lixeira).forEach((d) => d.subtickets.forEach((s) => { if (s.empresa === 'WECOM' && s.finalidade === 'Instalação de Infraestrutura') s.finalidade = 'Infraestrutura'; if (s.metro && !usaMetro(s.empresa, s.finalidade)) delete s.metro; }));
+  if (automatizar() + semResp) persistir();
   // a data muda com o sistema aberto: confere de hora em hora
   setInterval(() => { if (automatizar()) mudou(); }, 3600000);
 
