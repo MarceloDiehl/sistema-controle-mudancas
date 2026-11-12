@@ -40,7 +40,7 @@ coordenador aprova em **Equipe**.
 Precisa de Java 17 e MySQL 8.
 
 1. **Banco:** no MySQL Workbench, como root, abra `db/ditic_mudancas_db.sql`, troque `TROCAR_SENHA` pela senha do
-   `ditic_user` (sem salvar o arquivo) e execute. O script cria as tabelas e carrega os locais, as empresas, os
+   `ditic_admin` (sem salvar o arquivo) e execute. O script cria as tabelas e carrega os locais, as empresas, os
    serviços e os valores do custo.
 2. **Configuração:** copie `src/main/resources/application-local.properties.exemplo` para
    `application-local.properties` e preencha a senha do banco e a senha inicial do coordenador.

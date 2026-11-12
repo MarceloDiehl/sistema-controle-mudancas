@@ -33,10 +33,10 @@ class FluxoDemandaTest {
     }
 
     private static void comTickets(Demanda d, LocalDate registro) {
-        d.setTicketPrincipal("18315742");
+        d.setTicketPrincipal("1831574");
         d.setTicketEm(registro.atTime(8, 0));
         Subticket s = new Subticket();
-        s.setNumero("18313601");
+        s.setNumero("1831360");
         d.getSubtickets().add(s);
     }
 

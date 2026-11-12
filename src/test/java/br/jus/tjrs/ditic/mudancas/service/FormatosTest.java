@@ -34,9 +34,9 @@ class FormatosTest {
     void seiETicketTemFormatoFixo() {
         assertThat(Formatos.SEI.matcher("8.2026.9745/000342-7").matches()).isTrue();
         assertThat(Formatos.SEI.matcher("8.2026.9745/00342-7").matches()).isFalse();
-        assertThat(Formatos.TICKET.matcher("18313601").matches()).isTrue();
+        assertThat(Formatos.TICKET.matcher("1831360").matches()).isTrue();
         assertThat(Formatos.TICKET.matcher("183136").matches()).isFalse();
-        assertThat(Formatos.TICKET.matcher("183136012").matches()).isFalse();
+        assertThat(Formatos.TICKET.matcher("18313601").matches()).isFalse();
     }
 
     @Test

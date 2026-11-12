@@ -1323,7 +1323,7 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 
 /* versão 1.0.0: campos travados, Data de Início | Data para Conclusão | Hora, motivo e lixeira */
 .trava-grupo { display: contents; }
-.linha-atend-det { grid-template-columns: minmax(0, 1fr) 170px 170px 130px; }
+.linha-atend-det { grid-template-columns: minmax(0, 1fr) 200px 200px 120px; }
 .grade-ini { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .grade-ini > * { grid-column: span 2; grid-row: auto; }
 .grade-ini > :nth-child(1), .grade-ini > :nth-child(2) { grid-column: span 3; grid-row: auto; }
@@ -1336,7 +1336,11 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
   .grade-ini > * { grid-column: auto; }
   .grade-ini > :nth-child(1), .grade-ini > :nth-child(2) { grid-column: 1 / -1; }
 }
-@media (max-width: 560px) { .linha-atend-det { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .linha-atend-det { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .linha-atend-det { grid-template-columns: minmax(0, 1fr); } }
+/* o rótulo "Data para Conclusão (opcional)" fica numa linha só e os campos de data e hora alinham pela base */
+.linha-atend-det { align-items: end; }
+.linha-atend-det .trava-grupo .form-label { white-space: nowrap; }
 .rolagem.postits:has(> .vazio-lista) { display: flex; flex-direction: column; }
 .conf-motivo { width: 100%; margin-top: 12px; text-align: left; }
 .conf-motivo .txt { min-height: 72px; }
@@ -1422,15 +1426,16 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .filtros .campo-busca svg { top: 50%; left: 12px; transform: translateY(-50%); }
 .filtros .campo-busca input { height: var(--ctl-h); padding-left: 35px; border-radius: var(--ctl-r); }
 .filtros .filtro { height: var(--ctl-h); border-radius: var(--ctl-r); }
-.filtros .filtro-local { flex: 0 0 300px; }
-.filtros .filtro-resp { flex: 0 0 270px; }
+.filtros .filtro-local { flex: 0 0 340px; }
+.filtros .filtro-resp { flex: 0 0 320px; }
 .filtros .vistas { flex: none; height: var(--ctl-h); padding: 3px; gap: 2px; border-radius: var(--ctl-r); }
 .filtros .vista-btn { height: 28px; border-radius: 7px; }
 .filtros .filtro-limpa { border-radius: 7px; }
 /* escolhido: ícone, nome e o número de demandas num círculo cinza claro */
 .filtros .filtro-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #E6E9ED; color: var(--ink-2); font-size: 11.5px; font-weight: 600; }
 .filtro.ativo .filtro-ico { color: var(--ink-2); }
-@media (max-width: 1100px) and (min-width: 901px) { .filtros .filtro-local { flex-basis: 220px; } .filtros .filtro-resp { flex-basis: 200px; } }
+@media (max-width: 1280px) and (min-width: 1101px) { .filtros .filtro-local { flex-basis: 300px; } .filtros .filtro-resp { flex-basis: 280px; } }
+@media (max-width: 1100px) and (min-width: 901px) { .filtros .filtro-local { flex-basis: 230px; } .filtros .filtro-resp { flex-basis: 220px; } }
 @media (max-width: 900px) { .marca .longo { display: none; } .topo-in { padding-left: 16px; padding-right: 16px; } }
 /* abaixo de 900 px: a pesquisa ocupa a linha toda; Local, Responsável e visualização logo abaixo */
 @media (max-width: 900px) {
@@ -1479,3 +1484,19 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 
 /* subticket alterado e ainda não salvo */
 .tabela tr.sub-alterado > td:first-child { box-shadow: inset 3px 0 0 var(--acio-dot); }
+
+/* ------------------------------------------------------------------ linha de filtros: um estilo só */
+/* pesquisa, Local, Responsável e visualização com a mesma cara dos campos do sistema: fundo branco, a mesma borda,
+   os mesmos cantos, o mesmo destaque ao passar o mouse e ao focar; o que está escolhido ganha um preenchimento suave */
+.filtros { gap: 10px; }
+.filtros .campo-busca input, .filtros .filtro, .filtros .vistas {
+  background: var(--surface); border: 1px solid var(--line-inp); border-radius: var(--ctl-r);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04); transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.filtros .campo-busca input:hover, .filtros .filtro:hover, .filtros .vistas:hover { border-color: #C3CAD2; }
+.filtros .campo-busca input:focus, .filtros .filtro.aberto { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(90, 99, 112, .13); outline: 0; }
+.filtros .campo-busca input:not(:placeholder-shown):not(:focus), .filtros .filtro.ativo:not(.aberto) { background: #F4F6F8; border-color: #A9B1BB; }
+.filtros .campo-busca svg, .filtros .filtro-ico, .filtros .filtro-seta { color: #78808A; }
+.filtros .campo-busca input::placeholder, .filtros .filtro-nome { color: var(--muted); }
+.filtros .campo-busca input { color: var(--ink); }
+.filtros .vista-btn[aria-pressed="true"] { background: #EEF0F3; color: var(--ink); box-shadow: none; }

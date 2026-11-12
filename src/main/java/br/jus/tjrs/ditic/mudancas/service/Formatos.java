@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public final class Formatos {
 
     public static final Pattern SEI = Pattern.compile("^\\d\\.\\d{4}\\.\\d{4}/\\d{6}-\\d$");
-    public static final Pattern TICKET = Pattern.compile("^\\d{8}$");
+    public static final Pattern TICKET = Pattern.compile("^\\d{7}$");
     private static final Pattern DATA_ISO = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}$");
     private static final Pattern HORA = Pattern.compile("^([01]\\d|2[0-3]):[0-5]\\d$");
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");

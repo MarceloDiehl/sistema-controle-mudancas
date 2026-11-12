@@ -867,7 +867,7 @@
       ${d.ticketPrincipal ? '' : '<p class="bloco-dica">Abra o ticket principal no 4Biz e registre o número aqui. Depois disso a demanda pode ser marcada como acionada.</p>'}
       <form class="linha-form" data-form="principal" novalidate>
         <label for="t-principal" class="visually-hidden">Número do ticket principal</label>
-        <input id="t-principal" data-rascunho class="form-control mono inp-tk" inputmode="numeric" value="${esc(d.ticketPrincipal || '')}" data-mask="ticket" maxlength="8" autocomplete="off" placeholder="Número do ticket, ex.: 18315742" ${E.erros.principal ? 'aria-invalid="true"' : ''}>
+        <input id="t-principal" data-rascunho class="form-control mono inp-tk" inputmode="numeric" value="${esc(d.ticketPrincipal || '')}" data-mask="ticket" maxlength="7" autocomplete="off" placeholder="Número do ticket, ex.: 1831574" ${E.erros.principal ? 'aria-invalid="true"' : ''}>
         <span class="linha-form-btns">
           ${d.ticketPrincipal ? '<button type="button" class="btn btn-link btn-lg" data-acao="tk-cancelar">Cancelar</button>' : ''}
           <button type="submit" class="btn btn-primary btn-lg">${d.ticketPrincipal ? 'Salvar número' : 'Registrar ticket'}</button>
@@ -902,7 +902,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       <span class="campo"><label class="form-label" for="n-emp">Empresa</label>
       <select id="n-emp" data-rascunho class="form-select sel-g" ${E.erros.emp ? 'aria-invalid="true"' : ''}><option value="">Escolher empresa…</option>${nomesEmpresas().map((e) => `<option ${E.ultimaEmp === e ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></span>
       <span class="campo"><label class="form-label" for="n-num">Número do subticket</label>
-      <input id="n-num" data-rascunho data-mask="tickets" class="form-control mono" inputmode="numeric" autocomplete="off" placeholder="18313601 / 18313902" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
+      <input id="n-num" data-rascunho data-mask="tickets" class="form-control mono" inputmode="numeric" autocomplete="off" placeholder="1831360 / 1831390" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
       <span class="campo"><label class="form-label" for="n-fin">Serviço</label>
       <select id="n-fin" data-rascunho class="form-select sel-g" ${E.erros.fin ? 'aria-invalid="true"' : ''}>${opcoesServ(E.ultimaEmp || '', '')}</select></span>
       <span class="campo campo-qtd"><label class="form-label" for="n-qtd">Quantidade</label>
@@ -1793,7 +1793,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if (tipo === 'principal' && d) {
       const bruto = val('t-principal'); const n = bruto.replace(/\D/g, '');
       if (!n) { E.erros.principal = 'Informe o número do ticket.'; desenhar(); return; }
-      if (!/^\d{8}$/.test(n)) { E.erros.principal = 'O número do ticket tem 8 dígitos.'; desenhar(); return; }
+      if (!/^\d{7}$/.test(n)) { E.erros.principal = 'O número do ticket tem 7 dígitos.'; desenhar(); return; }
       if ((d.ticketPrincipal || '') === n) { E.editTk = false; desenhar(); return; }
       const r = await api('PUT', 'mudancas/' + d.id + '/ticket', { numero: n });
       const x = trocarDemanda(r.demanda);
@@ -1805,9 +1805,9 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       const emp = val('n-emp'); const fin = val('n-fin');
       const erro = (msg, campo, foco) => { E.erros.sub = msg; if (campo) E.erros[campo] = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById(foco); if (el) el.focus(); };
       if (!emp) { erro('Escolha a empresa.', 'emp', 'n-emp'); return; }
-      // um ou mais números separados por barra, vírgula ou espaço; cada um com exatamente 8 dígitos
+      // um ou mais números separados por barra, vírgula ou espaço; cada um com exatamente 7 dígitos
       const nums = val('n-num').split(/\D+/).filter(Boolean);
-      if (!nums.length || nums.some((x) => x.length !== 8)) { erro(nums.length ? 'Cada número de ticket tem 8 dígitos.' : 'Informe ao menos um número de ticket (8 dígitos).', '', 'n-num'); return; }
+      if (!nums.length || nums.some((x) => x.length !== 7)) { erro(nums.length ? 'Cada número de ticket tem 7 dígitos.' : 'Informe ao menos um número de ticket (7 dígitos).', '', 'n-num'); return; }
       if (!fin) { erro('Escolha o serviço do subticket.', 'fin', 'n-fin'); return; }
       const qtd = parseInt(val('n-qtd'), 10);
       if (!(qtd >= 1 && qtd <= 999)) { erro('Informe a quantidade de serviços (1 a 999).', 'qtd', 'n-qtd'); return; }
@@ -2131,7 +2131,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       return;
     }
     if (t.dataset.mask === 'ticket' || t.dataset.mask === 'tickets') {
-      const f = t.dataset.mask === 'ticket' ? t.value.replace(/\D/g, '').slice(0, 8) : t.value.replace(/[^\d /,;]/g, '').replace(/\d{9,}/g, (g) => g.slice(0, 8));
+      const f = t.dataset.mask === 'ticket' ? t.value.replace(/\D/g, '').slice(0, 7) : t.value.replace(/[^\d /,;]/g, '').replace(/\d{8,}/g, (g) => g.slice(0, 7));
       if (f !== t.value) { const pos = Math.min(t.selectionStart, f.length); t.value = f; t.setSelectionRange(pos, pos); }
       return;
     }

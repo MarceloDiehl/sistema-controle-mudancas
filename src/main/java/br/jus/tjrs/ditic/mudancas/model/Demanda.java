@@ -90,7 +90,7 @@ public class Demanda {
     @JoinColumn(name = "tecnico_id")
     private Pessoa tecnico;
 
-    @Column(name = "ticket_principal", columnDefinition = "char(8)")
+    @Column(name = "ticket_principal", columnDefinition = "char(7)")
     private String ticketPrincipal;
 
     @Column(name = "ticket_em")

@@ -224,7 +224,7 @@ public class DemandaService {
         String bruto = req.numero() == null ? "" : req.numero().trim();
         String n = bruto.replaceAll("\\D", "");
         if (n.isEmpty()) throw RegraException.invalido("Informe o número do ticket.");
-        if (!Formatos.TICKET.matcher(n).matches()) throw RegraException.invalido("O número do ticket tem 8 dígitos.");
+        if (!Formatos.TICKET.matcher(n).matches()) throw RegraException.invalido("O número do ticket tem 7 dígitos.");
         if (n.equals(d.getTicketPrincipal())) return new DemandaDtos.Resposta(completo(d), null, null);
         Pessoa autor = autor(u);
         d.setTicketPrincipal(n);
@@ -241,8 +241,8 @@ public class DemandaService {
         Empresa empresa = req.empresa() == null ? null : empresas.findByNome(req.empresa()).orElse(null);
         if (empresa == null) throw RegraException.invalido("Escolha a empresa.");
         List<String> nums = Arrays.stream((req.numeros() == null ? "" : req.numeros()).split("\\D+")).filter(x -> !x.isEmpty()).toList();
-        if (nums.isEmpty()) throw RegraException.invalido("Informe ao menos um número de ticket (8 dígitos).");
-        if (nums.stream().anyMatch(x -> x.length() != 8)) throw RegraException.invalido("Cada número de ticket tem 8 dígitos.");
+        if (nums.isEmpty()) throw RegraException.invalido("Informe ao menos um número de ticket (7 dígitos).");
+        if (nums.stream().anyMatch(x -> x.length() != 7)) throw RegraException.invalido("Cada número de ticket tem 7 dígitos.");
         Servico servico = req.servico() == null ? null : servicos.findByEmpresaIdAndNome(empresa.getId(), req.servico()).orElse(null);
         if (servico == null) throw RegraException.invalido("Escolha o serviço do subticket.");
         Integer qtd = req.quantidade();
