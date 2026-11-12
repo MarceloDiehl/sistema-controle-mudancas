@@ -4,5 +4,5 @@
 spring.datasource.username=ditic_user
 spring.datasource.password=SENHA_DO_MYSQL
 
-# Senha do gestor "admin", criado ao iniciar quando ainda nao existe
+# Senha inicial do coordenador "admin", criado ao iniciar quando ainda nao existe (trocada no primeiro acesso)
 mudancas.admin.senha-inicial=SENHA_DO_ADMIN

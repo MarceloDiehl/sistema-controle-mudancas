@@ -1,25 +1,47 @@
 /* =====================================================================================================
    Controle de Demandas de Mudanças · DITIC-DSUP · TJRS
-   Protótipo das telas em JavaScript puro (sem frameworks; o visual usa o Bootstrap 5 local).
-   Um arquivo só, em três partes:
-     1. Catálogos (locais, regiões, serviços da CDS)
+   Telas em JavaScript puro (sem frameworks; o visual usa o Bootstrap 5 local). Um arquivo só, em três partes:
+     1. Comunicação com o servidor (API do Spring Boot)
      2. Relatório de execução em PDF (gerador próprio, sem bibliotecas)
-     3. Aplicação: estado, regras do fluxo, telas e eventos
-   Estado em memória + localStorage do navegador. No sistema real, os pontos marcados com "API:" viram
-   chamadas fetch para o back-end Spring Boot (ver docs/ESPECIFICACAO.md).
+     3. Aplicação: estado, telas e eventos
+   Os dados (demandas, equipe, catálogos e valores do custo) vêm do banco, pela API; as regras de status,
+   permissão e custo são validadas no servidor. A tela só guarda no
+   navegador as preferências de exibição (aba e visualização).
    Segurança: todo texto vindo de dados passa por esc() antes de entrar no HTML; nada de eval/new Function;
-   nenhum recurso externo (funciona offline).
+   nenhum recurso externo.
    ===================================================================================================== */
 (function () {
   'use strict';
 
-  // ================================================================== 1. catálogos
-  /* Locais atendidos: Porto Alegre (prédios) e comarcas do interior */
-  const CATALOGO_LOCAIS = {"poa": ["Tribunal de Justiça", "Tribunal de Justiça - Anexo", "Palácio da Justiça", "Foro Central - Prédio I", "Foro Central - Prédio II", "Foro Regional da Restinga", "Foro Regional da Tristeza", "Foro Regional da Zona Leste", "Foro Regional da Zona Norte", "Foro Regional do Alto Petrópolis", "Foro Regional do Partenon", "Foro Regional do Sarandi", "Transporte - Garagem"], "interior": ["Agudo", "Alegrete", "Alvorada", "Antônio Prado", "Arroio do Meio", "Arroio do Tigre", "Arroio Grande", "Arvorezinha", "Augusto Pestana", "Bagé", "Barra do Ribeiro", "Bento Gonçalves", "Bom Jesus", "Butiá", "Caçapava do Sul", "Cacequi", "Cachoeira do Sul", "Cachoeirinha", "Camaquã", "Campina das Missões", "Campo Bom", "Campo Novo", "Candelária", "Canela", "Canguçu", "Canoas", "Capão da Canoa", "Carazinho", "Carlos Barbosa", "Casca", "Catuipe", "Caxias do Sul", "Cerro Largo", "Charqueadas", "Constantina", "Coronel Bicaco", "Crissiumal", "Cruz Alta", "Dois Irmãos", "Dom Pedrito", "Eldorado do Sul", "Encantado", "Encruzilhada do Sul", "Erechim", "Espumoso", "Estância Velha", "Esteio", "Estrela", "Farroupilha", "Faxinal do Soturno", "Feliz", "Flores da Cunha", "Frederico Westphalen", "Garibaldi", "Gaurama", "General Câmara", "Getúlio Vargas", "Giruá", "Gramado", "Gravataí", "Guaíba", "Guaporé", "Guarani das Missões", "Herval", "Horizontina", "Ibirubá", "Igrejinha", "Ijuí", "Iraí", "Itaqui", "Ivoti", "Jaguarão", "Jaguari", "Júlio de Castilhos", "Lagoa Vermelha", "Lajeado", "Lavras do Sul", "Marau", "Marcelino Ramos", "Montenegro", "Mostardas", "Não Me Toque", "Nonoai", "Nova Petrópolis", "Nova Prata", "Novo Hamburgo", "Osório", "Palmares do Sul", "Palmeira das Missões", "Panambi", "Parobé", "Passo Fundo", "Pedro Osório", "Pelotas", "Pinheiro Machado", "Piratini", "Planalto", "Portão", "Porto Xavier", "Quaraí", "Restinga Seca", "Rio Grande", "Rio Pardo", "Rodeio Bonito", "Ronda Alta", "Rosário do Sul", "Salto do Jacuí", "Sananduva", "Santa Bárbara do Sul", "Santa Cruz do Sul", "Santa Maria", "Santa Rosa", "Santa Vitória do Palmar", "Santana do Livramento", "Santiago", "Santo Ângelo", "Santo Antônio da Patrulha", "Santo Antônio das Missões", "Santo Augusto", "Santo Cristo", "São Borja", "São Francisco de Assis", "São Francisco de Paula", "São Gabriel", "São Jerônimo", "São José do Norte", "São José do Ouro", "São Leopoldo", "São Lourenço do Sul", "São Luiz Gonzaga", "São Marcos", "São Pedro do Sul", "São Sebastião do Caí", "São Sepé", "São Valentim", "São Vicente do Sul", "Sapiranga", "Sapucaia do Sul", "Sarandi", "Seberi", "Sobradinho", "Soledade", "Tapejara", "Tapera", "Tapes", "Taquara", "Taquari", "Tenente Portela", "Terra de Areia", "Teutônia", "Torres", "Tramandai", "Três Coroas", "Três de Maio", "Três Passos", "Triunfo", "Tucunduva", "Tupanciretã", "Uruguaiana", "Vacaria", "Venâncio Aires", "Vera Cruz", "Veranópolis", "Viamão"]};
-  /* Região de cada comarca do interior */
-  const REGIAO_COMARCA = {"Agudo": "Centro Ocidental", "Alegrete": "Sudoeste", "Alvorada": "Metropolitana", "Antônio Prado": "Nordeste", "Arroio do Meio": "Centro Oriental", "Arroio do Tigre": "Centro Oriental", "Arroio Grande": "Sudeste", "Arvorezinha": "Nordeste", "Augusto Pestana": "Noroeste", "Bagé": "Sudoeste", "Barra do Ribeiro": "Metropolitana", "Bento Gonçalves": "Nordeste", "Bom Jesus": "Nordeste", "Butiá": "Metropolitana", "Caçapava do Sul": "Sudeste", "Cacequi": "Centro Ocidental", "Cachoeira do Sul": "Centro Oriental", "Cachoeirinha": "Metropolitana", "Camaquã": "Metropolitana", "Campina das Missões": "Noroeste", "Campo Bom": "Metropolitana", "Campo Novo": "Noroeste", "Candelária": "Centro Oriental", "Canela": "Metropolitana", "Canguçu": "Sudeste", "Canoas": "Metropolitana", "Capão da Canoa": "Metropolitana", "Carazinho": "Noroeste", "Carlos Barbosa": "Nordeste", "Casca": "Noroeste", "Catuipe": "Noroeste", "Caxias do Sul": "Nordeste", "Cerro Largo": "Noroeste", "Charqueadas": "Metropolitana", "Constantina": "Noroeste", "Coronel Bicaco": "Noroeste", "Crissiumal": "Noroeste", "Cruz Alta": "Noroeste", "Dois Irmãos": "Metropolitana", "Dom Pedrito": "Sudoeste", "Eldorado do Sul": "Metropolitana", "Encantado": "Centro Oriental", "Encruzilhada do Sul": "Sudeste", "Erechim": "Noroeste", "Espumoso": "Noroeste", "Estância Velha": "Metropolitana", "Esteio": "Metropolitana", "Estrela": "Centro Oriental", "Farroupilha": "Nordeste", "Faxinal do Soturno": "Centro Ocidental", "Feliz": "Metropolitana", "Flores da Cunha": "Nordeste", "Frederico Westphalen": "Noroeste", "Garibaldi": "Nordeste", "Gaurama": "Noroeste", "General Câmara": "Metropolitana", "Getúlio Vargas": "Noroeste", "Giruá": "Noroeste", "Gramado": "Metropolitana", "Gravataí": "Metropolitana", "Guaíba": "Metropolitana", "Guaporé": "Nordeste", "Guarani das Missões": "Noroeste", "Herval": "Sudeste", "Horizontina": "Noroeste", "Ibirubá": "Noroeste", "Igrejinha": "Metropolitana", "Ijuí": "Noroeste", "Iraí": "Noroeste", "Itaqui": "Sudoeste", "Ivoti": "Metropolitana", "Jaguarão": "Sudeste", "Jaguari": "Centro Ocidental", "Júlio de Castilhos": "Centro Ocidental", "Lagoa Vermelha": "Nordeste", "Lajeado": "Centro Oriental", "Lavras do Sul": "Sudoeste", "Marau": "Noroeste", "Marcelino Ramos": "Noroeste", "Montenegro": "Metropolitana", "Mostardas": "Metropolitana", "Não Me Toque": "Noroeste", "Nonoai": "Noroeste", "Nova Petrópolis": "Metropolitana", "Nova Prata": "Nordeste", "Novo Hamburgo": "Metropolitana", "Osório": "Metropolitana", "Palmares do Sul": "Metropolitana", "Palmeira das Missões": "Noroeste", "Panambi": "Noroeste", "Parobé": "Metropolitana", "Passo Fundo": "Noroeste", "Pedro Osório": "Sudeste", "Pelotas": "Sudeste", "Pinheiro Machado": "Sudeste", "Piratini": "Sudeste", "Planalto": "Noroeste", "Portão": "Metropolitana", "Porto Xavier": "Noroeste", "Quaraí": "Sudoeste", "Restinga Seca": "Centro Ocidental", "Rio Grande": "Sudeste", "Rio Pardo": "Centro Oriental", "Rodeio Bonito": "Noroeste", "Ronda Alta": "Noroeste", "Rosário do Sul": "Sudoeste", "Salto do Jacuí": "Noroeste", "Sananduva": "Noroeste", "Santa Bárbara do Sul": "Noroeste", "Santa Cruz do Sul": "Centro Oriental", "Santa Maria": "Centro Ocidental", "Santa Rosa": "Noroeste", "Santa Vitória do Palmar": "Sudeste", "Santana do Livramento": "Sudoeste", "Santiago": "Centro Ocidental", "Santo Ângelo": "Noroeste", "Santo Antônio da Patrulha": "Metropolitana", "Santo Antônio das Missões": "Noroeste", "Santo Augusto": "Noroeste", "Santo Cristo": "Noroeste", "São Borja": "Sudoeste", "São Francisco de Assis": "Sudoeste", "São Francisco de Paula": "Nordeste", "São Gabriel": "Sudoeste", "São Jerônimo": "Metropolitana", "São José do Norte": "Sudeste", "São José do Ouro": "Noroeste", "São Leopoldo": "Metropolitana", "São Lourenço do Sul": "Sudeste", "São Luiz Gonzaga": "Noroeste", "São Marcos": "Nordeste", "São Pedro do Sul": "Centro Ocidental", "São Sebastião do Caí": "Metropolitana", "São Sepé": "Centro Ocidental", "São Valentim": "Noroeste", "São Vicente do Sul": "Centro Ocidental", "Sapiranga": "Metropolitana", "Sapucaia do Sul": "Metropolitana", "Sarandi": "Noroeste", "Seberi": "Noroeste", "Sobradinho": "Centro Oriental", "Soledade": "Noroeste", "Tapejara": "Noroeste", "Tapera": "Noroeste", "Tapes": "Metropolitana", "Taquara": "Metropolitana", "Taquari": "Centro Oriental", "Tenente Portela": "Noroeste", "Terra de Areia": "Metropolitana", "Teutônia": "Centro Oriental", "Torres": "Metropolitana", "Tramandai": "Metropolitana", "Três Coroas": "Metropolitana", "Três de Maio": "Noroeste", "Três Passos": "Noroeste", "Triunfo": "Metropolitana", "Tucunduva": "Noroeste", "Tupanciretã": "Centro Ocidental", "Uruguaiana": "Sudoeste", "Vacaria": "Nordeste", "Venâncio Aires": "Centro Oriental", "Vera Cruz": "Centro Oriental", "Veranópolis": "Nordeste", "Viamão": "Metropolitana"};
-  /* Os 6 tipos de serviço da CDS, como na tabela servicos do sistema de faturamento */
-  const SERVICOS_CDS = ['Instalação', 'Desinstalação', 'Rollout AC', 'Rollout ABC', 'Mudança de Local', 'Mudança de Prédio'];
+  // ================================================================== 1. servidor
+  // A sessão fica num cookie do servidor. O token CSRF chega no cookie XSRF-TOKEN e volta no cabeçalho X-XSRF-TOKEN.
+  class ErroApi extends Error {
+    constructor(status, mensagem) { super(mensagem); this.status = status; }
+  }
+  function lerCookie(nome) {
+    const par = document.cookie.split('; ').find((c) => c.startsWith(nome + '='));
+    return par ? decodeURIComponent(par.slice(nome.length + 1)) : '';
+  }
+  async function api(metodo, caminho, corpo) {
+    const op = { method: metodo, credentials: 'same-origin', headers: { Accept: 'application/json' } };
+    if (metodo !== 'GET') {
+      // a saída da conta apaga o token: pede um novo antes de alterar qualquer coisa
+      if (!lerCookie('XSRF-TOKEN')) await fetch('api/sessao', { credentials: 'same-origin' }).catch(() => null);
+      op.headers['X-XSRF-TOKEN'] = lerCookie('XSRF-TOKEN');
+    }
+    if (corpo !== undefined) { op.headers['Content-Type'] = 'application/json'; op.body = JSON.stringify(corpo); }
+    let r;
+    try { r = await fetch('api/' + caminho, op); } catch (e) { throw new ErroApi(0, 'Sem conexão com o servidor. Confira a rede e tente de novo.'); }
+    const txt = await r.text();
+    let dados = null;
+    try { dados = txt ? JSON.parse(txt) : null; } catch (e) { dados = null; }
+    if (!r.ok) {
+      const msg = (dados && dados.mensagem) || 'O servidor respondeu com erro (' + r.status + ').';
+      if (r.status === 401 && caminho !== 'login' && caminho !== 'sessao') sessaoEncerrada(msg);
+      throw new ErroApi(r.status, msg);
+    }
+    return dados;
+  }
 
   // ================================================================== 2. relatório de execução (PDF)
   /* Relatório de execução de mudança: PDF gerado no navegador, sem bibliotecas (Helvetica padrão, A4) */
@@ -149,16 +171,14 @@
 
   // ================================================================== 3. aplicação
 
-  // ------------------------------------------------------------------ catálogos
-  // Equipe: técnicos que recebem demandas. Cadastro mantido pelo coordenador; técnicos não têm login.
-  // O sistema começa sem nenhum técnico: até o coordenador cadastrar a equipe, só ele existe.
-  // API: GET/POST/PUT /api/equipe (tabela responsavel: id, nome, iniciais, cor, ativo)
+  // ------------------------------------------------------------------ constantes da tela
+  // paleta das cores da Equipe (a cor escolhida fica no cadastro da pessoa)
   const CORES_EQUIPE = ['#3E7C8A', '#8A6B3D', '#7B6397', '#5A6370', '#4F7A4A', '#A0573C', '#3D5F8F', '#8C4F72'];
-  // Login: coordenador (Administrador) e técnicos da Equipe. API: tabela pessoa (login, senha_hash, perfil = COORDENADOR | TECNICO)
-  // 'coordenador' é o id usado nas versões anteriores do protótipo; fica como apelido para o histórico antigo.
-  const GESTORES = [{ id: 'admin', nome: 'Administrador', curto: 'Coordenador', ini: 'AD', cor: '#374151', gestor: true, apelidos: ['gestor', 'coordenador', 'administrador'] }];
-  const EMPRESAS = ['CADI', 'CDS', 'Selbetti', 'WECOM'];
-  // demanda excluída fica na lixeira por este número de dias
+  // a carga compartilhada dos coordenadores aparece como uma pessoa só, "Coordenador"
+  const COORD = 'coordenador';
+  const COORD_USR = { id: COORD, nome: 'Coordenador', curto: 'Coordenador', ini: 'CO', cor: '#374151', ativo: true };
+  const SISTEMA = { id: 'sistema', nome: 'Sistema (automático)', curto: 'Sistema', ini: 'SI', cor: '#9AA3AE' };
+  // demanda excluída fica na lixeira por este número de dias (a remoção definitiva é do servidor)
   const DIAS_LIXEIRA = 30;
   // situações em aberto (ainda dão trabalho para alguém)
   const ABERTAS = ['nova', 'acionada', 'atendimento', 'pendente'];
@@ -170,100 +190,73 @@
     { id: 'concluida', nome: 'Concluídas', um: 'Concluída', cor: 'conc' },
     { id: 'cancelada', nome: 'Canceladas', um: 'Cancelada', cor: 'canc' }
   ];
-  const LOCAIS = CATALOGO_LOCAIS;
-  const REGIAO = REGIAO_COMARCA;
-  // finalidade do subticket: serviços de cada empresa
-  const SERVICOS = {
-    CADI: ['Mudança de Local', 'Configuração', 'Habilitação de Pontos de Rede'],
-    CDS: SERVICOS_CDS,
-    Selbetti: ['Mudança de Local', 'Instalação', 'Desinstalação', 'Mudança de Prédio'],
-    WECOM: ['Instalação', 'Realocação', 'Infraestrutura']
-  };
-  // valores iniciais do custo do relatório (o coordenador altera em Configuração)
-  // CDS: por região e serviço, na ordem de REGIOES, como no sistema de faturamento do DSUP
-  const REGIOES = ['Noroeste', 'Nordeste', 'Centro Ocidental', 'Centro Oriental', 'Metropolitana', 'Sudeste', 'Sudoeste'];
-  const PRECOS_INICIAIS = {
-    cds: {
-      'Instalação': [285, 229, 233, 272, 125, 273.95, 267],
-      'Rollout AC': [315, 261, 260, 302, 143, 307, 298.21],
-      'Rollout ABC': [352, 298, 298, 339, 170, 343, 335],
-      'Desinstalação': [248, 194, 194, 236, 130, 239, 231],
-      'Mudança de Local': [198, 152, 153, 185, 160, 187, 188],
-      'Mudança de Prédio': [354, 300, 300, 341, 150, 335, 327]
-    },
-    // metro: valor do metro linear da Infraestrutura
-    wecom: { realocacao: 4121.86, instalacao: 970.93, metro: 164.18 }
-  };
-  // Infraestrutura sem metro linear: verba estimada com a média de metros lineares por sala (média de 1.221 salas)
-  const METROS_ESTIMADOS = 15;
-  const SERVICOS_CDS_PRECO = Object.keys(PRECOS_INICIAIS.cds);
-  const valorOk = (v) => Number.isFinite(v) && v > 0;
-  function carregarPrecos(s) {
-    const p = JSON.parse(JSON.stringify(PRECOS_INICIAIS));
-    if (!s) return p;
-    SERVICOS_CDS_PRECO.forEach((sv) => { const ls = s.cds && s.cds[sv]; if (Array.isArray(ls) && ls.length === REGIOES.length && ls.every(valorOk)) p.cds[sv] = ls; });
-    // R$ 4.121,00 era o valor inicial antigo da Realocação: dá lugar ao novo valor inicial
-    Object.keys(p.wecom).forEach((k) => { if (s.wecom && valorOk(s.wecom[k]) && !(k === 'realocacao' && s.wecom[k] === 4121)) p.wecom[k] = s.wecom[k]; });
-    return p;
+  const RE_SEI = /^\d\.\d{4}\.\d{4}\/\d{6}-\d$/;
+  const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  // preferências de exibição deste navegador (os dados ficam no servidor)
+  const CHAVE_PREF = 'ditic-dsup-mudancas-preferencias';
+  // linhas: 10 por folha; post-its: 8 (4 × 2)
+  const porFolha = () => (E.vista === 'postits' ? 8 : 10);
+
+  // ------------------------------------------------------------------ catálogos (vêm do banco)
+  // CAT.locais: [{ nome, tipo, regiao }]; CAT.empresas: [{ nome, pagaPorServico, servicos: [] }]
+  const CAT = { locais: [], empresas: [], regiao: {}, nomes: [] };
+  function aplicarCatalogo(c) {
+    CAT.locais = c.locais; CAT.empresas = c.empresas;
+    CAT.regiao = Object.fromEntries(c.locais.map((l) => [l.nome, l.regiao]));
+    CAT.nomes = c.locais.map((l) => l.nome).sort((a, b) => normal(a).localeCompare(normal(b), 'pt-BR'));
   }
+  const nomesEmpresas = () => CAT.empresas.map((e) => e.nome);
+  const servicosDe = (emp) => ((CAT.empresas.find((e) => e.nome === emp) || {}).servicos || []);
+  const pagaPorServico = (emp) => !!(CAT.empresas.find((e) => e.nome === emp) || {}).pagaPorServico;
   // WECOM: só a Infraestrutura usa o metro linear, que é opcional
   const usaMetro = (emp, serv) => emp === 'WECOM' && serv === 'Infraestrutura';
+  const opcoesServ = (emp, sel) => `<option value="">Escolher serviço…</option>${servicosDe(emp).map((x) => `<option ${sel === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}`;
+
+  // ------------------------------------------------------------------ valores em reais
   const centavos = (v) => Math.round(v * 100);
   const moeda = (c) => 'R$ ' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const valorCampo = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const reais = (c) => 'R$' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const valorCampo = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // aceita 125,00 / 1.250,00 / 125.00; devolve null se não for um valor maior que zero
   function lerValor(t) {
     let s = String(t).replace(/\s|R\$/g, '');
     if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
     return /^\d{1,7}(\.\d{1,2})?$/.test(s) && Number(s) > 0 ? Number(s) : null;
   }
-  const opcoesServ = (emp, sel) => `<option value="">Escolher serviço…</option>${(SERVICOS[emp] || []).map((x) => `<option ${sel === x ? 'selected' : ''}>${x}</option>`).join('')}`;
-  function regiaoDe(c) { return LOCAIS.poa.includes(c) ? 'Metropolitana' : (REGIAO[c] || null); }
-  const RE_SEI = /^\d\.\d{4}\.\d{4}\/\d{6}-\d$/;
-  const CHAVE = 'ditic-dsup-mudancas-v5';
-  // linhas: 10 por folha; post-its: 8 (4 × 2)
-  const porFolha = () => (E.vista === 'postits' ? 8 : 10);
-  const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
   // ------------------------------------------------------------------ estado
-  const copia = (o) => JSON.parse(JSON.stringify(o));
-  function carregar() {
-    try { const s = localStorage.getItem(CHAVE); if (s) return JSON.parse(s); } catch (e) { /* sem armazenamento */ }
-    return null;
+  function lerPreferencias() {
+    try { return JSON.parse(localStorage.getItem(CHAVE_PREF)) || {}; } catch (e) { return {}; }
   }
-  // a chave antiga guardava os cards de exemplo, que saíram do sistema
-  try { localStorage.removeItem('ditic-dsup-mudancas-v3'); } catch (e) { /* sem armazenamento */ }
-  const salvo = carregar();
+  const pref = lerPreferencias();
   const E = {
     _anim: {}, _k: {},
-    demandas: (salvo && Array.isArray(salvo.demandas)) ? salvo.demandas : [],
-    equipe: (salvo && Array.isArray(salvo.equipe)) ? salvo.equipe : [],
-    // o login guardado vale para o coordenador e para quem está ativo na Equipe
-    usuario: (salvo && (GESTORES.some((g) => g.id === salvo.usuario) || (salvo.equipe || []).some((u) => u && u.id === salvo.usuario && u.ativo))) ? salvo.usuario : null,
-    excluidas: (salvo && Array.isArray(salvo.excluidas)) ? salvo.excluidas : [],
-    lixeira: (salvo && Array.isArray(salvo.lixeira)) ? salvo.lixeira : [],
-    senhaDefinida: !!(salvo && salvo.senhaDefinida), // primeiro acesso: o coordenador precisa criar uma senha
-    precos: carregarPrecos(salvo && salvo.precos),
-    sitAtivas: new Set((salvo && Array.isArray(salvo.sitAtivas) && (salvo.sitAtivas.length === 1 || salvo.sitAtivas.length === SITUACOES.length) && salvo.sitAtivas.every((v) => SITUACOES.some((x) => x.id === v))) ? salvo.sitAtivas : ABERTAS),
+    // sessão: id da pessoa, perfil (COORDENADOR | TECNICO) e se os dados já foram carregados
+    usuario: null, perfil: null, carregado: false,
+    demandas: [], pessoas: [], equipe: [], lixeira: [], solicitacoes: [], precos: null,
+    sitAtivas: new Set(Array.isArray(pref.sitAtivas) && (pref.sitAtivas.length === 1 || pref.sitAtivas.length === SITUACOES.length) && pref.sitAtivas.every((v) => SITUACOES.some((x) => x.id === v)) ? pref.sitAtivas : ABERTAS),
     busca: '', filtroResp: '', filtroLocal: '', localQ: '', ordCol: 'ag', ordDir: 'desc', folha: 1,
-    vista: (salvo && salvo.vista === 'postits') ? 'postits' : 'linhas',
+    vista: pref.vista === 'postits' ? 'postits' : 'linhas',
     aberta: null, aba: 'dados',
     modal: null, modalDados: null,
     menu: null, toast: null, destaque: null,
     statusRascunho: null, // status escolhido no select e ainda não salvo
+    subRasc: {}, // serviço, quantidade e metro de subtickets alterados e ainda não salvos
     erros: {}
   };
-  function persistir() {
-    try {
-      localStorage.setItem(CHAVE, JSON.stringify({ demandas: E.demandas, equipe: E.equipe, usuario: E.usuario, sitAtivas: [...E.sitAtivas], vista: E.vista, excluidas: E.excluidas, lixeira: E.lixeira, senhaDefinida: E.senhaDefinida, precos: E.precos }));
-    } catch (e) { /* ignora */ }
+  function guardarPreferencias() {
+    try { localStorage.setItem(CHAVE_PREF, JSON.stringify({ sitAtivas: [...E.sitAtivas], vista: E.vista })); } catch (e) { /* navegador sem armazenamento */ }
   }
+  // pessoas: técnicos (Equipe, recebem demandas) e coordenadores (a carga deles é compartilhada)
+  function aplicarPessoas(ls) {
+    E.pessoas = ls;
+    E.equipe = ls.filter((p) => p.perfil === 'TECNICO');
+  }
+  const trocarDemanda = (d) => { const i = E.demandas.findIndex((x) => x.id === d.id); if (i >= 0) E.demandas[i] = d; else E.demandas.push(d); return d; };
 
   // ------------------------------------------------------------------ utilidades
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const SISTEMA = { id: 'sistema', nome: 'Sistema (automático)', curto: 'Sistema', ini: 'SI', cor: '#9AA3AE' };
-  const TECNICO = { id: 'tecnico', nome: 'Técnico (sem login)', curto: 'Técnico', ini: 'TC', cor: '#7A8594' };
-  const usr = (id) => E.equipe.find((u) => u.id === id) || GESTORES.find((u) => u.id === id || (u.apelidos || []).includes(id)) || (id === 'sistema' ? SISTEMA : id === 'tecnico' ? TECNICO : undefined);
+  const usr = (id) => (id === COORD ? COORD_USR : id === 'sistema' ? SISTEMA : E.pessoas.find((u) => u.id === id));
   const porNome = (a, b) => normal(a.nome).localeCompare(normal(b.nome));
   const ativos = () => E.equipe.filter((u) => u.ativo).sort(porNome);
   const abertasDe = (id) => E.demandas.filter((d) => d.responsavel === id && ABERTAS.includes(d.situacao));
@@ -290,7 +283,6 @@
   const num4 = (n) => String(n).padStart(4, '0');
   const pad = (n) => String(n).padStart(2, '0');
   function hojeISO() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-  function agoraISO() { const d = new Date(); return hojeISO() + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
   function br(iso) { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-'); return d + '/' + m + '/' + y; }
   function brHora(iso) { return br(iso) + (iso.length > 10 ? ' às ' + iso.slice(11, 16) : ''); }
   function semana(iso) { return DIAS_SEMANA[new Date(iso.slice(0, 10) + 'T12:00').getDay()]; }
@@ -308,8 +300,6 @@
   }
   function agendaCurta(d) { return d.inicio ? semana(d.inicio) + ', ' + agendaTexto(d) : 'Sem data'; }
   const demanda = (id) => E.demandas.find((d) => d.id === id);
-  // sem login quem altera é o técnico: o autor é quem está com a demanda
-  function registrar(d, texto, autor) { d.historico.push({ data: agoraISO(), usuario: autor || E.usuario || (d.responsavel && d.responsavel !== 'admin' ? d.responsavel : 'tecnico'), texto }); }
   const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   function fmtSei(v) {
     const g = String(v || '').replace(/\D/g, '').slice(0, 16);
@@ -326,48 +316,15 @@
     const u = usr(id);
     return u ? `<span class="avatar ${cls || ''} ${u.ativo === false ? 'inativo' : ''}" style="background:${corOk(u.cor)}" title="${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}">${esc(u.ini)}</span>` : `<span class="avatar vazio ${cls || ''}">?</span>`;
   }
-  // ------------------------------------------------------------------ caixa de cada pessoa
-  // aviso = { tipo: 'nova' | 'retornou' | 'atendimento' | 'pendente' | 'status', para: id de quem recebe, em }; some quando o card é aberto
-  function avisar(d, tipo, para) { d.aviso = para ? { tipo, para, em: agoraISO() } : null; }
-  // muda o responsável e avisa quem recebe: NOVA na primeira vez que a demanda entra na caixa de alguém, RETORNOU nas outras
-  function atribuir(d, novo) {
-    novo = novo || null;
-    // a demanda nunca fica sem responsável: no mínimo, o coordenador (só a Concluída fica com o Setor)
-    if (!novo && d.situacao !== 'concluida') novo = 'admin';
-    if (!d.passou) d.passou = d.responsavel ? [d.responsavel] : [];
-    if (novo === d.responsavel) return;
-    // guarda o último técnico que tratou da demanda (aparece como "atendida por" na concluída)
-    if (TRAVADOS.includes(d.situacao) && d.responsavel && d.responsavel !== 'admin') d.tecnico = d.responsavel;
-    d.responsavel = novo;
-    if (!novo) { if (d.aviso && d.aviso.tipo !== 'pendente') d.aviso = null; return; }
-    avisar(d, d.passou.length ? 'retornou' : 'nova', novo);
-    if (!d.passou.includes(novo)) d.passou.push(novo);
-  }
+  // ------------------------------------------------------------------ responsável e bolinha azul
   // Carga de cada demanda: fica com o responsável em todas as etapas (a mudança automática de status não a move);
-  // Concluída fica com o setor, sem atribuição. O técnico que atendeu fica guardado em d.tecnico (e no histórico).
-  const nomeResp = (id) => (id === 'admin' ? 'Coordenador' : id ? nomeUsr(id) : 'sem responsável');
-  // outra demanda (em aberto, encerrada ou na lixeira) que já usa este número de ticket ou este SEI: só avisa, não bloqueia
-  const nomeDem = (x) => (x.sei || 'demanda ' + num4(x.id));
-  const comTicket = (num, id) => E.demandas.concat(E.lixeira).find((x) => x.id !== id && (x.ticketPrincipal === num || x.subtickets.some((s) => s.numero === num)));
-  const comSei = (sei, id) => (sei ? E.demandas.concat(E.lixeira).find((x) => x.id !== id && x.sei === sei) : null);
-  function avisoRepetidos(nums, id) {
-    const ls = nums.map((n) => [n, comTicket(n, id)]).filter(([, x]) => x);
-    return ls.length ? ' Atenção: ' + ls.map(([n, x]) => 'o ticket ' + n + ' também está em ' + nomeDem(x)).join('; ') + '.' : '';
-  }
+  // Concluída fica com o Setor, sem atribuição. O técnico que atendeu vem em d.tecnico.
+  const nomeResp = (id) => (id === COORD ? 'Coordenador' : id ? nomeUsr(id) : 'sem responsável');
   // "atribuída ao Coordenador" / "atribuída a Ana"
-  const atribuidaA = (id) => (id === 'admin' ? 'atribuída ao Coordenador' : 'atribuída a ' + nomeResp(id));
-  function regResp(d, de, para, motivo, autor) { registrar(d, 'Responsável alterado: ' + nomeResp(de) + ' → ' + (para === 'setor' ? 'Setor' : nomeResp(para)) + (motivo ? ' (' + motivo + ')' : '') + '.', autor); }
-  function paraSetor(d, autor) {
-    const t = d.responsavel && d.responsavel !== 'admin' ? d.responsavel : d.tecnico;
-    if (t) d.tecnico = t;
-    const ant = d.responsavel;
-    d.responsavel = null; d.aviso = null;
-    if (ant) regResp(d, ant, 'setor', 'concluída, sem atribuição', autor);
-    return t;
-  }
-  const avisoVisivel = (d) => d.aviso || null;
+  const atribuidaA = (id) => (id === COORD ? 'atribuída ao Coordenador' : 'atribuída a ' + nomeResp(id));
+  // aviso = { tipo: 'nova' | 'retornou' | 'atendimento' | 'pendente' | 'status', para, em }; some quando o card é aberto
   function textoAviso(a) {
-    const quem = a.para === 'admin' ? 'o coordenador' : (usr(a.para) ? usr(a.para).curto : '');
+    const quem = a.para === COORD ? 'o coordenador' : (usr(a.para) ? usr(a.para).curto : '');
     if (a.tipo === 'pendente') return 'Para validação · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'status') return 'Status alterado · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'atendimento') return 'Em atendimento · com ' + quem + ' · ainda não aberta';
@@ -386,59 +343,20 @@
   // Nova cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
   const vencida = (d) => d.situacao === 'nova' && !!d.inicio && d.inicio <= hojeISO();
   const pontoAviso = (d) => {
-    const a = avisoVisivel(d); const v = vencida(d);
+    const a = d.aviso; const v = vencida(d);
     const azul = a ? `<span class="nv-ponto ${v ? 'par' : ''}" title="${esc(textoAviso(a))}"><span class="visually-hidden">${esc(textoAviso(a))}</span></span>` : '';
     return azul + (v ? `<span class="nv-ponto venc ${a ? 'par' : ''}" title="A Data de Início chegou e a demanda não foi acionada"><span class="visually-hidden">A Data de Início chegou e a demanda não foi acionada</span></span>` : '');
   };
-  // o card foi aberto: a demanda foi vista e a bolinha sai (chamado só no momento da abertura, em desenhar())
+  // o card foi aberto: a demanda foi vista e a bolinha sai, para todos (chamado só no momento da abertura, em desenhar())
   function marcarVisto() {
     const d = E.aberta && demanda(E.aberta);
-    if (d && d.aviso) { d.aviso = null; persistir(); }
-  }
-
-  // ------------------------------------------------------------------ status automáticos pela data de agendamento
-  // Acionada → Em atendimento no dia de início. Nova também, se já tem ticket principal e ao menos um subticket
-  // (sem tickets, fica Nova e ganha o sinal vermelho). Acionada/Em atendimento → Para validação um dia depois do fim.
-  // A carga continua com quem está (não vai para o coordenador). Para validação não volta mais: só avança para Concluída.
-  // API: no sistema real isto roda no servidor (tarefa agendada diária, ex.: @Scheduled no Spring), não no navegador
-  function automatizar() {
-    const hoje = hojeISO(); let n = 0;
-    E.demandas.forEach((d) => {
-      if (!d.inicio) return;
-      const fim = d.fim || d.inicio;
-      // a Data de Início foi corrigida para antes do acionamento: o acionamento acompanha (nunca é depois do início)
-      if (d.acionadaEm && d.acionadaEm > d.inicio) { d.acionadaEm = d.inicio; n++; }
-      if (d.situacao === 'nova' && d.inicio <= hoje && d.ticketPrincipal && d.subtickets.length) {
-        d.situacao = 'atendimento';
-        // a data do acionamento é a do registro do ticket principal (quando as empresas foram acionadas)
-        d.acionadaEm = dataAcion(d.ticketEm && d.ticketEm.data ? String(d.ticketEm.data).slice(0, 10) : hoje, d);
-        registrar(d, 'Status alterado automaticamente: Nova → Em atendimento (tickets registrados e início do agendamento em ' + br(d.inicio) + ').', 'sistema');
-        avisar(d, 'atendimento', d.responsavel); n++;
-      }
-      if (['acionada', 'atendimento'].includes(d.situacao) && fim < hoje) {
-        const de = sit(d.situacao).um;
-        d.situacao = 'pendente';
-        registrar(d, 'Status alterado automaticamente: ' + de + ' → Para validação (o atendimento previsto terminou em ' + br(fim) + ').', 'sistema');
-        avisar(d, 'pendente', d.responsavel); n++;
-      } else if (d.situacao === 'acionada' && d.inicio <= hoje) {
-        d.situacao = 'atendimento';
-        registrar(d, 'Status alterado automaticamente: Acionada → Em atendimento (início do agendamento em ' + br(d.inicio) + ').', 'sistema');
-        avisar(d, 'atendimento', d.responsavel); n++;
-      }
-    });
-    return n + limparLixeira();
+    if (!d || !d.aviso || !E.usuario) return; // sem login, a bolinha fica para quem é responsável
+    d.aviso = null;
+    api('POST', 'mudancas/' + d.id + '/visto').catch(() => { /* a bolinha volta na próxima atualização da lista */ });
   }
 
   // ------------------------------------------------------------------ lixeira
-  // API: no sistema real a remoção definitiva roda no servidor, junto da tarefa agendada diária
   const diasRestantes = (x) => DIAS_LIXEIRA + dias(x.excluidaEm);
-  function limparLixeira() {
-    const vencidas = E.lixeira.filter((x) => diasRestantes(x) <= 0);
-    if (!vencidas.length) return 0;
-    vencidas.forEach((x) => E.excluidas.push({ data: agoraISO(), usuario: 'sistema', id: x.id, sei: x.sei, comarca: x.comarca, situacao: x.situacao, texto: 'Demanda removida definitivamente da lixeira (' + DIAS_LIXEIRA + ' dias sem restauração).' }));
-    E.lixeira = E.lixeira.filter((x) => diasRestantes(x) > 0);
-    return vencidas.length;
-  }
 
   function prazo(d) {
     // só a demanda Acionada conta os dias até passar a Em Atendimento: 02 dias, 01 dia, 120 dias (no máximo 3 dígitos)
@@ -490,7 +408,7 @@
   function filtroResp() {
     // todos os cards que estão com cada um, independente de aba, pesquisa e demais filtros
     const n = (id) => E.demandas.filter((d) => d.responsavel === id).length;
-    const lista = ativos().concat(E.equipe.filter((x) => !x.ativo && (n(x.id) || E.filtroResp === x.id)).sort(porNome), [Object.assign({}, GESTORES[0], { nome: 'Coordenador', ativo: true })]);
+    const lista = ativos().concat(E.equipe.filter((x) => !x.ativo && (n(x.id) || E.filtroResp === x.id)).sort(porNome), [COORD_USR]);
     const max = Math.max(1, ...lista.map((x) => n(x.id)));
     const sel = E.filtroResp; const u = usr(sel); const aberto = E.menu === 'resp';
     const linha = (id, nome, av) => {
@@ -524,8 +442,8 @@
     const locais = usados.sort((a, b) => normal(a).localeCompare(normal(b), 'pt-BR'));
     const sel = E.filtroLocal; const aberto = E.menu === 'local';
     const op = (l) => { const q = n(l); const on = sel === l;
-      return `<button type="button" role="option" aria-selected="${on}" class="dropdown-item op-local ${on ? 'escolhido' : ''} ${q ? '' : 'zero'}" data-acao="local-escolher" data-v="${esc(l)}" data-busca="${esc(normal(l + ' ' + (REGIAO[l] || '')))}">
-        <span class="op-nome">${esc(l)}${REGIAO[l] ? `<small>${esc(REGIAO[l])}</small>` : ''}</span><span class="op-n">${q}</span><span class="op-check" aria-hidden="true">${on ? I.check : ''}</span></button>`; };
+      return `<button type="button" role="option" aria-selected="${on}" class="dropdown-item op-local ${on ? 'escolhido' : ''} ${q ? '' : 'zero'}" data-acao="local-escolher" data-v="${esc(l)}" data-busca="${esc(normal(l + ' ' + (CAT.regiao[l] || '')))}">
+        <span class="op-nome">${esc(l)}${CAT.regiao[l] ? `<small>${esc(CAT.regiao[l])}</small>` : ''}</span><span class="op-n">${q}</span><span class="op-check" aria-hidden="true">${on ? I.check : ''}</span></button>`; };
     return `<div class="menu-ancora filtro filtro-local ${sel ? 'ativo' : ''} ${aberto ? 'aberto' : ''}">
       <button type="button" class="filtro-btn" data-acao="local-pop" aria-haspopup="listbox" aria-expanded="${aberto}" aria-label="Filtrar por local${sel ? ': ' + esc(sel) : ''}">
         <span class="filtro-ico">${I.local}</span>
@@ -582,30 +500,29 @@
 
   // ------------------------------------------------------------------ cabeçalho
   function telaTopo() {
-    const u = usr(E.usuario);
     return `
 <header class="topo"><div class="topo-in">
   <button type="button" class="marca" data-acao="inicio" aria-label="DITIC-DSUP, Controle de Mudanças, página inicial">
     <b>DITIC-DSUP</b><span>&nbsp;| <span class="longo">Controle de </span>Mudanças</span>
   </button>
-  <div class="topo-acoes">
-    <button type="button" class="btn btn-primary btn-pill btn-nova" data-acao="nova" title="Nova demanda de mudança">${I.mais}<span>Nova demanda</span></button>
-    <div class="sep-v" aria-hidden="true"></div>
+  ${E.carregado ? `<div class="topo-acoes">
+    ${E.usuario ? `<button type="button" class="btn btn-primary btn-pill btn-nova" data-acao="nova" title="Nova demanda de mudança">${I.mais}<span>Nova demanda</span></button>
+    <div class="sep-v" aria-hidden="true"></div>` : ''}
     ${telaConta()}
-  </div>
+  </div>` : ''}
 </div></header>`;
   }
 
   function telaConta() {
-    const u = usr(E.usuario);
-    if (!u) return `<button type="button" class="btn btn-auth" data-acao="login">${I.usuario}Entrar</button>`;
+    if (!E.usuario) return `<button type="button" class="btn btn-auth" data-acao="login">${I.usuario}Entrar</button>`;
+    const u = usr(E.usuario); if (!u) return '';
     return `<div class="menu-ancora">
       <button type="button" class="conta" data-acao="menu-conta" aria-haspopup="menu" aria-expanded="${E.menu === 'conta'}" aria-label="Conta de ${esc(u.nome)}">
         ${avatar(u.id)}<span class="conta-txt"><b>${esc(u.nome)}</b><small>Controle de Mudanças</small></span>${I.setaBaixo}
       </button>
       ${E.menu === 'conta' ? `<div class="dropdown-menu show" role="menu">
         <div class="dropdown-header menu-cab">${avatar(u.id, 'g')}<span><b>${esc(u.nome)}</b><small>Controle de Mudanças</small></span></div>
-        ${u.gestor ? `        <button type="button" role="menuitem" class="dropdown-item" data-acao="equipe">${svg(16, '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.9-3 3.1-4.6 5.5-4.6s4.6 1.6 5.5 4.6"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.6c2.3-.2 4.2 1.2 5 4"/>', 1.8)}<span style="flex:1">Equipe</span><small class="menu-n">${ativos().length} ${ativos().length === 1 ? "pessoa" : "pessoas"}</small></button>
+        ${ehGestor() ? `        <button type="button" role="menuitem" class="dropdown-item" data-acao="equipe">${svg(16, '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.9-3 3.1-4.6 5.5-4.6s4.6 1.6 5.5 4.6"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.6c2.3-.2 4.2 1.2 5 4"/>', 1.8)}<span style="flex:1">Equipe</span><small class="menu-n">${E.solicitacoes.length ? E.solicitacoes.length + (E.solicitacoes.length === 1 ? ' pedido' : ' pedidos') : ativos().length + (ativos().length === 1 ? ' pessoa' : ' pessoas')}</small></button>
         <button type="button" role="menuitem" class="dropdown-item" data-acao="lixeira">${I.lixo}<span style="flex:1">Lixeira</span><small class="menu-n">${E.lixeira.length}</small></button>
         <button type="button" role="menuitem" class="dropdown-item" data-acao="config">${svg(16, '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>', 1.9)}<span style="flex:1">Configuração</span></button>` : ''}
         <hr class="dropdown-divider">
@@ -685,7 +602,7 @@
         <span class="vazio-ico">${svg(26, '<rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M9 14.5h6"/>', 1.7)}</span>
         <b>Nenhuma demanda por aqui</b>
         <span>Ajuste a pesquisa ou escolha outra situação nas abas acima.</span>
-        ${filtrando ? '<button type="button" class="btn btn-sm" data-acao="limpar">Limpar pesquisa e filtros</button>' : `<button type="button" class="btn btn-sm" data-acao="nova">${I.mais}Nova demanda</button>`}
+        ${filtrando ? '<button type="button" class="btn btn-sm" data-acao="limpar">Limpar pesquisa e filtros</button>' : E.usuario ? `<button type="button" class="btn btn-sm" data-acao="nova">${I.mais}Nova demanda</button>` : ''}
       </div>`}
     </div>
     <div class="l-pe">
@@ -745,7 +662,7 @@
   function telaDetalhe() {
     const d = demanda(E.aberta); if (!d) return '';
     const s = sit(d.situacao); const u = usr(d.responsavel);
-    const abas = [['dados', 'Detalhes', ''], ['tickets', 'Tickets', d.subtickets.length], ['hist', 'Histórico', d.historico.length]];
+    const abas = [['dados', 'Detalhes', ''], ['tickets', 'Tickets', d.subtickets.length], ['hist', 'Histórico', d.historico ? d.historico.length : d.qtdHistorico]];
     return `
 <div class="modal d-block det-fundo ${E._anim.det ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal">
 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -757,8 +674,8 @@
         ${d.sei ? `<span class="mono">${esc(d.sei)}</span><button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.sei)}" aria-label="Copiar expediente" title="Copiar número">${I.copiar}</button>` : '<span>Fora do SEI</span>'}
         <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${I.agenda}${d.inicio ? esc(agendaComHora(d)) : 'A agendar'}</span>
-        <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(regiaoDe(d.comarca) || 'não identificada')}</span>
-        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === 'admin' ? 'Coordenador' : u.nome) + (u.id === 'admin' && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(d.regiao || 'não identificada')}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === COORD ? 'Coordenador' : u.nome) + (u.id === COORD && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
       </div>
     </div>
     <button type="button" class="btn btn-icone" data-acao="fechar-det" aria-label="Fechar">${I.fechar}</button>
@@ -775,8 +692,8 @@
     <div class="menu-ancora">
       <button type="button" class="btn btn-link btn-suave" data-acao="menu-mais" aria-haspopup="menu" aria-expanded="${E.menu === 'mais'}">${I.pontos}Mais ações</button>
       ${E.menu === 'mais' ? `<div class="dropdown-menu show cima" role="menu">
-        ${['pendente', 'concluida'].includes(d.situacao) ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
-        <button type="button" role="menuitem" class="dropdown-item" data-acao="acionamento" data-id="${d.id}">${I.texto}Gerar informação de acionamento</button>
+        ${E.usuario && ['pendente', 'concluida'].includes(d.situacao) ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="relatorio" data-id="${d.id}">${I.baixar}Gerar relatório de mudança</button>` : ''}
+        ${E.usuario ? `<button type="button" role="menuitem" class="dropdown-item" data-acao="acionamento" data-id="${d.id}">${I.texto}Gerar informação de acionamento</button>` : ''}
         <button type="button" role="menuitem" class="dropdown-item" data-acao="copiar-tickets" data-id="${d.id}">${I.copiar}Copiar tickets em texto</button>
         ${ehGestor() && d.situacao !== 'concluida' ? `<hr class="dropdown-divider">
         ${d.situacao !== 'cancelada' ? `<button type="button" role="menuitem" class="dropdown-item perigo" data-acao="cancelar" data-id="${d.id}">${svg(16, '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>', 2)}Cancelar demanda</button>` : ''}
@@ -785,10 +702,11 @@
     </div>
     ${flash('det')}
     <span class="esp"></span>
-    ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
+    ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho || temSubRasc() ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho || temSubRasc() ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-det">Fechar</button>
-    ${d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
+    ${E.usuario && d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
     ${E.aba === 'dados' && podeEditar(d) ? `<button type="submit" form="form-dados" id="btn-salvar" class="btn btn-primary btn-lg" ${E.sujo || E.statusRascunho ? '' : 'disabled'}>Salvar alterações</button>`
+    : E.aba === 'tickets' && temSubRasc() ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-subs">Salvar alterações</button>`
     : E.statusRascunho ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-status">Salvar alterações</button>` : ''}
   </footer>
 </section>
@@ -800,6 +718,9 @@
   const RE_PREDIO = /^(foro|tribunal|pal[áa]cio|transporte|garagem|anexo|tj\b)/i;
   function predio(c) { c = String(c || '').trim(); return !c || RE_PREDIO.test(c) ? c : 'Foro da Comarca de ' + c; }
   function cidade(v) { return String(v || '').trim().replace(/^foro da comarca de\s+/i, ''); }
+  // o local é escolhido na lista: devolve o nome como está no catálogo, ou '' se o texto não for um local da lista
+  function localDaLista(v) { const c = normal(cidade(v)); return CAT.nomes.find((l) => normal(l) === c) || ''; }
+  const MSG_LOCAL = 'Escolha a comarca ou o prédio na lista.';
   // ------------------------------------------------------------------ data: digitar (dd/mm/aaaa) ou escolher no calendário
   const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   function campoData(id, iso, invalido) {
@@ -879,7 +800,7 @@
   }
   function opcoesResp(sel) {
     const atual = usr(sel); const extra = atual && atual.ativo === false ? [atual] : [];
-    return `${ativos().concat(extra).map((u) => `<option value="${u.id}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}</option>`).join('')}<option value="admin" ${sel === 'admin' ? 'selected' : ''}>Coordenador</option>`;
+    return `${ativos().concat(extra).map((u) => `<option value="${esc(u.id)}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}</option>`).join('')}<option value="${COORD}" ${sel === COORD ? 'selected' : ''}>Coordenador</option>`;
   }
 
 
@@ -896,7 +817,8 @@
       </div>
       <div class="campo">
         <label class="form-label" for="f-local">Comarca ou prédio</label>
-        ${combo('f-local', d.comarca)}
+        ${combo('f-local', d.comarca, er.local)}
+        ${er.local ? `<span class="erro">${esc(er.local)}</span>` : ''}
       </div>
     </div>
     <div class="campo">
@@ -907,11 +829,11 @@
     <div class="linha-atend-det">
       <div class="campo">
         <label class="form-label" for="f-resp">Responsável</label>
-        <select id="f-resp" data-rascunho class="form-select sel-g">${opcoesResp(d.responsavel || 'admin')}</select>
+        <select id="f-resp" data-rascunho class="form-select sel-g">${opcoesResp(d.responsavel || COORD)}</select>
       </div>
       <div class="trava-grupo">
         <div class="campo"><label class="form-label" for="f-ini">Data de Início</label>${campoData('f-ini', d.inicio, E.erros.data)}</div>
-        <div class="campo"><label class="form-label" for="f-fim">Data para Conclusão</label>${campoData('f-fim', d.fim, E.erros.data)}</div>
+        <div class="campo"><label class="form-label" for="f-fim">Data para Conclusão <em>(opcional)</em></label>${campoData('f-fim', d.fim, E.erros.data)}</div>
         <div class="campo"><label class="form-label" for="f-hora">Hora</label>${campoHora('f-hora', d.hora, E.erros.hora)}</div>
       </div>
       ${E.erros.data || E.erros.hora ? `<span class="erro campo-info">${esc(E.erros.data || E.erros.hora)}</span>` : ''}
@@ -924,11 +846,7 @@
   }
 
   // quando e por quem o ticket principal foi registrado
-  function infoTicket(d) {
-    if (d.ticketEm) return d.ticketEm;
-    const h = d.historico.find((x) => d.ticketPrincipal && x.texto.includes(d.ticketPrincipal));
-    return h ? { data: h.data, usuario: h.usuario } : { data: d.criadaEm, usuario: d.responsavel };
-  }
+  const infoTicket = (d) => d.ticketEm || { data: d.criadaEm, usuario: 'sistema' };
   function blocoTicket(d) {
     const ro = !podeEditar(d); const semAlterar = ro;
     if (ro && !d.ticketPrincipal) return bloco('Ticket Principal', '', '<p class="vazio-bloco">Nenhum ticket principal registrado.</p>');
@@ -949,7 +867,7 @@
       ${d.ticketPrincipal ? '' : '<p class="bloco-dica">Abra o ticket principal no 4Biz e registre o número aqui. Depois disso a demanda pode ser marcada como acionada.</p>'}
       <form class="linha-form" data-form="principal" novalidate>
         <label for="t-principal" class="visually-hidden">Número do ticket principal</label>
-        <input id="t-principal" data-rascunho class="form-control mono inp-tk" inputmode="numeric" value="${esc(d.ticketPrincipal || '')}" placeholder="Número do ticket, ex.: 183157" ${E.erros.principal ? 'aria-invalid="true"' : ''}>
+        <input id="t-principal" data-rascunho class="form-control mono inp-tk" inputmode="numeric" value="${esc(d.ticketPrincipal || '')}" data-mask="ticket" maxlength="8" autocomplete="off" placeholder="Número do ticket, ex.: 18315742" ${E.erros.principal ? 'aria-invalid="true"' : ''}>
         <span class="linha-form-btns">
           ${d.ticketPrincipal ? '<button type="button" class="btn btn-link btn-lg" data-acao="tk-cancelar">Cancelar</button>' : ''}
           <button type="submit" class="btn btn-primary btn-lg">${d.ticketPrincipal ? 'Salvar número' : 'Registrar ticket'}</button>
@@ -961,13 +879,15 @@
   function abaTickets(d) {
     // em qualquer etapa em aberto dá para incluir, alterar e remover tickets; encerrada fica só para consulta
     const ro = !podeEditar(d); const fixos = ro; const trava = fixos ? 'disabled' : '';
-    const temMetro = d.subtickets.some((s) => usaMetro(s.empresa, s.finalidade));
+    // serviço, quantidade e metro editados ficam em rascunho (E.subRasc) até Salvar alterações
+    const subs = d.subtickets.map(comRascunho);
+    const temMetro = subs.some((s) => usaMetro(s.empresa, s.finalidade));
     const tabela = d.subtickets.length ? `<table class="table tabela">
       <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th>${temMetro ? '<th class="th-qtd">Metro</th>' : ''}<th><span class="visually-hidden">Ações</span></th></tr></thead>
-      <tbody>${d.subtickets.map((s, i) => `<tr>
+      <tbody>${subs.map((s, i) => `<tr class="${E.subRasc[s.numero] ? 'sub-alterado' : ''}">
         <td><span class="badge emp-tag">${esc(s.empresa)}</span></td>
         <td class="mono">${esc(s.numero)}</td>
-        <td><label class="visually-hidden" for="sf-${i}">Serviço</label><select id="sf-${i}" class="form-select sel-tab ${s.finalidade ? '' : 'falta'}" data-campo-sub="finalidade" data-i="${i}" ${trava}>${opcoesServ(s.empresa, s.finalidade)}${s.finalidade && !(SERVICOS[s.empresa] || []).includes(s.finalidade) ? `<option selected>${esc(s.finalidade)}</option>` : ''}</select></td>
+        <td><label class="visually-hidden" for="sf-${i}">Serviço</label><select id="sf-${i}" class="form-select sel-tab ${s.finalidade ? '' : 'falta'}" data-campo-sub="finalidade" data-i="${i}" ${trava}>${opcoesServ(s.empresa, s.finalidade)}${s.finalidade && !servicosDe(s.empresa).includes(s.finalidade) ? `<option selected>${esc(s.finalidade)}</option>` : ''}</select></td>
         <td class="td-qtd"><label class="visually-hidden" for="sq-${i}">Quantidade</label><input id="sq-${i}" type="number" min="1" max="999" class="form-control inp-qtd ${s.quantidade ? '' : 'falta'}" value="${esc(s.quantidade || '')}" placeholder="—" data-campo-sub="quantidade" data-i="${i}" ${trava}></td>
         ${temMetro ? `<td class="td-qtd">${usaMetro(s.empresa, s.finalidade) ? `<label class="visually-hidden" for="sm-${i}">Metro linear</label><input id="sm-${i}" type="number" min="1" max="9999" step="1" class="form-control inp-qtd" value="${esc(s.metro || '')}" placeholder="—" data-campo-sub="metro" data-i="${i}" ${trava}>` : ''}</td>` : ''}
         <td class="td-acao"><span class="acoes-sub">
@@ -980,9 +900,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   ${ro ? '' : `<div class="bloco-barra">
     <form class="add-sub" data-form="sub" novalidate>
       <span class="campo"><label class="form-label" for="n-emp">Empresa</label>
-      <select id="n-emp" data-rascunho class="form-select sel-g" ${E.erros.emp ? 'aria-invalid="true"' : ''}><option value="">Escolher empresa…</option>${EMPRESAS.map((e) => `<option ${E.ultimaEmp === e ? 'selected' : ''}>${e}</option>`).join('')}</select></span>
+      <select id="n-emp" data-rascunho class="form-select sel-g" ${E.erros.emp ? 'aria-invalid="true"' : ''}><option value="">Escolher empresa…</option>${nomesEmpresas().map((e) => `<option ${E.ultimaEmp === e ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></span>
       <span class="campo"><label class="form-label" for="n-num">Número do subticket</label>
-      <input id="n-num" data-rascunho class="form-control mono" inputmode="numeric" placeholder="183136 / 183139" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
+      <input id="n-num" data-rascunho data-mask="tickets" class="form-control mono" inputmode="numeric" autocomplete="off" placeholder="18313601 / 18313902" ${E.erros.sub ? 'aria-invalid="true"' : ''}></span>
       <span class="campo"><label class="form-label" for="n-fin">Serviço</label>
       <select id="n-fin" data-rascunho class="form-select sel-g" ${E.erros.fin ? 'aria-invalid="true"' : ''}>${opcoesServ(E.ultimaEmp || '', '')}</select></span>
       <span class="campo campo-qtd"><label class="form-label" for="n-qtd">Quantidade</label>
@@ -997,13 +917,14 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }
 
   function abaHist(d) {
+    if (!d.historico) return bloco('Histórico', '', '<p class="vazio-bloco">Carregando o histórico…</p>');
     const ls = [...d.historico].reverse();
     return bloco('Histórico', ls.length + ' registro' + (ls.length > 1 ? 's' : ''), `
-<form class="linha-form" data-form="nota" novalidate>
+${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <label class="visually-hidden" for="h-nota">Registrar andamento</label>
   <input id="h-nota" data-rascunho class="form-control" placeholder="Registrar andamento, ex.: Solicitado ao DMP em 26/10" autocomplete="off">
   <button type="submit" class="btn btn-outline-secondary btn-lg">Registrar</button>
-</form>
+</form>` : ''}
 <ol class="linha-tempo">
   ${ls.map((h, i) => `<li class="${i === 0 ? 'ultimo' : ''}"><span class="ponto" aria-hidden="true"></span><div class="conteudo"><p>${esc(h.texto)}</p><small>${esc(nomeUsr(h.usuario))} · ${esc(brHora(h.data))}</small></div></li>`).join('')}
 </ol>`);
@@ -1021,7 +942,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 
   function modalNova() {
     const er = E.erros; const v = E.modalDados || {};
-    const resp = v.responsavel || 'admin'; // sem escolha, a demanda fica com o coordenador
+    const resp = v.responsavel || COORD; // sem escolha, a demanda fica com o coordenador
     const suc = v.sucesso ? demanda(v.sucesso) : null;
     return `
 <form class="modal-content modal-n" role="dialog" aria-modal="true" aria-labelledby="mn-tit" data-form="nova" novalidate>
@@ -1042,7 +963,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
             ${er.local ? `<span class="erro">${esc(er.local)}</span>` : ''}
           </div>
           <div class="campo"><label class="form-label" for="n-ini">Data de Início</label>${campoData('n-ini', v.inicio, er.data)}</div>
-          <div class="campo"><label class="form-label" for="n-fim">Data para Conclusão</label>${campoData('n-fim', v.fim, er.data && v.fim !== '')}</div>
+          <div class="campo"><label class="form-label" for="n-fim">Data para Conclusão <em>(opcional)</em></label>${campoData('n-fim', v.fim, er.data && v.fim !== '')}</div>
           <div class="campo"><label class="form-label" for="n-hora">Hora</label>${campoHora('n-hora', v.hora, er.hora)}</div>
         </div>
         ${er.data || er.hora ? `<span class="erro">${esc(er.data || er.hora)}</span>` : '<p class="dica-datas">Sem a data para conclusão, o atendimento é de um dia só. Datas e horário podem ser definidos depois. Data já passada registra uma demanda antiga.</p>'}
@@ -1055,8 +976,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         <fieldset class="campo resp-campo">
           <legend class="rotulo">Responsável</legend>
           <div class="grade-resp" role="radiogroup">
-            ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${u.id}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
-            <label class="tile-resp"><input type="radio" name="n-resp" value="admin" ${resp === 'admin' ? 'checked' : ''}>${avatar('admin', 'sm')}<span>Coordenador</span></label>
+            ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${esc(u.id)}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
+            <label class="tile-resp"><input type="radio" name="n-resp" value="${COORD}" ${resp === COORD ? 'checked' : ''}>${avatar(COORD, 'sm')}<span>Coordenador</span></label>
           </div>
         </fieldset>`)}
     </div>
@@ -1078,7 +999,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   <span class="suc-ico">${I.checkG}</span>
   <h2 class="suc-tit">Demanda Incluída com Sucesso</h2>
   <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · ' + esc(atribuidaA(u.id)) : ''}</p>
-  ${comSei(d.sei, d.id) ? `<p class="suc-nota">Este SEI também está em outra demanda (${esc(comSei(d.sei, d.id).comarca || num4(comSei(d.sei, d.id).id))}). Confira se não é a mesma.</p>` : ''}
+  ${E.modalDados.atencao ? `<p class="suc-nota">${esc(E.modalDados.atencao)}</p>` : ''}
   ${d.inicio && (d.fim || d.inicio) < hojeISO() ? '<p class="suc-nota">A data já passou: a demanda fica Nova até receber o ticket principal e um subticket, e então vai para Para Validação.</p>' : ''}
   <div class="suc-campo">
     <span class="suc-rot">${d.sei ? 'Expediente SEI' : 'Número da demanda'}</span>
@@ -1117,44 +1038,82 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 </div>`;
   }
 
+  // ------------------------------------------------------------------ entrada, primeiro acesso e pedido de acesso
+  // Sem login, a lista e os cards ficam abertos só para consulta; para alterar, a pessoa entra pelo botão Entrar.
   function modalLogin() {
     const v = E.modalDados || {};
+    if (v.pedir) return modalPedido(v);
     return `
 <form class="modal-content modal-p login" role="dialog" aria-modal="true" aria-labelledby="ml-tit" data-form="login" novalidate>
   <button type="button" class="btn btn-icone fechar-canto" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button>
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="ml-tit">Entrar no Controle de Mudanças</h2>
-    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e coordenador entram com o próprio usuário para incluir e alterar demandas. Sem entrar, o sistema fica só para consulta.'}</p>
+    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e coordenadores entram com o próprio usuário e senha.'}</p>
   </div>
   <div class="campo">
     <label class="form-label" for="l-usr">Usuário da rede</label>
-    <span class="com-ico">${I.usuarioP}<input id="l-usr" data-rascunho class="form-control" placeholder="Usuário da rede" autocomplete="username" value="${esc(v.usr || '')}" ${E.erros.login ? 'aria-invalid="true"' : ''}></span>
+    <span class="com-ico">${I.usuarioP}<input id="l-usr" data-rascunho class="form-control" placeholder="Usuário da rede" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(v.usr || '')}" ${E.erros.login ? 'aria-invalid="true"' : ''}></span>
   </div>
   <div class="campo">
     <label class="form-label" for="l-sen">Senha</label>
-    <span class="com-ico">${I.cadeadoP}<input id="l-sen" data-rascunho class="form-control" type="password" autocomplete="current-password"><button type="button" class="olho" data-acao="ver-senha" aria-label="Mostrar senha">${I.olho}</button></span>
-    ${E.erros.login ? `<span class="erro">${esc(E.erros.login)}</span>` : ''}
+    <span class="com-ico">${I.cadeadoP}<input id="l-sen" data-rascunho class="form-control" type="password" autocomplete="current-password" ${E.erros.login ? 'aria-invalid="true"' : ''}><button type="button" class="olho" data-acao="ver-senha" aria-label="Mostrar senha">${I.olho}</button></span>
+    ${E.erros.login ? `<span class="erro" role="alert">${esc(E.erros.login)}</span>` : ''}
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Entrar</button>
-  <div class="proto-box">
-    <span><b>Acesso do protótipo</b><small>Coordenador: <code>admin</code> (o primeiro acesso pede uma nova senha). Técnico: o usuário mostrado na Equipe. Qualquer senha.</small></span>
-    <button type="button" class="btn btn-outline-secondary" data-acao="proto-gestor">Entrar como coordenador</button>
+  <p class="login-ajuda">Esqueceu a senha? Procure o coordenador: ele gera uma senha temporária em Equipe.<br>Ainda não tem acesso? <button type="button" class="link" data-acao="pedir-acesso">Solicitar acesso</button></p>
+</form>`;
+  }
+  // pedido de acesso: fica pendente até um coordenador aprovar em Equipe
+  function modalPedido(v) {
+    const er = E.erros.pedido;
+    if (v.enviado) {
+      return `
+<div class="modal-content modal-p login" role="dialog" aria-modal="true" aria-labelledby="pa-tit">
+  <div class="login-cab">
+    <span class="cadeado">${I.check}</span>
+    <h2 id="pa-tit">Pedido Enviado</h2>
+    <p>Um coordenador vai aprovar o acesso em Equipe e entregar a senha temporária. No primeiro acesso, você cria a sua senha.</p>
   </div>
+  <button type="button" class="btn btn-primary w-100 btn-bloco" data-acao="pedir-voltar">Voltar para entrar</button>
+</div>`;
+    }
+    return `
+<form class="modal-content modal-p login" role="dialog" aria-modal="true" aria-labelledby="pa-tit" data-form="pedido" novalidate>
+  <div class="login-cab">
+    <span class="cadeado">${I.usuario}</span>
+    <h2 id="pa-tit">Solicitar Acesso</h2>
+    <p>Informe o nome e o usuário da rede. O pedido vai para o coordenador.</p>
+  </div>
+  <div class="campo">
+    <label class="form-label" for="pa-nome">Nome</label>
+    <input id="pa-nome" data-rascunho class="form-control" maxlength="60" autocomplete="name" ${er ? 'aria-invalid="true"' : ''}>
+  </div>
+  <div class="campo">
+    <label class="form-label" for="pa-usr">Usuário da rede</label>
+    <input id="pa-usr" data-rascunho class="form-control" maxlength="60" autocomplete="username" autocapitalize="none" spellcheck="false" ${er ? 'aria-invalid="true"' : ''}>
+    ${er ? `<span class="erro" role="alert">${esc(er)}</span>` : ''}
+  </div>
+  <button type="submit" class="btn btn-primary w-100 btn-bloco">Enviar pedido</button>
+  <p class="login-ajuda"><button type="button" class="link" data-acao="pedir-voltar">Voltar para entrar</button></p>
 </form>`;
   }
 
-  // primeiro acesso: o login só termina depois de criar a senha. Fechar pelo X desiste de entrar.
+  // primeiro acesso ou senha temporária: a entrada só termina depois de criar a senha pessoal. O X desiste de entrar.
   function modalSenha() {
-    const er = E.erros.senha;
+    const er = E.erros.senha; const m = E.modalDados || {};
     return `
 <form class="modal-content modal-p login" role="dialog" aria-modal="true" aria-labelledby="sn-tit" data-form="senha" novalidate>
-  <button type="button" class="btn btn-icone fechar-canto" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button>
+  <button type="button" class="btn btn-icone fechar-canto" data-acao="sair" aria-label="Desistir de entrar">${I.fechar}</button>
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="sn-tit">Crie uma Nova Senha</h2>
-    <p>Este é o primeiro acesso. Para continuar, defina uma senha pessoal com pelo menos 8 caracteres.</p>
+    <p>Primeiro acesso ou senha temporária. Para continuar, defina uma senha pessoal com pelo menos 8 caracteres.</p>
   </div>
+  ${m.atual ? '' : `<div class="campo">
+    <label class="form-label" for="s-atual">Senha atual (a temporária)</label>
+    <span class="com-ico">${I.cadeadoP}<input id="s-atual" data-rascunho class="form-control" type="password" autocomplete="current-password" ${er ? 'aria-invalid="true"' : ''}></span>
+  </div>`}
   <div class="campo">
     <label class="form-label" for="s-nova">Nova senha</label>
     <span class="com-ico">${I.cadeadoP}<input id="s-nova" data-rascunho class="form-control" type="password" autocomplete="new-password" ${er ? 'aria-invalid="true"' : ''}></span>
@@ -1162,56 +1121,110 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   <div class="campo">
     <label class="form-label" for="s-conf">Confirmar a nova senha</label>
     <span class="com-ico">${I.cadeadoP}<input id="s-conf" data-rascunho class="form-control" type="password" autocomplete="new-password" ${er ? 'aria-invalid="true"' : ''}></span>
-    ${er ? `<span class="erro">${esc(er)}</span>` : ''}
+    ${er ? `<span class="erro" role="alert">${esc(er)}</span>` : ''}
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Salvar e entrar</button>
 </form>`;
   }
-  function entrar(id, depois, msg) {
-    E.usuario = id; E.modal = null; E.modalDados = null; E.limparRascunho = true; E.menu = null;
-    aviso(msg); mudou();
-    if (depois) depois();
+  const focar = (id) => setTimeout(() => { const el = document.getElementById(id); if (el) el.focus(); }, 0);
+  function abrirLogin(motivo) {
+    E.modal = 'login'; E.modalDados = { motivo }; E.erros = {}; E.limparRascunho = true; E.aberta = null; E.menu = null;
+    desenhar(); focar('l-usr');
+  }
+  // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): volta à consulta sem login
+  async function sairDaSessao() {
+    Object.assign(E, { usuario: null, perfil: null, lixeira: [], solicitacoes: [], precos: null,
+      aberta: null, statusRascunho: null, subRasc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null });
+    try { await carregarTudo(); } catch (e) { E.carregado = false; }
+  }
+  function sessaoEncerrada(msg) { sairDaSessao().then(() => abrirLogin(msg)); }
+  // com a sessão aberta: cria a senha pessoal, se for o caso, e carrega os dados do banco
+  async function iniciarSessao(s, senhaDigitada) {
+    E.usuario = s.id; E.perfil = s.perfil;
+    if (s.deveTrocarSenha) {
+      E.modal = 'senha'; E.modalDados = { atual: senhaDigitada || '' }; E.erros = {}; E.limparRascunho = true;
+      desenhar(); focar(senhaDigitada ? 's-nova' : 's-atual'); return;
+    }
+    await carregarTudo();
+    E.modal = null; E.modalDados = null; E.erros = {}; E.limparRascunho = true; E.menu = null;
+    desenhar();
+  }
+  async function carregarTudo() {
+    // os valores do custo só servem à Configuração e ao relatório, que exigem login
+    const [cat, pessoas, demandas, precos] = await Promise.all([api('GET', 'catalogos'), api('GET', 'pessoas'), api('GET', 'mudancas'), E.usuario ? api('GET', 'precos') : null]);
+    aplicarCatalogo(cat); aplicarPessoas(pessoas); E.demandas = demandas; E.precos = precos;
+    if (ehGestor()) await carregarCoordenador();
+    E.carregado = true;
+  }
+  async function carregarCoordenador() {
+    const [lixeira, solicitacoes] = await Promise.all([api('GET', 'lixeira'), api('GET', 'acesso/solicitacoes')]);
+    E.lixeira = lixeira; E.solicitacoes = solicitacoes;
+  }
+  // relê demandas e pessoas (mudanças de outras pessoas e status automáticos do servidor); o card aberto vem completo
+  async function recarregar() {
+    if (E.usuario) {
+      try { await api('GET', 'sessao'); } catch (e) {
+        if (e.status !== 401) throw e;
+        await sairDaSessao(); aviso('A sessão expirou. Entre de novo para alterar.', true); return;
+      }
+    }
+    const [pessoas, demandas] = await Promise.all([api('GET', 'pessoas'), api('GET', 'mudancas')]);
+    aplicarPessoas(pessoas); E.demandas = demandas;
+    if (ehGestor()) await carregarCoordenador();
+    if (E.aberta && demanda(E.aberta)) trocarDemanda(await api('GET', 'mudancas/' + E.aberta));
+    else E.aberta = null;
+  }
+  // abre o card na hora e completa com o histórico, que não vem na lista
+  async function abrirCard(id) {
+    E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; E.subRasc = {};
+    desenhar();
+    try { const d = trocarDemanda(await api('GET', 'mudancas/' + id)); if (E.aberta === d.id) desenhar(); } catch (e) { if (e.status !== 401) { aviso(e.message, true); desenhar(); } }
   }
 
-  // pede login antes de qualquer alteração; depois de entrar, segue o que a pessoa ia fazer
-  function precisaLogin(motivo, depois) {
-    if (E.usuario) return false;
-    E.modal = 'login'; E.modalDados = { motivo: motivo || 'Esta ação é do coordenador. Entre com o usuário do coordenador.', depois }; E.erros = {}; E.limparRascunho = true;
-    desenhar(); setTimeout(() => { const el = document.getElementById('l-usr'); if (el) el.focus(); }, 0);
-    return true;
-  }
-
-  // Perfis: técnico e coordenador entram com login; sem login, só consulta. O técnico faz tudo nas demandas; o coordenador
-  // também cancela, exclui, restaura da lixeira e mantém Equipe e Configuração (no sistema real, aprova os acessos)
-  const ehGestor = () => E.usuario === 'admin';
-  // alterar exige login; Concluída e Cancelada ficam só para consulta (no histórico ainda se registra andamento)
+  // Perfis: técnico e coordenador entram com login. O técnico faz tudo nas demandas; o coordenador também cancela,
+  // exclui, restaura da lixeira, aprova os acessos e mantém Equipe e Configuração. O servidor confere cada permissão.
+  const ehGestor = () => E.perfil === 'COORDENADOR';
+  // Concluída e Cancelada ficam só para consulta (no histórico ainda se registra andamento)
   const podeEditar = (d) => !!d && !!E.usuario && !FINAIS.includes(d.situacao);
-  function precisaGestor(motivo, depois) {
-    if (!E.usuario) return precisaLogin(motivo || 'Esta ação é do coordenador. Entre com o usuário do coordenador.', depois);
+  function precisaGestor() {
     if (ehGestor()) return false;
+    if (!E.usuario) { abrirLogin('Esta ação é do coordenador. Entre com o seu usuário.'); return true; }
     aviso('Somente o coordenador pode fazer isso.', true); desenhar(); return true;
   }
-  const MSG_LOGIN = 'Para alterar a demanda, entre com o seu usuário.';
   function precisaEditar(d) {
     if (podeEditar(d)) return false;
-    if (!E.usuario) return precisaLogin(MSG_LOGIN);
+    if (!E.usuario) { abrirLogin('Entre com o seu usuário para alterar a demanda.'); return true; }
     if (d) { aviso('Demanda encerrada: somente consulta.', true); desenhar(); }
     return true;
+  }
+  // executa uma chamada ao servidor; o erro vira aviso na tela (sem sessão, o modal de entrada já abriu)
+  async function acao(fn) {
+    if (E.ocupado) return;
+    E.ocupado = true; document.body.classList.add('ocupado');
+    try { await fn(); } catch (e) {
+      if (!(e instanceof ErroApi)) { console.error(e); aviso('Erro inesperado na tela. Recarregue a página.', true); desenhar(); }
+      else if (e.status !== 401) {
+        if (e.status === 404 || e.status === 409) { try { await recarregar(); } catch (x) { /* a mensagem abaixo já orienta */ } }
+        aviso(e.message, true); desenhar();
+      }
+    } finally { E.ocupado = false; document.body.classList.remove('ocupado'); }
   }
 
   // ------------------------------------------------------------------ equipe
   const cores = (nome, sel) => `<span class="cores" role="radiogroup" aria-label="Cor">${CORES_EQUIPE.map((c) => `<label class="cor-op" style="--c:${corOk(c)}" title="${c}"><input type="radio" name="${nome}" value="${c}" ${sel === c ? 'checked' : ''}><span></span></label>`).join('')}</span>`;
-  function iniciaisDe(nome) { const p = String(nome).trim().split(/\s+/).filter(Boolean); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : (p[0] || '?')[1] || '')).toUpperCase(); }
-  function proximaCor() { const usadas = E.equipe.filter((u) => u.ativo).map((u) => u.cor); return CORES_EQUIPE.find((c) => !usadas.includes(c)) || CORES_EQUIPE[E.equipe.length % CORES_EQUIPE.length]; }
+  function proximaCor() { const usadas = E.pessoas.filter((u) => u.ativo).map((u) => u.cor); return CORES_EQUIPE.find((c) => !usadas.includes(c)) || CORES_EQUIPE[E.pessoas.length % CORES_EQUIPE.length]; }
+  const textoAcesso = (u) => (u.acesso === 'aguardando' ? 'aguardando o primeiro acesso' : u.acesso === 'desativado' ? 'desativado' : 'último acesso em ' + brHora(u.ultimoAcesso));
+  const opcoesPerfil = (sel) => `<option value="TECNICO" ${sel !== 'COORDENADOR' ? 'selected' : ''}>Técnico</option><option value="COORDENADOR" ${sel === 'COORDENADOR' ? 'selected' : ''}>Coordenador</option>`;
 
   function modalEquipe() {
     const v = E.modalDados || {};
     if (v.transf) return modalTransferir(v.transf);
-    const lista = E.equipe.slice().sort((a, b) => (b.ativo - a.ativo) || porNome(a, b));
+    const lista = E.pessoas.slice().sort((a, b) => (b.ativo - a.ativo) || porNome(a, b));
     const linha = (u) => {
-      const ab = abertasDe(u.id).length; const tot = E.demandas.filter((d) => d.responsavel === u.id).length;
+      const tec = u.perfil === 'TECNICO'; const eu = u.id === E.usuario;
+      const ab = tec ? abertasDe(u.id).length : 0; const tot = E.demandas.filter((d) => d.responsavel === u.id).length;
       if (v.editar === u.id) {
-        return `<li class="list-group-item eq-linha editando"><form class="eq-edit" data-form="equipe-edit" data-id="${u.id}" novalidate>
+        return `<li class="list-group-item eq-linha editando"><form class="eq-edit" data-form="equipe-edit" data-id="${esc(u.id)}" novalidate>
           ${avatar(u.id)}
           <span class="campo"><label class="visually-hidden" for="ed-nome">Nome</label><input id="ed-nome" data-rascunho class="form-control" value="${esc(u.nome)}" maxlength="60" ${E.erros.eqEdit ? 'aria-invalid="true"' : ''}></span>
           ${cores('ed-cor', u.cor)}
@@ -1220,31 +1233,51 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       }
       return `<li class="list-group-item eq-linha ${u.ativo ? '' : 'inativa'}">
         ${avatar(u.id)}
-        <span class="eq-nome"><b>${esc(u.nome)}</b><small class="eq-usr mono" title="Usuário para entrar">${esc(u.id)}</small>${u.ativo ? '' : '<span class="badge tag-inativo">Inativo</span>'}</span>
-        <span class="eq-carga"><b>${ab}</b> em aberto<span class="eq-tot">· ${tot} no total</span></span>
+        <span class="eq-nome"><span class="eq-id"><b>${esc(u.nome)}</b><small class="eq-usr"><span class="mono" title="Usuário para entrar">${esc(u.login)}</span> · ${tec ? 'Técnico' : 'Coordenador'} · ${esc(textoAcesso(u))}</small></span>${u.ativo ? '' : '<span class="badge tag-inativo">Inativo</span>'}</span>
+        <span class="eq-carga">${tec ? `<b>${ab}</b> em aberto<span class="eq-tot">· ${tot} no total</span>` : 'Carga compartilhada'}</span>
         <span class="eq-acoes">
-          ${u.ativo ? `<button type="button" class="btn btn-icone" data-acao="eq-editar" data-v="${u.id}" aria-label="Editar ${esc(u.nome)}" title="Editar">${svg(15, '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', 1.9)}</button>` : '<span></span>'}
-          ${ab ? `<button type="button" class="btn btn-outline-secondary btn-sm" data-acao="eq-transferir" data-v="${u.id}">${svg(14, '<path d="M4 8h13l-3-3M20 16H7l3 3"/>', 2)}Transferir</button>` : '<span></span>'}
-          ${u.ativo ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-desativar" data-v="${u.id}">Desativar</button>` : `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="eq-reativar" data-v="${u.id}">Reativar</button>`}
+          ${u.ativo ? `<button type="button" class="btn btn-icone" data-acao="eq-editar" data-v="${esc(u.id)}" aria-label="Editar ${esc(u.nome)}" title="Editar">${svg(15, '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', 1.9)}</button>` : '<span></span>'}
+          ${ab ? `<button type="button" class="btn btn-outline-secondary btn-sm" data-acao="eq-transferir" data-v="${esc(u.id)}">${svg(14, '<path d="M4 8h13l-3-3M20 16H7l3 3"/>', 2)}Transferir</button>` : '<span></span>'}
+          ${u.ativo && !eu ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-senha" data-v="${esc(u.id)}" title="Gerar senha temporária">Redefinir senha</button>` : '<span></span>'}
+          ${eu ? '<span></span>' : u.ativo ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-desativar" data-v="${esc(u.id)}">Desativar</button>` : `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="eq-reativar" data-v="${esc(u.id)}">Reativar</button>`}
         </span>
       </li>`;
     };
+    const pedido = (s) => `<li class="list-group-item eq-linha">
+        <span class="avatar vazio">?</span>
+        <span class="eq-nome"><span class="eq-id"><b>${esc(s.nome)}</b><small class="eq-usr"><span class="mono">${esc(s.login)}</span> · pedido em ${esc(brHora(s.pedidaEm))}</small></span></span>
+        <span class="sol-acoes">
+          <label class="visually-hidden" for="sol-perfil-${s.id}">Perfil</label><select id="sol-perfil-${s.id}" data-rascunho class="form-select sel-g">${opcoesPerfil('TECNICO')}</select>
+          <button type="button" class="btn btn-sm btn-link eq-desat" data-acao="sol-recusar" data-id="${s.id}">Recusar</button>
+          <button type="button" class="btn btn-sm btn-primary" data-acao="sol-aprovar" data-id="${s.id}">Aprovar</button>
+        </span>
+      </li>`;
+    const ativas = E.pessoas.filter((u) => u.ativo).length; const inativas = E.pessoas.length - ativas;
     return `
 <div class="modal-content modal-m equipe" role="dialog" aria-modal="true" aria-labelledby="eq-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="eq-tit">Equipe</h2><p>Pessoas que recebem demandas.</p></div>
+  <header class="modal-header"><div><h2 class="modal-title" id="eq-tit">Equipe</h2><p>Contas de técnicos e coordenadores.</p></div>
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
+    ${E.solicitacoes.length ? bloco('Pedidos de Acesso', E.solicitacoes.length + (E.solicitacoes.length === 1 ? ' pendente' : ' pendentes'), `<ul class="list-group list-group-flush eq-lista">${E.solicitacoes.map(pedido).join('')}</ul>`, '', 'sol-bloco') : ''}
     ${bloco('Incluir Pessoa', '', `
       <form class="eq-add" data-form="equipe-add" novalidate>
         <span class="campo"><label class="form-label" for="eq-nome">Nome</label><input id="eq-nome" data-rascunho class="form-control" maxlength="60" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
+        <span class="campo"><label class="form-label" for="eq-login">Usuário da rede</label><input id="eq-login" data-rascunho class="form-control" maxlength="60" autocapitalize="none" spellcheck="false" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
+        <span class="campo"><label class="form-label" for="eq-perfil">Perfil</label><select id="eq-perfil" data-rascunho class="form-select sel-g">${opcoesPerfil('TECNICO')}</select></span>
         <span class="campo"><span class="rotulo">Cor</span>${cores('eq-cor', proximaCor())}</span>
         <button type="submit" class="btn btn-primary btn-lg">${I.mais}Incluir</button>
       </form>
       ${E.erros.eqAdd ? `<span class="erro">${esc(E.erros.eqAdd)}</span>` : ''}`)}
-    ${bloco('Pessoas', `${ativos().length} ${ativos().length === 1 ? 'ativa' : 'ativas'}${E.equipe.length > ativos().length ? ' · ' + (E.equipe.length - ativos().length) + (E.equipe.length - ativos().length === 1 ? ' inativa' : ' inativas') : ''}`, lista.length ? `<ul class="list-group list-group-flush eq-lista">${lista.map(linha).join('')}</ul>` : '<p class="vazio-bloco">Nenhuma pessoa cadastrada. Inclua os técnicos acima.</p>', '', 'tabela-bloco')}
+    ${bloco('Pessoas', `${ativas} ${ativas === 1 ? 'ativa' : 'ativas'}${inativas ? ' · ' + inativas + (inativas === 1 ? ' inativa' : ' inativas') : ''}`, lista.length ? `<ul class="list-group list-group-flush eq-lista">${lista.map(linha).join('')}</ul>` : '<p class="vazio-bloco">Nenhuma pessoa cadastrada.</p>', '', 'tabela-bloco')}
   </div>
   <footer class="modal-footer">${flash('equipe')}<span class="esp"></span><button type="button" class="btn btn-primary btn-lg" data-acao="fechar-modal">Fechar</button></footer>
 </div>`;
+  }
+  // a senha temporária aparece uma única vez, para o coordenador entregar à pessoa; Fechar volta à Equipe
+  function mostrarSenha(titulo, r) {
+    E.modal = 'confirmar';
+    E.modalDados = { titulo, texto: 'Senha temporária de ' + r.pessoa.nome + ' (usuário ' + r.pessoa.login + '), válida até ' + brHora(r.expiraEm) + '. Anote e entregue à pessoa: ela não será mostrada de novo. No primeiro acesso, a pessoa cria a senha pessoal.', senha: r.senha, ok: true, soFechar: true, voltarPara: 'equipe' };
+    desenhar();
   }
 
   function modalTransferir(t) {
@@ -1259,10 +1292,10 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     <button type="button" class="btn btn-icone" data-acao="eq-voltar" aria-label="Voltar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     <div class="tr-de-para">
-      <span class="tr-pessoa">${avatar(de.id)}<span><small>De</small><b>${esc(de.nome)}</b></span></span>
+      <span class="campo tr-de"><span class="form-label">De</span><span class="tr-pessoa">${avatar(de.id, 'sm')}<b>${esc(de.nome)}</b></span></span>
       <span class="tr-seta" aria-hidden="true">${svg(18, '<path d="M5 12h14M13 6l6 6-6 6"/>', 2)}</span>
       <span class="campo tr-para"><label class="form-label" for="tr-dest">Para</label>
-        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${u.id}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="admin" ${t.para === 'admin' ? 'selected' : ''}>Coordenador · ${abertasDe('admin').length} em aberto</option></select>
+        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${esc(u.id)}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="${COORD}" ${t.para === COORD ? 'selected' : ''}>Coordenador · ${abertasDe(COORD).length} em aberto</option></select>
       </span>
     </div>
     ${E.erros.transf ? `<span class="erro">${esc(E.erros.transf)}</span>` : ''}
@@ -1283,17 +1316,17 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }
 
   // texto padrão para o SEI: agendamento + subtickets por empresa
-  function horaSEI(h) { if (!h) return ', horário a definir'; const [hh, mm] = h.split(':'); return ', ' + Number(hh) + 'h' + (mm !== '00' ? mm : ''); }
+  // 13:00 → 13hs; 13:30 → 13h30
+  function horaSEI(h) { if (!h) return 'a definir'; const [hh, mm] = h.split(':'); return Number(hh) + (mm === '00' ? 'hs' : 'h' + mm); }
   function textoAcionamento(d) {
-    const emp = EMPRESAS.map((e) => [e, d.subtickets.filter((x) => x.empresa === e).map((x) => x.numero)]).filter(([, ls]) => ls.length);
+    const emp = nomesEmpresas().map((e) => [e, d.subtickets.filter((x) => x.empresa === e).map((x) => x.numero)]).filter(([, ls]) => ls.length);
     const varias = emp.length !== 1;
     const ag = !d.inicio ? 'Agendamento: a definir.'
-      : !d.fim || d.fim === d.inicio ? 'Agendamento: ' + br(d.inicio) + horaSEI(d.hora) + '.'
-      : 'Agendamento Inicial: ' + br(d.inicio) + horaSEI(d.hora) + '\nAgendamento Final: ' + br(d.fim);
+      : 'Agendamento:\nData de Início: ' + br(d.inicio) + (variosDias(d) ? '\nData para Conclusão: ' + br(d.fim) : '') + '\nHorário: ' + horaSEI(d.hora);
     return 'Ao Serviço de Gestão de Mudanças,\n\n'
       + 'Em atenção ao Agendamento, informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
       + ag + '\n\n'
-      + (emp.length ? emp.map(([e, ls]) => e + ': ' + ls.join(' / ')).join('\n') + '\n\n' : '')
+      + (emp.length ? 'Tickets:\n\n' + emp.map(([e, ls]) => e + ': ' + ls.join(' / ')).join('\n') + '\n\n' : '')
       + 'Era o que cumpria informar.';
   }
   function modalAcionamento() {
@@ -1317,30 +1350,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }
 
   // ------------------------------------------------------------------ relatório de execução de mudança (PDF, modelo-mestre)
-  // data do acionamento: gravada quando a demanda vira Acionada; nas antigas, vem do histórico
-  function dataAcionamento(d) {
-    if (d.acionadaEm) return br(d.acionadaEm);
-    const h = d.historico.slice().reverse().find((x) => /→ Acionada|para Acionada|Empresas acionadas/i.test(x.texto));
-    return h ? br(String(h.data).slice(0, 10)) : '';
-  }
-  // custo de um subticket, em centavos; null quando não há como calcular
-  function custoSub(s, regiao) {
-    const p = E.precos;
-    if (s.empresa === 'CDS') {
-      const ls = p.cds[s.finalidade]; const i = REGIOES.indexOf(regiao);
-      return ls && i >= 0 && s.quantidade ? centavos(ls[i]) * s.quantidade : null;
-    }
-    if (s.empresa === 'WECOM') {
-      if (s.finalidade === 'Realocação') return s.quantidade ? centavos(p.wecom.realocacao) * s.quantidade : null;
-      if (s.finalidade === 'Instalação') return s.quantidade ? centavos(p.wecom.instalacao) * s.quantidade : null;
-      if (s.finalidade === 'Infraestrutura') return s.metro ? s.metro * centavos(p.wecom.metro) : (s.quantidade ? verbaInfra() * s.quantidade : null);
-    }
-    return null;
-  }
-  // verba da Infraestrutura sem metro linear: metros estimados × valor do metro linear, em centavos
-  function verbaInfra() { return METROS_ESTIMADOS * centavos(E.precos.wecom.metro); }
-  const reais = (c) => 'R$' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  function montarRelatorio(d) {
+  // data do acionamento: gravada quando a demanda vira Acionada (ou Em atendimento pela automação)
+  const dataAcionamento = (d) => (d.acionadaEm ? br(d.acionadaEm) : '');
+  // Infraestrutura (WECOM) sem metro linear: a verba estimada é explicada antes de "Era o que cabia informar."
+  const notaVerba = (v, c) => 'A demanda referente a Instalação de Infraestrutura (WECOM), ticket ' + v.numero + ', utiliza o valor de verba de ' + reais(v.valor) + ' somado ao valor total do relatório. Valor estimado com base em uma média de ' + c.metrosEstimados + ' metros lineares de instalação. O valor por metro linear consiste em ' + reais(c.valorMetro) + '.';
+  // c = custo calculado pelo servidor (GET /api/mudancas/{id}/custo), em centavos
+  function montarRelatorio(d, c) {
     const tem = (serv) => d.subtickets.some((x) => x.finalidade === serv);
     // a Realocação da WECOM aparece no quadro do relatório como Mudança de Local
     const sv = { predio: tem('Mudança de Prédio'), desinst: tem('Desinstalação'), local: tem('Mudança de Local') || tem('Realocação'), inst: tem('Instalação') };
@@ -1353,7 +1368,6 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (sv.inst) origem.push('DMP');
     if (sv.local || sv.predio || sv.inst || !desinstLocal) destino.push(lugar);
     if (desinstLocal) destino.push('DMP – Carga CDS');
-    // um item por subticket, na ordem das empresas
     // serviços de rede não são "de equipamentos de informática" no texto do relatório
     const SO_REDE = ['Infraestrutura', 'Habilitação de Pontos de Rede'];
     const frase = (serv) => (serv || 'Atendimento').replace(/ de (Local|Prédio|Pontos de Rede)$/, (m) => m.toLowerCase()) + (SO_REDE.includes(serv) ? '' : ' de equipamentos de informática');
@@ -1374,31 +1388,20 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       },
       CADI: { 'Habilitação de Pontos de Rede': 'Habilitação de pontos de rede para multifuncionais Selbetti' }
     };
-    // o local fica só no texto de abertura do relatório, não em cada item
+    // um item por subticket, na ordem das empresas; o local fica só no texto de abertura do relatório
     const itens = [];
-    EMPRESAS.forEach((e) => d.subtickets.filter((x) => x.empresa === e).forEach((x) => {
+    nomesEmpresas().forEach((e) => d.subtickets.filter((x) => x.empresa === e).forEach((x) => {
       const q = x.quantidade; const wecom = e === 'WECOM';
       itens.push(((FRASE_EMPRESA[e] || {})[x.finalidade] || frase(x.finalidade)) + (q ? ', em total de ' + String(q).padStart(2, '0') + (q === 1 ? ' serviço' : ' serviços') : '') + (wecom ? ', se tratando de contrato referente às Salas de Audiência Digital' : '') + '. A atividade foi executada pela contratada ' + e + ' através do ticket ' + x.numero + '.');
     }));
-    const pagos = d.subtickets.filter((x) => ['CDS', 'WECOM'].includes(x.empresa)); const pago = pagos.length > 0;
-    const regiao = regiaoDe(d.comarca); let total = 0; let infra = 0; const notas = []; const semPreco = [];
-    pagos.forEach((x) => {
-      const c = custoSub(x, regiao);
-      if (c !== null) total += c; else semPreco.push(x.numero);
-      // Infraestrutura da WECOM: guardada à parte para o check "Somar a Infraestrutura (WECOM) no custo"
-      if (c !== null && usaMetro(x.empresa, x.finalidade)) {
-        infra += c;
-      }
-      // Infraestrutura sem metro linear: entra a verba estimada, explicada antes de "Era o que cabia informar."
-      if (c !== null && usaMetro(x.empresa, x.finalidade) && !x.metro) {
-        notas.push('A demanda referente a Instalação de Infraestrutura (WECOM), ticket ' + x.numero + ', utiliza o valor de verba de ' + reais(c) + ' somado ao valor total do relatório. Valor estimado com base em uma média de ' + METROS_ESTIMADOS + ' metros lineares de instalação. O valor por metro linear consiste em ' + reais(centavos(E.precos.wecom.metro)) + '.');
-      }
-    });
-    return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (total ? moeda(total) : ''), total, infra, itens, global: !pago, notas, notasSemInfra: infra ? [OBS_SEM_INFRA] : [], semPreco };
+    // empresas pagas por serviço (CDS e WECOM): há valor a pagar e não entra a frase do valor global do contrato
+    const pago = d.subtickets.some((x) => pagaPorServico(x.empresa));
+    const notas = c.verbas.map((v) => notaVerba(v, c));
+    return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (c.total ? moeda(c.total) : ''), total: c.total, infra: c.infra, itens, global: !pago, notas, notasSemInfra: c.infra ? [OBS_SEM_INFRA] : [], semPreco: c.semPreco };
   }
   function modalRelatorio() {
-    const d = demanda(E.modalDados && E.modalDados.id); if (!d) return '';
-    const r = montarRelatorio(d); const sv = r.servicos;
+    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return '';
+    const r = montarRelatorio(d, m.custo); const sv = r.servicos;
     const ck = (id, rot, on) => `<label class="check rl-ck"><input type="checkbox" id="${id}" data-rascunho ${on ? 'checked' : ''}><span>${rot}</span></label>`;
     return `
 <div class="modal-content modal-m relat" role="dialog" aria-modal="true" aria-labelledby="rl-tit">
@@ -1430,11 +1433,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 </div>`;
   }
   // Configuração de valores: edita em rascunho (E.cfg.v) e só salva depois do Sim
-  // metro: o valor é por metro linear, mas o campo leva só o nome do serviço
+  // CDS: E.precos.cds = [{ servico, valores: [um por região, na ordem de E.precos.regioes] }]
+  // WECOM: metro é o valor do metro linear da Infraestrutura, mas o campo leva só o nome do serviço
   const WECOM_CAMPOS = [['realocacao', 'Realocação'], ['instalacao', 'Instalação'], ['metro', 'Infraestrutura']];
   function cfgCampos() {
     const p = E.precos; const ls = [];
-    SERVICOS_CDS_PRECO.forEach((sv, si) => REGIOES.forEach((r, ri) => ls.push({ id: 'pc-' + si + '-' + ri, atual: p.cds[sv][ri] })));
+    p.cds.forEach((sv, si) => p.regioes.forEach((r, ri) => ls.push({ id: 'pc-' + si + '-' + ri, atual: sv.valores[ri] })));
     WECOM_CAMPOS.forEach(([k]) => ls.push({ id: 'pw-' + k, atual: p.wecom[k] }));
     return ls;
   }
@@ -1444,8 +1448,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     return { campos, mudancas: campos.filter((c) => c.mudou), invalidos: campos.filter((c) => c.invalido) };
   }
   function modalConfig() {
-    const c = E.cfg;
-    const celula = (sv, si, ri) => `<td><input id="pc-${si}-${ri}" data-cfg="1" class="form-control inp-valor" inputmode="decimal" autocomplete="off" aria-label="${esc(sv)}, ${esc(REGIOES[ri])}" value="${esc(c.v['pc-' + si + '-' + ri])}"></td>`;
+    const c = E.cfg; const p = E.precos;
+    const celula = (sv, si, ri) => `<td><input id="pc-${si}-${ri}" data-cfg="1" class="form-control inp-valor" inputmode="decimal" autocomplete="off" aria-label="${esc(sv.servico)}, ${esc(p.regioes[ri])}" value="${esc(c.v['pc-' + si + '-' + ri])}"></td>`;
     const wecom = ([k, rot]) => `<div class="col-md-4 campo"><label class="form-label" for="pw-${k}">${esc(rot)}</label><input id="pw-${k}" data-cfg="1" class="form-control" inputmode="decimal" autocomplete="off" value="${esc(c.v['pw-' + k])}"></div>`;
     return `
 <form class="modal-content modal-m config" role="dialog" aria-modal="true" aria-labelledby="cf-tit" data-form="config" novalidate>
@@ -1453,8 +1457,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     <button type="button" class="btn btn-icone" data-acao="cfg-fechar" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${bloco('CDS', 'Por região e serviço', `<table class="table tabela cfg-tab">
-      <thead><tr><th>Região</th>${SERVICOS_CDS_PRECO.map((sv) => `<th>${esc(sv)}</th>`).join('')}</tr></thead>
-      <tbody>${REGIOES.map((r, ri) => `<tr><td>${esc(r)}</td>${SERVICOS_CDS_PRECO.map((sv, si) => celula(sv, si, ri)).join('')}</tr>`).join('')}</tbody>
+      <thead><tr><th>Região</th>${p.cds.map((sv) => `<th>${esc(sv.servico)}</th>`).join('')}</tr></thead>
+      <tbody>${p.regioes.map((r, ri) => `<tr><td>${esc(r)}</td>${p.cds.map((sv, si) => celula(sv, si, ri)).join('')}</tr>`).join('')}</tbody>
     </table>`, '', 'tabela-bloco')}
     ${bloco('WECOM', '', `<div class="row duplo">${WECOM_CAMPOS.map(wecom).join('')}</div>`)}
   </div>
@@ -1478,29 +1482,28 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (st.invalidos.length) { E.cfg.tentou = true; atualizaConfig(); const el = document.getElementById(st.invalidos[0].id); if (el) el.focus(); return; }
     const n = st.mudancas.length; if (!n) return;
     E.modal = 'confirmar';
-    E.modalDados = { titulo: 'Salvar Alterações?', texto: (n === 1 ? '1 valor será alterado' : n + ' valores serão alterados') + ' nos relatórios gerados a partir de agora.', botao: 'Sim', voltar: 'Não', acao: () => cfgSalvar(n) };
+    E.modalDados = { titulo: 'Salvar Alterações?', texto: (n === 1 ? '1 valor será alterado' : n + ' valores serão alterados') + ' nos relatórios gerados a partir de agora.', botao: 'Sim', voltar: 'Não', acao: () => acao(cfgSalvar) };
     desenhar();
   }
-  function cfgSalvar(n) { // API: PUT /api/precos { cds, wecom }
-    const v = E.cfg.v; const cds = {}; const wecom = {};
-    SERVICOS_CDS_PRECO.forEach((sv, si) => { cds[sv] = REGIOES.map((r, ri) => lerValor(v['pc-' + si + '-' + ri])); });
-    WECOM_CAMPOS.forEach(([k]) => { wecom[k] = lerValor(v['pw-' + k]); });
-    E.precos = { cds, wecom }; E.cfg = { v: cfgRascunho(), tocados: {} }; persistir();
+  async function cfgSalvar() {
+    const v = E.cfg.v; const p = E.precos;
+    const novos = {
+      regioes: p.regioes,
+      cds: p.cds.map((sv, si) => ({ servico: sv.servico, valores: p.regioes.map((r, ri) => lerValor(v['pc-' + si + '-' + ri])) })),
+      wecom: Object.fromEntries(WECOM_CAMPOS.map(([k]) => [k, lerValor(v['pw-' + k])]))
+    };
+    const r = await api('PUT', 'precos', novos);
+    E.precos = await api('GET', 'precos'); E.cfg = { v: cfgRascunho(), tocados: {} };
     // o resultado aparece na mesma janela da confirmação; Fechar volta à tela de valores
+    const n = r.alterados;
     E.modal = 'confirmar'; E.modalDados = { titulo: 'Valores Atualizados', texto: n === 1 ? '1 valor foi atualizado.' : n + ' valores foram atualizados.', ok: true, soFechar: true };
     desenhar();
   }
-  // salva o arquivo: no claude.ai pelo recurso de downloads; fora dele, pelo download do navegador
-  async function salvarArquivo(nome, bytes) {
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    try {
-      const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
-      if (dl) { await dl.save({ filename: nome, data: blob }); return 'ok'; }
-    } catch (e) { if (e && e.code === 'declined') return 'recusado'; if (e && e.code === 'rate_limited') return 'ocupado'; }
-    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  // baixa o arquivo pelo navegador
+  function salvarArquivo(nome, bytes) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); const a = document.createElement('a');
     a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    return 'ok';
   }
   // observações de custo da Infraestrutura (WECOM): entram no PDF sem número, antes de "Era o que cabia informar."
   const RE_OBS = /^(A demanda referente a Instalação de Infraestrutura|O valor d[ae] Instalação de Infraestrutura)/;
@@ -1509,17 +1512,17 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   const paragrafos = (t) => String(t).split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
   // o check tira (ou devolve) a Infraestrutura da soma e troca a observação dela na Descrição, sem perder o resto do que foi editado
   function atualizaInfra(somar) {
-    const d = demanda(E.modalDados && E.modalDados.id); if (!d) return;
-    const r = montarRelatorio(d);
+    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return;
+    const r = montarRelatorio(d, m.custo);
     const custo = document.getElementById('rl-custo'); if (custo) custo.value = moeda(r.total - (somar ? 0 : r.infra));
     const desc = document.getElementById('rl-itens');
     if (desc) desc.value = paragrafos(desc.value).filter((x) => !RE_OBS.test(x)).concat(somar ? r.notas : r.notasSemInfra).join('\n\n');
   }
   async function baixarRelatorio() {
-    const d = demanda(E.modalDados && E.modalDados.id); if (!d) return;
+    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return;
     const ln = (id) => val(id).split('\n').map((x) => x.trim()).filter(Boolean);
     const chk = (id) => { const x = document.getElementById(id); return !!(x && x.checked); };
-    const base = montarRelatorio(d);
+    const base = montarRelatorio(d, m.custo);
     const r = {
       acionamento: val('rl-acion'), execucao: val('rl-exec'),
       servicos: { predio: chk('rl-predio'), desinst: chk('rl-desinst'), local: chk('rl-local'), inst: chk('rl-inst') },
@@ -1528,14 +1531,13 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       itens: paragrafos(val('rl-itens')).filter((x) => !RE_OBS.test(x)),
       global: base.global, lugar: base.lugar, notas: paragrafos(val('rl-itens')).filter((x) => RE_OBS.test(x))
     };
-    const nome = 'Relatório de execução - ' + (d.sei ? d.sei.replace(/\//g, '-') : 'demanda ' + num4(d.id)) + '.pdf';
-    const res = await salvarArquivo(nome, RelatorioPDF.gerar(r));
-    if (res === 'ok') { registrar(d, 'Relatório de execução de mudança gerado (PDF).'); persistir(); aviso('Relatório gerado.'); }
-    else aviso(res === 'recusado' ? 'Download cancelado.' : 'Já há um download aguardando confirmação.', true);
-    desenhar();
+    salvarArquivo('Relatório de execução - ' + (d.sei ? d.sei.replace(/\//g, '-') : 'demanda ' + num4(d.id)) + '.pdf', RelatorioPDF.gerar(r));
+    // o PDF não é guardado: só o registro no histórico
+    trocarDemanda((await api('POST', 'mudancas/' + d.id + '/documento', { tipo: 'relatorio' })).demanda);
+    aviso('Relatório gerado.'); desenhar();
   }
 
-  // API: GET /api/lixeira
+  // lixeira: só o coordenador
   function modalLixeira() {
     if (!ehGestor()) return '';
     const ls = E.lixeira.slice().sort((a, b) => String(b.excluidaEm).localeCompare(String(a.excluidaEm)));
@@ -1568,6 +1570,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   <span class="conf-ico">${c.perigo ? I.triangulo : c.ok ? svg(22, '<path d="m5 12.5 4.5 4.5L19 7.5"/>', 2.4) : I.alerta}</span>
   <h2 id="mc-tit">${esc(c.titulo)}</h2>
   <p id="mc-txt">${esc(c.texto)}</p>
+  ${c.senha ? `<p class="senha-tmp"><span class="mono" aria-label="Senha temporária">${esc(c.senha)}</span><button type="button" class="btn btn-icone senha-copia" data-acao="copiar-senha" data-v="${esc(c.senha)}" aria-label="Copiar a senha" title="Copiar a senha">${I.copiar}</button></p>` : ''}
   ${c.motivo ? `<div class="campo conf-motivo">
     <span class="rotulo-l"><label class="form-label" for="mc-motivo">Motivo</label><span class="cont" id="mc-motivo-cont">0/100</span></span>
     <textarea id="mc-motivo" data-rascunho data-cont="100" class="form-control txt" rows="2" maxlength="100" ${erM ? 'aria-invalid="true"' : ''}></textarea>
@@ -1616,7 +1619,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (k.startsWith('radio:')) { const r = app.querySelector(`input[name="${k.slice(6)}"][value="${rasc[k]}"]`); if (r) r.checked = true; return; }
       const el = document.getElementById(k); if (el) { if (el.type === 'checkbox') el.checked = rasc[k]; else el.value = rasc[k]; }
     });
-    trocarFinalidade(); ajustarMetro(); atualizaConfig(); atualizaTransf(); filtrarLocais(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
+    trocarFinalidade(); ajustarMetro(); atualizaConfig(); atualizaTransf(); filtrarLocais(); ajustaMenus(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
     E.chaveRasc = chave; E.limparRascunho = false; E.recemTk = false; k.aba = E.aba; E._k = k;
     Object.keys(rol).forEach((q) => { const el = document.querySelector(q); if (el && (q === '.rolagem' ? !E.zerarLista : mesmaTela)) el.scrollTop = rol[q]; });
     E.zerarLista = false;
@@ -1635,7 +1638,6 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     E.destaque = id; clearTimeout(tDestaque);
     tDestaque = setTimeout(() => { E.destaque = null; document.querySelectorAll('.linha-dem.destaque').forEach((c) => c.classList.remove('destaque')); }, 6000);
   }
-  function mudou() { automatizar(); persistir(); desenhar(); }
   function marcarSujo() {
     if (E.sujo) return; E.sujo = true;
     const b = document.getElementById('btn-salvar'); if (b) b.disabled = false;
@@ -1644,12 +1646,38 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   // pergunta antes de perder alterações não salvas nos detalhes; o status escolhido continua valendo ao trocar de aba,
   // porque o select fica no cabeçalho (ex.: escolher Acionada e ir registrar o ticket)
   function guardar(fn, trocaAba) {
-    if ((E.sujo && E.aberta && E.aba === 'dados') || (E.statusRascunho && !trocaAba)) {
+    if ((E.sujo && E.aberta && E.aba === 'dados') || (E.statusRascunho && !trocaAba) || temSubRasc()) {
       E.modal = 'confirmar';
-      E.modalDados = { titulo: 'Descartar Alterações?', texto: 'Você mudou os detalhes desta demanda e ainda não salvou.', botao: 'Descartar', perigo: true, acao: () => { E.sujo = false; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
+      E.modalDados = { titulo: 'Descartar Alterações?', texto: temSubRasc() ? 'Você mudou subtickets desta demanda e ainda não salvou.' : 'Você mudou os detalhes desta demanda e ainda não salvou.', botao: 'Descartar', perigo: true,
+        acao: () => { E.sujo = false; E.subRasc = {}; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
       desenhar(); return;
     }
     E.sujo = false; fn();
+  }
+  // subtickets: rascunho por número ({ servico, quantidade, metro }), aplicado por cima do que está salvo
+  const temSubRasc = () => Object.keys(E.subRasc).length > 0;
+  function comRascunho(s) {
+    const r = E.subRasc[s.numero]; if (!r) return s;
+    const x = Object.assign({}, s);
+    if ('servico' in r) x.finalidade = r.servico || null;
+    if ('quantidade' in r) x.quantidade = Number(r.quantidade);
+    if ('metro' in r) x.metro = r.metro ? Number(r.metro) : null;
+    if (!usaMetro(x.empresa, x.finalidade)) x.metro = null;
+    return x;
+  }
+  // grava o rascunho: um pedido por campo alterado; o servidor registra cada mudança no histórico
+  async function salvarSubtickets(d) {
+    for (const [numero, r] of Object.entries(E.subRasc)) {
+      if (!d.subtickets.some((x) => x.numero === numero)) continue;
+      for (const campo of ['servico', 'quantidade', 'metro']) {
+        if (!(campo in r)) continue;
+        if (campo === 'metro' && 'servico' in r && !usaMetro(d.subtickets.find((x) => x.numero === numero).empresa, r.servico)) continue;
+        trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/subtickets/' + numero, { campo, valor: String(r[campo] || '') })).demanda);
+      }
+      delete E.subRasc[numero];
+    }
+    E.subRasc = {}; E.manterRolagem = true;
+    aviso('Subtickets atualizados.'); desenhar();
   }
   function irPara(id) {
     // leva a lista até a folha onde a demanda está
@@ -1657,47 +1685,32 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (i >= 0) E.folha = Math.floor(i / porFolha()) + 1;
   }
 
-  // ------------------------------------------------------------------ regras do fluxo
-  // API: PATCH /api/mudancas/{id}/situacao
-  // a data do acionamento nunca é depois da Data de Início: numa demanda antiga, registrada depois do período, vale o início
-  const dataAcion = (iso, d) => (d.inicio && iso > d.inicio ? d.inicio : iso);
-  function setSituacao(d, nova, texto) { d.situacao = nova; E.statusRascunho = null; if (FINAIS.includes(nova)) { E.sujo = false; E.editTk = false; E.limparRascunho = true; } if (nova === 'acionada') d.acionadaEm = dataAcion(hojeISO(), d); registrar(d, texto || ('Situação alterada para ' + sit(nova).um + '.')); }
+  // ------------------------------------------------------------------ status (as regras valem no servidor; a tela só orienta)
   function irAba(id, aba, foco, msg) {
     E.aberta = id; E.aba = aba; E.sujo = false; E.menu = null; E.erros = {};
     if (msg) aviso(msg, true);
     desenhar(); const el = foco && document.getElementById(foco); if (el) el.focus();
   }
-  // regras do select de status: Em atendimento e Pendente nunca são escolhidos à mão, mudam sozinhos pela data;
-  // depois de acionada, a demanda não volta para Nova; cancelar fica só em Mais ações (coordenador); Concluída e Cancelada são finais
+  // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; depois de acionada, a demanda
+  // não volta para Nova; cancelar fica só em Mais ações (coordenador); Concluída e Cancelada são finais
   // TRAVADOS: o status é automático (os dados continuam editáveis)
   const TRAVADOS = ['atendimento', 'pendente'];
   const FINAIS = ['concluida', 'cancelada'];
-  function destinosStatus(d) {
-    if (TRAVADOS.includes(d.situacao) || FINAIS.includes(d.situacao)) return [];
-    const r = [];
-    if (d.situacao !== 'acionada') r.push('acionada');
-    return r;
-  }
+  const destinosStatus = (d) => (d.situacao === 'nova' ? ['acionada'] : []);
   // o select só guarda a escolha; a mudança acontece em Salvar alterações
   function escolherStatus(d, novo) { E.statusRascunho = novo === d.situacao ? null : novo; desenhar(); }
-  function salvarStatus(d) {
+  async function salvarStatus(d) {
     const novo = E.statusRascunho;
-    if (!destinosStatus(d).includes(novo)) { E.statusRascunho = null; aviso('Esta mudança de status não é mais permitida.', true); mudou(); return; }
-    const rot = sit(novo).um;
-    if (novo === 'acionada') {
-      if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para marcar como Acionada, registre antes o ticket principal e salve.'); return; }
-      // sem data, a automação nunca levaria a demanda adiante
-      if (!d.inicio) { irAba(d.id, 'dados', 'f-ini', 'Para marcar como Acionada, informe a Data de Início e salve.'); return; }
-      if (!d.responsavel) { irAba(d.id, 'dados', 'f-resp', 'Para marcar como Acionada, escolha o responsável e salve.'); return; }
-      // período já encerrado (demanda antiga): pode acionar; a automação leva direto para Para Validação
-    }
-    setSituacao(d, novo, (novo === 'acionada' ? 'Empresas acionadas. ' : '') + 'Status alterado: ' + sit(d.situacao).um + ' → ' + rot + '.');
-    if (d.responsavel) avisar(d, 'status', d.responsavel);
-    // agendada para hoje: automatizar(), em mudou(), já leva para Em atendimento (a carga continua com o responsável)
-    const jaHoje = novo === 'acionada' && d.inicio && d.inicio <= hojeISO();
-    const jaPassou = novo === 'acionada' && d.inicio && (d.fim || d.inicio) < hojeISO();
-    aviso(jaPassou ? 'Demanda acionada; como o período já terminou, foi para Para Validação.' : jaHoje ? 'Demanda acionada e já Em Atendimento.' : 'Status alterado para ' + rot + '.');
-    destacar(d.id); mudou();
+    if (!destinosStatus(d).includes(novo)) { E.statusRascunho = null; aviso('Esta mudança de status não é mais permitida.', true); desenhar(); return; }
+    if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para marcar como Acionada, registre antes o ticket principal e salve.'); return; }
+    // sem data, a automação nunca levaria a demanda adiante
+    if (!d.inicio) { irAba(d.id, 'dados', 'f-ini', 'Para marcar como Acionada, informe a Data de Início e salve.'); return; }
+    const x = trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/situacao', { situacao: novo })).demanda);
+    E.statusRascunho = null;
+    // agendada para hoje ou período já encerrado (demanda antiga): o servidor já levou adiante, com o mesmo responsável
+    aviso(x.situacao === 'pendente' ? 'Demanda acionada; como o período já terminou, foi para Para Validação.'
+      : x.situacao === 'atendimento' ? 'Demanda acionada e já Em Atendimento.' : 'Status alterado para Acionada.');
+    destacar(d.id); desenhar();
   }
   function somarDias(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
   const diaSeguinte = (iso) => somarDias(iso, 1);
@@ -1726,20 +1739,19 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (d.situacao !== 'pendente') return;
     if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para concluir, registre antes o ticket principal.'); return; }
     E.modal = 'confirmar';
-    E.modalDados = { titulo: 'Concluir Esta Demanda?', texto: 'A demanda passa para Concluída e fica com o setor, sem atribuição. Essa ação não pode ser desfeita e fica registrada no histórico.', botao: 'Concluir demanda', ok: true, acao: () => { concluir(d); destacar(d.id); aviso('Demanda concluída.'); mudou(); } };
+    E.modalDados = { titulo: 'Concluir Esta Demanda?', texto: 'A demanda passa para Concluída e fica com o setor, sem atribuição. Essa ação não pode ser desfeita e fica registrada no histórico.', botao: 'Concluir demanda', ok: true, acao: () => acao(() => mudarSituacao(d, { situacao: 'concluida' }, 'Demanda ' + num4(d.id) + ' concluída.')) };
     desenhar();
   }
-  // API: PATCH /api/mudancas/{id}/situacao { situacao: 'CONCLUIDA' } (técnico ou coordenador)
-  function concluir(d) {
-    const de = sit(d.situacao).um; const tec = d.responsavel && d.responsavel !== 'admin' ? d.responsavel : d.tecnico;
-    setSituacao(d, 'concluida', 'Status alterado: ' + de + ' → Concluída' + (tec ? '. Atendida por ' + nomeUsr(tec) : '') + '.');
-    paraSetor(d);
-    destacar(d.id); aviso('Demanda ' + num4(d.id) + ' concluída.'); mudou();
+  // concluir (técnico ou coordenador) ou cancelar com motivo (coordenador): a demanda fica somente leitura
+  async function mudarSituacao(d, corpo, msg) {
+    trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/situacao', corpo)).demanda);
+    E.statusRascunho = null; E.sujo = false; E.editTk = false; E.limparRascunho = true;
+    destacar(d.id); aviso(msg); desenhar();
   }
 
   function textoTickets(d) {
     const p = ['Ticket: ' + (d.ticketPrincipal || '-')];
-    EMPRESAS.forEach((e) => { const ls = d.subtickets.filter((s) => s.empresa === e); p.push(e + ': ' + (ls.length ? ls.map((s) => s.numero).join(' / ') : '-')); });
+    nomesEmpresas().forEach((e) => { const ls = d.subtickets.filter((s) => s.empresa === e); p.push(e + ': ' + (ls.length ? ls.map((s) => s.numero).join(' / ') : '-')); });
     return p.join('\t');
   }
   function copiar(texto, msg) {
@@ -1749,97 +1761,91 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
 
   // ------------------------------------------------------------------ formulários
   const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-
-  function enviar(form) {
+  // valida na tela o que dá para conferir aqui (o servidor confere tudo de novo) e envia
+  async function enviar(form) {
     const tipo = form.dataset.form;
     const d = demanda(E.aberta);
     E.erros = {};
-    if (tipo === 'dados' && d) { // API: PUT /api/mudancas/{id} (sei, comarca, descricao, responsavel, inicio, fim, hora, informacoes)
+    if (tipo === 'dados' && d) {
+      // salvar com Enter deixa o foco no campo: ele sai antes do envio, para o aviso de "não salvo" não voltar depois
+      if (form.contains(document.activeElement)) document.activeElement.blur();
       // qualquer pessoa edita a demanda em aberto, em qualquer etapa; tudo fica no histórico
       const sei = val('f-sei'); const ini = dataISO('f-ini'); const fim = dataISO('f-fim'); const hora = horaVal('f-hora');
-      {
-        if (sei && !RE_SEI.test(sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
-        const ed = erroDatas(ini, fim); if (ed) E.erros.data = ed;
-        // depois de acionada, a demanda não perde a Data de Início
-        else if (d.situacao !== 'nova' && !ini) E.erros.data = 'Depois de acionada, a demanda precisa ter Data de Início.';
-        // acionada não vai para o passado (cairia direto em Para validação)
-        else if (d.situacao === 'acionada' && (fim || ini) < hojeISO()) E.erros.data = 'Em demanda acionada, o agendamento não pode estar no passado.';
-        // Em atendimento já começou: o início não passa para depois de hoje (o status não volta para Acionada)
-        else if (d.situacao === 'atendimento' && ini > hojeISO()) E.erros.data = 'Em atendimento, a Data de Início não pode ser depois de hoje.';
-        // Nova: quem muda a data não pode pôr no passado; a data já vencida e não alterada não impede salvar o resto
-        // Para Validação: o período já terminou; as datas podem ser corrigidas, mas continuam antes de hoje
-        else if (d.situacao === 'pendente' && (fim || ini) >= hojeISO()) E.erros.data = 'Em Para Validação, o período já terminou: a Data para Conclusão precisa ser anterior a hoje.';
-        if (hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
-        if (Object.keys(E.erros).length) { desenhar(); return; }
-      }
-      const antes = { resp: d.responsavel, ini: d.inicio, fim: d.fim, hora: d.hora || '', sei: d.sei };
-      atribuir(d, val('f-resp') || null);
-      Object.assign(d, { sei, comarca: cidade(val('f-local')), descricao: val('f-desc'), inicio: ini || null, fim: (fim && fim !== ini) ? fim : null, hora: hora || null, informacoes: val('f-info') });
-      if (antes.resp !== d.responsavel) regResp(d, antes.resp, d.responsavel);
-      if (antes.ini !== d.inicio || antes.fim !== d.fim || antes.hora !== (d.hora || '')) registrar(d, 'Agendamento alterado para ' + agendaComHora(d) + '.');
-      else if (antes.resp === d.responsavel && E.sujo) registrar(d, 'Dados da demanda atualizados.');
+      if (sei && !RE_SEI.test(sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
+      const local = localDaLista(val('f-local')); if (!local) E.erros.local = MSG_LOCAL;
+      const ed = erroDatas(ini, fim); if (ed) E.erros.data = ed;
+      // depois de acionada, a demanda não perde a Data de Início
+      else if (d.situacao !== 'nova' && !ini) E.erros.data = 'Depois de acionada, a demanda precisa ter Data de Início.';
+      // acionada não vai para o passado (cairia direto em Para validação)
+      else if (d.situacao === 'acionada' && (fim || ini) < hojeISO()) E.erros.data = 'Em demanda acionada, o agendamento não pode estar no passado.';
+      // Em atendimento já começou: o início não passa para depois de hoje (o status não volta para Acionada)
+      else if (d.situacao === 'atendimento' && ini > hojeISO()) E.erros.data = 'Em atendimento, a Data de Início não pode ser depois de hoje.';
+      // Para Validação: o período já terminou; as datas podem ser corrigidas, mas continuam antes de hoje
+      else if (d.situacao === 'pendente' && (fim || ini) >= hojeISO()) E.erros.data = 'Em Para Validação, o período já terminou: a Data para Conclusão precisa ser anterior a hoje.';
+      if (hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
+      if (Object.keys(E.erros).length) { desenhar(); return; }
+      const r = await api('PUT', 'mudancas/' + d.id, { sei, comarca: local, descricao: val('f-desc'), responsavel: val('f-resp'), inicio: ini, fim, hora, informacoes: val('f-info') });
+      const x = trocarDemanda(r.demanda);
       E.limparRascunho = true; E.sujo = false;
-      if (E.statusRascunho) { persistir(); salvarStatus(d); return; }
-      const seiRep = d.sei && d.sei !== antes.sei ? comSei(d.sei, d.id) : null;
-      aviso('Alterações salvas.' + (seiRep ? ' Atenção: este SEI também está na demanda ' + num4(seiRep.id) + ' (' + (seiRep.comarca || '') + ').' : ''), !!seiRep); mudou(); return;
+      if (E.statusRascunho) { await salvarStatus(x); return; }
+      aviso('Alterações salvas.' + (r.atencao ? ' ' + r.atencao : ''), !!r.atencao); desenhar(); return;
     }
-    if (tipo === 'principal' && d) { // API: PUT /api/mudancas/{id}/ticket { numero }
+    if (tipo === 'principal' && d) {
       const bruto = val('t-principal'); const n = bruto.replace(/\D/g, '');
-      if (bruto && !/^\d{6}$/.test(n)) { E.erros.principal = 'O número do ticket tem 6 dígitos.'; desenhar(); return; }
       if (!n) { E.erros.principal = 'Informe o número do ticket.'; desenhar(); return; }
+      if (!/^\d{8}$/.test(n)) { E.erros.principal = 'O número do ticket tem 8 dígitos.'; desenhar(); return; }
       if ((d.ticketPrincipal || '') === n) { E.editTk = false; desenhar(); return; }
-      d.ticketPrincipal = n || null;
-      d.ticketEm = n ? { data: agoraISO(), usuario: E.usuario || 'admin' } : null;
-      E.editTk = false; E.recemTk = !!n;
-      registrar(d, n ? 'Ticket principal ' + n + ' registrado.' : 'Ticket principal removido.');
-      E.limparRascunho = true; E.manterRolagem = true;
-      const rep = avisoRepetidos([n], d.id);
-      aviso((d.situacao === 'nova' ? 'Ticket ' + n + ' registrado. Agora a demanda pode ser marcada como acionada.' : 'Ticket ' + n + ' registrado.') + rep, !!rep);
-      mudou(); return;
+      const r = await api('PUT', 'mudancas/' + d.id + '/ticket', { numero: n });
+      const x = trocarDemanda(r.demanda);
+      E.editTk = false; E.recemTk = true; E.limparRascunho = true;
+      aviso((x.situacao === 'nova' ? 'Ticket ' + n + ' registrado. Agora a demanda pode ser marcada como acionada.' : 'Ticket ' + n + ' registrado.') + (r.atencao ? ' ' + r.atencao : ''), !!r.atencao);
+      desenhar(); return;
     }
-    if (tipo === 'sub' && d) { // API: POST /api/mudancas/{id}/subtickets [{ empresa, numero, servico, quantidade }]
+    if (tipo === 'sub' && d) {
       const emp = val('n-emp'); const fin = val('n-fin');
-      if (!emp) { E.erros.sub = 'Escolha a empresa.'; E.erros.emp = true; desenhar(); document.getElementById('n-emp').focus(); return; }
-      // um ou mais números separados por barra, vírgula ou espaço; cada um com exatamente 6 dígitos
+      const erro = (msg, campo, foco) => { E.erros.sub = msg; if (campo) E.erros[campo] = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById(foco); if (el) el.focus(); };
+      if (!emp) { erro('Escolha a empresa.', 'emp', 'n-emp'); return; }
+      // um ou mais números separados por barra, vírgula ou espaço; cada um com exatamente 8 dígitos
       const nums = val('n-num').split(/\D+/).filter(Boolean);
-      if (!nums.length || nums.some((x) => x.length !== 6)) { E.erros.sub = nums.length ? 'Cada número de ticket tem 6 dígitos.' : 'Informe ao menos um número de ticket (6 dígitos).'; E.ultimaEmp = emp; desenhar(); document.getElementById('n-num').focus(); return; }
-      if (!fin) { E.erros.sub = 'Escolha o serviço do subticket.'; E.erros.fin = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-fin'); if (el) el.focus(); return; }
+      if (!nums.length || nums.some((x) => x.length !== 8)) { erro(nums.length ? 'Cada número de ticket tem 8 dígitos.' : 'Informe ao menos um número de ticket (8 dígitos).', '', 'n-num'); return; }
+      if (!fin) { erro('Escolha o serviço do subticket.', 'fin', 'n-fin'); return; }
       const qtd = parseInt(val('n-qtd'), 10);
-      if (!(qtd >= 1 && qtd <= 999)) { E.erros.sub = 'Informe a quantidade de serviços (1 a 999).'; E.erros.qtd = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-qtd'); if (el) el.focus(); return; }
-      // metro linear: só WECOM em Instalação ou Infraestrutura, opcional e inteiro
+      if (!(qtd >= 1 && qtd <= 999)) { erro('Informe a quantidade de serviços (1 a 999).', 'qtd', 'n-qtd'); return; }
+      // metro linear: só WECOM em Infraestrutura, opcional e inteiro
       const metroTxt = usaMetro(emp, fin) ? val('n-metro') : ''; const metro = metroTxt ? Number(metroTxt) : null;
-      if (metroTxt && !(Number.isInteger(metro) && metro >= 1 && metro <= 9999)) { E.erros.sub = 'Informe o metro linear em número inteiro (1 a 9999).'; E.erros.metro = true; E.ultimaEmp = emp; desenhar(); const el = document.getElementById('n-metro'); if (el) el.focus(); return; }
-      const novos = nums.filter((n) => !d.subtickets.some((s) => s.numero === n));
-      novos.forEach((n) => d.subtickets.push(Object.assign({ empresa: emp, numero: n, finalidade: fin, quantidade: qtd }, metro ? { metro } : {})));
-      E.ultimaEmp = '';
-      if (novos.length) registrar(d, 'Subticket' + (novos.length > 1 ? 's ' : ' ') + emp + ' ' + novos.join(', ') + (novos.length > 1 ? ' adicionados' : ' adicionado') + ' (' + fin + ', ' + qtd + (qtd === 1 ? ' serviço' : ' serviços') + (metro ? ', ' + metro + ' m' : '') + ').');
-      E.manterRolagem = true; E.limparRascunho = true;
-      const rep = avisoRepetidos(novos, d.id);
-      aviso(novos.length ? (novos.length > 1 ? novos.length + ' subtickets incluídos.' : 'Subticket incluído.') + rep : 'Esses tickets já estavam na lista.', !novos.length || !!rep);
-      mudou(); const el = document.getElementById('n-num'); if (el) el.focus(); return;
+      if (metroTxt && !(Number.isInteger(metro) && metro >= 1 && metro <= 9999)) { erro('Informe o metro linear em número inteiro (1 a 9999).', 'metro', 'n-metro'); return; }
+      let r;
+      try { r = await api('POST', 'mudancas/' + d.id + '/subtickets', { empresa: emp, numeros: nums.join(' '), servico: fin, quantidade: qtd, metro }); } catch (e) {
+        if (e instanceof ErroApi && e.status === 409) { erro(e.message, '', 'n-num'); aviso(e.message, true); desenhar(); return; }
+        throw e;
+      }
+      trocarDemanda(r.demanda);
+      E.ultimaEmp = ''; E.manterRolagem = true; E.limparRascunho = true;
+      const n = r.incluidos;
+      aviso((n ? (n > 1 ? n + ' subtickets incluídos.' : 'Subticket incluído.') : 'Esses tickets já estavam na lista.') + (r.atencao ? ' ' + r.atencao : ''), !n || !!r.atencao);
+      desenhar(); const el = document.getElementById('n-num'); if (el) el.focus(); return;
     }
     if (tipo === 'config') { cfgPedirSalvar(); return; }
-    if (tipo === 'nota' && d) { // API: POST /api/mudancas/{id}/historico { texto }
+    if (tipo === 'nota' && d) {
       const t = val('h-nota'); if (!t) return;
-      registrar(d, t); E.limparRascunho = true; aviso('Andamento registrado.'); mudou(); return;
+      trocarDemanda((await api('POST', 'mudancas/' + d.id + '/historico', { texto: t })).demanda);
+      E.limparRascunho = true; aviso('Andamento registrado.'); desenhar(); return;
     }
     if (tipo === 'equipe-add') {
-      const nome = val('eq-nome').replace(/\s+/g, ' ');
+      const nome = val('eq-nome').replace(/\s+/g, ' '); const login = val('eq-login').toLowerCase();
       const cor = (form.querySelector('input[name="eq-cor"]:checked') || {}).value || proximaCor();
       if (!nome) { E.erros.eqAdd = 'Informe o nome.'; desenhar(); return; }
-      if (E.equipe.some((u) => normal(u.nome) === normal(nome))) { E.erros.eqAdd = 'Já existe alguém com esse nome na equipe.'; desenhar(); return; }
-      // API: POST /api/equipe
-      let id = normal(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pessoa'; while (usr(id)) id += '-2';
-      E.equipe.push({ id, nome, curto: nome.split(' ')[0], ini: iniciaisDe(nome), cor: corOk(cor), ativo: true });
-      E.limparRascunho = true; aviso(nome + ' incluído(a) na equipe.'); mudou(); return;
+      if (!login) { E.erros.eqAdd = 'Informe o usuário da rede.'; desenhar(); return; }
+      const r = await api('POST', 'equipe', { nome, login, perfil: val('eq-perfil'), cor });
+      aplicarPessoas(await api('GET', 'pessoas'));
+      E.limparRascunho = true; mostrarSenha('Conta Criada', r); return;
     }
     if (tipo === 'equipe-edit') {
-      const u = usr(form.dataset.id); const nome = val('ed-nome').replace(/\s+/g, ' ');
+      const nome = val('ed-nome').replace(/\s+/g, ' ');
       if (!nome) { E.erros.eqEdit = 'Informe o nome.'; desenhar(); return; }
-      if (E.equipe.some((x) => x.id !== u.id && normal(x.nome) === normal(nome))) { E.erros.eqEdit = 'Já existe alguém com esse nome.'; desenhar(); return; }
-      // API: PUT /api/equipe/{id}
-      u.nome = nome; u.curto = nome.split(' ')[0]; u.ini = iniciaisDe(nome); u.cor = corOk((form.querySelector('input[name="ed-cor"]:checked') || {}).value || u.cor);
-      E.modalDados = {}; E.limparRascunho = true; aviso('Dados de ' + u.curto + ' atualizados.'); mudou(); return;
+      const u = await api('PUT', 'equipe/' + form.dataset.id, { nome, cor: (form.querySelector('input[name="ed-cor"]:checked') || {}).value });
+      aplicarPessoas(await api('GET', 'pessoas'));
+      E.modalDados = {}; E.limparRascunho = true; aviso('Dados de ' + u.curto + ' atualizados.'); desenhar(); return;
     }
     if (tipo === 'equipe-transf') {
       const t = E.modalDados.transf; const para = val('tr-dest');
@@ -1847,65 +1853,73 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       t.marcadas = ids; t.para = para;
       if (!para && (ids.length || !t.desativar)) { E.erros.transf = 'Escolha para quem transferir.'; desenhar(); return; }
       if (!ids.length && !t.desativar) { E.erros.transf = 'Marque ao menos uma demanda.'; desenhar(); return; }
-      const de = usr(t.de); const novo = para;
-      // API: POST /api/equipe/{de}/transferir { para, demandas: [...] }
-      ids.forEach((id) => { const d = demanda(id); atribuir(d, novo); registrar(d, 'Demanda transferida de ' + de.nome + ' para ' + nomeResp(d.responsavel) + '.'); });
-      // ao desativar, as demandas em aberto que não foram marcadas vão para o coordenador: ninguém inativo fica com demanda
-      const resto = t.desativar ? abertasDe(t.de) : [];
-      resto.forEach((d) => { atribuir(d, 'admin'); registrar(d, 'Demanda transferida de ' + de.nome + ' para o Coordenador (' + de.curto + ' foi desativado(a)).'); });
-      if (t.desativar) de.ativo = false;
+      const de = usr(t.de);
+      const r = await api('POST', 'equipe/' + t.de + '/transferir', { para, demandas: ids, desativar: !!t.desativar });
+      await recarregar();
       if (E.filtroResp === t.de && t.desativar) E.filtroResp = '';
       E.modalDados = {}; E.limparRascunho = true;
-      aviso((ids.length ? ids.length + (ids.length === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (resto.length ? '; ' + resto.length + (resto.length === 1 ? ' foi' : ' foram') + ' para o Coordenador' : '') + (t.desativar ? '; ' + de.curto + ' desativado(a).' : '.'));
-      mudou(); return;
+      aviso((r.transferidas ? r.transferidas + (r.transferidas === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (r.paraCoordenador ? '; ' + r.paraCoordenador + (r.paraCoordenador === 1 ? ' foi' : ' foram') + ' para o Coordenador' : '') + (t.desativar ? '; ' + de.curto + ' desativado(a).' : '.'));
+      desenhar(); return;
     }
-    if (tipo === 'login') { // API: POST /api/login { usuario, senha } — no protótipo qualquer senha serve
-      const login = normal(val('l-usr'));
-      // coordenador (admin) ou alguém ativo da Equipe, pelo usuário mostrado na Equipe
-      const u = GESTORES.find((g) => g.id === login || (g.apelidos || []).includes(login)) || E.equipe.find((x) => x.ativo && x.id === login);
-      if (!u || !val('l-sen')) { E.erros.login = !u ? 'Usuário não encontrado. No protótipo, use admin ou o usuário de alguém ativo da Equipe.' : 'Informe a senha.'; E.modalDados = Object.assign(E.modalDados || {}, { usr: val('l-usr') }); desenhar(); return; }
-      const depois = E.modalDados && E.modalDados.depois;
-      // no protótipo, só o coordenador passa pela criação de senha do primeiro acesso
-      if (!u.gestor) { entrar(u.id, depois, 'Você entrou como ' + u.curto + '.'); return; }
-      if (!E.senhaDefinida) {
-        E.modal = 'senha'; E.modalDados = { usuario: u.id, atual: document.getElementById('l-sen').value, depois }; E.erros = {}; E.limparRascunho = true;
-        desenhar(); document.getElementById('s-nova').focus(); return;
+    if (tipo === 'login') {
+      const usuario = val('l-usr'); const senha = document.getElementById('l-sen').value;
+      if (!usuario || !senha) { E.erros.login = !usuario ? 'Informe o usuário.' : 'Informe a senha.'; E.modalDados = Object.assign(E.modalDados || {}, { usr: usuario }); desenhar(); return; }
+      try {
+        await iniciarSessao(await api('POST', 'login', { usuario, senha }), senha);
+      } catch (e) {
+        if (!(e instanceof ErroApi)) throw e;
+        E.erros.login = e.message; E.modalDados = Object.assign(E.modalDados || {}, { usr: usuario }); E.limparRascunho = true; desenhar(); focar('l-sen');
       }
-      entrar(u.id, depois, 'Você entrou como coordenador.');
       return;
     }
-    if (tipo === 'senha') { // API: POST /api/conta/senha { atual, nova } (grava o hash e zera deve_trocar_senha)
-      const m = E.modalDados || {}; const nova = document.getElementById('s-nova').value; const conf = document.getElementById('s-conf').value;
-      const erro = nova.length < 8 ? 'A nova senha precisa ter pelo menos 8 caracteres.' : nova !== conf ? 'As senhas não são iguais.' : nova === m.atual ? 'A nova senha precisa ser diferente da senha inicial.' : '';
-      if (erro) { E.erros.senha = erro; desenhar(); document.getElementById('s-nova').focus(); return; }
-      E.senhaDefinida = true;
-      entrar(m.usuario, m.depois, 'Senha criada. Você entrou como coordenador.');
+    if (tipo === 'senha') {
+      const m = E.modalDados || {}; const atual = m.atual || document.getElementById('s-atual').value;
+      const nova = document.getElementById('s-nova').value; const conf = document.getElementById('s-conf').value;
+      const erro = !atual ? 'Informe a senha atual.' : nova.length < 8 ? 'A nova senha precisa ter pelo menos 8 caracteres.' : nova !== conf ? 'As senhas não são iguais.' : nova === atual ? 'A nova senha precisa ser diferente da senha atual.' : '';
+      if (erro) { E.erros.senha = erro; desenhar(); focar('s-nova'); return; }
+      try {
+        await iniciarSessao(await api('POST', 'conta/senha', { atual, nova }));
+        aviso('Senha criada. Você entrou no sistema.'); desenhar();
+      } catch (e) {
+        if (!(e instanceof ErroApi) || e.status === 401) throw e;
+        E.erros.senha = e.message; if (e.message.includes('atual')) E.modalDados = {}; desenhar();
+      }
+      return;
+    }
+    if (tipo === 'pedido') {
+      const nome = val('pa-nome'); const login = val('pa-usr').toLowerCase();
+      if (!nome || !login) { E.erros.pedido = !nome ? 'Informe o nome.' : 'Informe o usuário da rede.'; desenhar(); return; }
+      try {
+        await api('POST', 'acesso/solicitar', { nome, login });
+        E.modalDados = { pedir: true, enviado: true }; desenhar();
+      } catch (e) {
+        if (!(e instanceof ErroApi)) throw e;
+        E.erros.pedido = e.message; desenhar();
+      }
       return;
     }
     if (tipo === 'nova') {
       if (E.modalDados && E.modalDados.sucesso) return;
       const semSei = document.getElementById('n-semsei').checked;
       const r = form.querySelector('input[name="n-resp"]:checked');
-      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : 'admin', inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora'), informacoes: '' };
+      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : COORD, inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
       E.modalDados = v;
       if (!semSei && !v.sei) E.erros.sei = 'Informe o número do expediente ou marque “Demanda fora do SEI”.';
       else if (!semSei && !RE_SEI.test(v.sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
       if (!v.comarca) E.erros.local = 'Informe a comarca ou o prédio.';
+      else if (!localDaLista(v.comarca)) E.erros.local = MSG_LOCAL;
+      else v.comarca = localDaLista(v.comarca);
       if (!v.descricao) E.erros.desc = 'Descreva a demanda.';
       const ed = erroDatas(v.inicio, v.fim); if (ed) E.erros.data = ed;
       if (v.hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (v.inicio === null) v.inicio = ''; if (v.fim === null) v.fim = ''; if (v.hora === null) v.hora = val('n-hora');
       if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) pri.focus(); return; }
-      // API: POST /api/mudancas
-      const id = Math.max(0, ...E.demandas.map((x) => x.id), ...E.excluidas.map((x) => x.id)) + 1; // não reaproveita número de demanda na lixeira
-      const nova = { id, sei: v.sei, descricao: v.descricao, comarca: v.comarca, responsavel: v.responsavel || null, inicio: v.inicio || null, fim: (v.fim && v.fim !== v.inicio) ? v.fim : null, hora: v.hora || null, situacao: 'nova', ticketPrincipal: null, subtickets: [], informacoes: v.informacoes, historico: [], criadaEm: hojeISO(), passou: [], aviso: null };
-      registrar(nova, 'Demanda registrada a partir do expediente SEI' + (v.responsavel ? ' e ' + atribuidaA(v.responsavel) : '') + '.');
-      if (nova.responsavel) { avisar(nova, 'nova', nova.responsavel); nova.passou = [nova.responsavel]; }
-      E.demandas.push(nova);
+      const res = await api('POST', 'mudancas', { sei: v.sei, comarca: v.comarca, descricao: v.descricao, responsavel: v.responsavel, inicio: v.inicio, fim: v.fim, hora: v.hora });
+      const nova = trocarDemanda(res.demanda);
       if (!E.sitAtivas.has('nova')) E.sitAtivas = new Set(ABERTAS);
-      irPara(id); destacar(id);
-      E.modalDados = { sucesso: id };
-      mudou();
+      irPara(nova.id); destacar(nova.id);
+      E.modalDados = { sucesso: nova.id, atencao: res.atencao };
+      desenhar();
     }
   }
 
@@ -1914,9 +1928,8 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const f = ev.target.closest('form[data-form]'); if (!f) return; ev.preventDefault();
     const tf = f.dataset.form;
     if (tf === 'config' || tf.startsWith('equipe')) { if (precisaGestor()) return; }
-    else if ((tf === 'nota' || tf === 'nova') && precisaLogin(MSG_LOGIN)) return;
-    else if (tf !== 'login' && tf !== 'senha' && tf !== 'nota' && tf !== 'nova' && precisaEditar(demanda(E.aberta))) return;
-    enviar(f);
+    else if (['dados', 'principal', 'sub'].includes(tf) && precisaEditar(demanda(E.aberta))) return;
+    acao(() => enviar(f));
   });
 
   document.addEventListener('click', (ev) => {
@@ -1938,41 +1951,52 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (a === 'fundo-modal') { if (E.menu) { E.menu = null; desenhar(); } return; }
     if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'menu-conta' && E.menu) E.menu = null;
     // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o coordenador
-    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config'];
+    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config', 'eq-editar', 'eq-transferir', 'eq-desativar', 'eq-reativar', 'eq-senha', 'sol-aprovar', 'sol-recusar'];
     const EDITA = ['sub-del', 'tk-alterar'];
-    // ações que registram no histórico pedem login (sem login, só consulta)
-    const LOGADO = ['acionamento', 'relatorio', 'concluir-dem'];
     if (SO_GESTOR.includes(a) && precisaGestor()) return;
-    if (LOGADO.includes(a) && precisaLogin(MSG_LOGIN)) return;
     if (EDITA.includes(a) && precisaEditar(demanda(E.aberta))) return;
     const d = demanda(E.aberta);
     switch (a) {
       case 'inicio': E.aberta = null; window.scrollTo(0, 0); desenhar(); break;
       case 'menu-conta': E.menu = E.menu === 'conta' ? null : 'conta'; desenhar(); break;
-      case 'login': E.menu = null; E.modal = 'login'; E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); setTimeout(() => { const el = document.getElementById('l-usr'); if (el) el.focus(); }, 0); break;
       case 'ver-senha': { const el = document.getElementById('l-sen'); if (el) { el.type = el.type === 'password' ? 'text' : 'password'; alvo.setAttribute('aria-label', el.type === 'password' ? 'Mostrar senha' : 'Ocultar senha'); } break; }
-      case 'sair': E.usuario = null; E.menu = null; E.filtroResp = ''; aviso('Você saiu da conta.'); mudou(); break;
-      case 'eq-editar': if (precisaGestor()) break; E.modalDados = { editar: v }; E.erros = {}; E.limparRascunho = true; desenhar(); { const el = document.getElementById('ed-nome'); if (el) { el.focus(); el.select(); } } break;
+      case 'pedir-acesso': E.modalDados = { pedir: true }; E.erros = {}; E.limparRascunho = true; desenhar(); focar('pa-nome'); break;
+      case 'pedir-voltar': abrirLogin(); break;
+      case 'login': abrirLogin(); break;
+      case 'sair': acao(async () => { await api('POST', 'logout'); await sairDaSessao(); aviso('Você saiu da conta.'); desenhar(); }); break;
+      case 'eq-editar': E.modalDados = { editar: v }; E.erros = {}; E.limparRascunho = true; desenhar(); { const el = document.getElementById('ed-nome'); if (el) { el.focus(); el.select(); } } break;
       case 'eq-cancelar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
-      case 'eq-transferir': if (precisaGestor()) break; E.modalDados = { transf: { de: v } }; E.erros = {}; E.limparRascunho = true; desenhar(); break;
+      case 'eq-transferir': E.modalDados = { transf: { de: v } }; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-voltar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-desativar': {
-        if (precisaGestor()) break; const u = usr(v);
+        const u = usr(v);
         if (abertasDe(v).length) { E.modalDados = { transf: { de: v, desativar: true } }; E.erros = {}; E.limparRascunho = true; desenhar(); break; }
-        u.ativo = false; aviso(u.curto + ' desativado(a). Não aparece mais para receber demandas.'); mudou(); break;
+        acao(async () => { await api('POST', 'equipe/' + v + '/desativar'); aplicarPessoas(await api('GET', 'pessoas')); aviso(u.curto + ' desativado(a). Não entra mais no sistema nem recebe demandas.'); desenhar(); });
+        break;
       }
-      case 'eq-reativar': { if (precisaGestor()) break; const u = usr(v); u.ativo = true; aviso(u.curto + ' reativado(a).'); mudou(); break; }
+      case 'eq-reativar': { const u = usr(v); acao(async () => { await api('POST', 'equipe/' + v + '/reativar'); aplicarPessoas(await api('GET', 'pessoas')); aviso(u.curto + ' reativado(a).'); desenhar(); }); break; }
+      case 'eq-senha': {
+        const u = usr(v);
+        E.modal = 'confirmar';
+        E.modalDados = { titulo: 'Redefinir a Senha?', texto: 'Será gerada uma senha temporária para ' + u.nome + ', válida por 24 horas. A senha atual deixa de valer e a pessoa sai do sistema onde estiver conectada.', botao: 'Redefinir senha', voltarPara: 'equipe',
+          acao: () => acao(async () => { mostrarSenha('Senha Redefinida', await api('POST', 'equipe/' + v + '/redefinir-senha')); }) };
+        desenhar(); break;
+      }
+      case 'sol-aprovar': acao(async () => {
+        const r = await api('POST', 'acesso/solicitacoes/' + id + '/aprovar', { perfil: val('sol-perfil-' + id), cor: proximaCor() });
+        aplicarPessoas(await api('GET', 'pessoas')); await carregarCoordenador();
+        mostrarSenha('Acesso Aprovado', r);
+      }); break;
+      case 'sol-recusar': acao(async () => { await api('POST', 'acesso/solicitacoes/' + id + '/recusar'); await carregarCoordenador(); aviso('Pedido de acesso recusado.'); desenhar(); }); break;
       case 'tr-todas': {
         const cbs = [...document.querySelectorAll('input[name="tr-d"]')]; const todas = cbs.every((c) => c.checked);
         cbs.forEach((c) => { c.checked = !todas; }); alvo.textContent = todas ? 'Marcar todas' : 'Desmarcar todas'; atualizaTransf(); break;
       }
-      case 'proto-gestor': { const a = document.getElementById('l-usr'); const b = document.getElementById('l-sen'); if (a) a.value = 'admin'; if (b) b.value = 'admin'; const f = document.querySelector('form.login'); if (f) f.requestSubmit(); break; }
-      case 'equipe': E.menu = null; if (precisaGestor('A Equipe é mantida pelo coordenador. Entre para incluir, editar ou desativar pessoas.', () => { E.modal = 'equipe'; E.modalDados = {}; desenhar(); })) break; E.modal = 'equipe'; E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
-      case 'nova':
-        if (precisaLogin('Para incluir uma demanda, entre com o seu usuário.', () => { const b = document.querySelector('[data-acao=nova]'); if (b) b.click(); })) break;
-        E.modal = 'nova'; E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); setTimeout(() => { const el = document.getElementById('n-sei'); if (el) el.focus(); }, 0); break;
-      case 'incluir-outra': E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); setTimeout(() => { const el = document.getElementById('n-sei'); if (el) el.focus(); }, 0); break;
-      case 'abrir-nova': E.modal = null; E.modalDados = null; E.aberta = id; E.aba = 'tickets'; desenhar(); setTimeout(() => { const el = document.getElementById('t-principal'); if (el) el.focus(); }, 0); break;
+      case 'equipe': E.menu = null; E.modal = 'equipe'; E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar();
+        acao(async () => { aplicarPessoas(await api('GET', 'pessoas')); await carregarCoordenador(); if (E.modal === 'equipe') desenhar(); }); break;
+      case 'nova': if (!E.usuario) { abrirLogin('Entre com o seu usuário para incluir uma demanda.'); break; } E.modal = 'nova'; E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); focar('n-sei'); break;
+      case 'incluir-outra': E.modalDados = null; E.erros = {}; E.limparRascunho = true; desenhar(); focar('n-sei'); break;
+      case 'abrir-nova': E.modal = null; E.modalDados = null; abrirCard(id).then(() => { E.aba = 'tickets'; desenhar(); focar('t-principal'); }); break;
       case 'ordenar': {
         const dir = alvo.dataset.dir;
         if (dir) { E.ordCol = v; E.ordDir = dir; }
@@ -1983,73 +2007,89 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       case 'resp-pop': E.menu = E.menu === 'resp' ? null : 'resp'; desenhar(); break;
       case 'local-pop': E.menu = E.menu === 'local' ? null : 'local'; E.localQ = ''; desenhar(); { const q = document.getElementById('f-local-q'); if (q) q.focus(); } break;
       case 'local-escolher': E.filtroLocal = v || ''; E.menu = null; E.localQ = ''; E.folha = 1; desenhar(); break;
-      case 'vista': if (E.vista !== v) { const prim = (E.folha - 1) * porFolha(); E.vista = v; E.folha = Math.floor(prim / porFolha()) + 1; E.zerarLista = true; persistir(); desenhar(); } break;
+      case 'vista': if (E.vista !== v) { const prim = (E.folha - 1) * porFolha(); E.vista = v; E.folha = Math.floor(prim / porFolha()) + 1; E.zerarLista = true; guardarPreferencias(); desenhar(); } break;
       case 'resp-escolher': E.filtroResp = v || ''; E.menu = null; E.folha = 1; desenhar(); break;
       case 'menu-mais': E.menu = E.menu === 'mais' ? null : 'mais'; desenhar(); break;
       case 'sobre': E.modal = 'sobre'; E.modalDados = null; desenhar(); break;
       // abas: Todas, Em aberto ou uma situação por vez
       case 'sit-aba': E.folha = 1;
         E.sitAtivas = new Set(v === 'todas' ? SITUACOES.map((x) => x.id) : v === 'abertas' ? ABERTAS : [v]);
-        mudou(); break;
+        guardarPreferencias(); desenhar(); break;
       case 'limpar': E.folha = 1; E.busca = ''; E.filtroResp = ''; E.filtroLocal = ''; desenhar(); break;
       case 'folha': E.folha = Number(v); E.zerarLista = true; desenhar(); break;
       case 'tk-alterar': E.editTk = true; E.erros = {}; desenhar(); { const el = document.getElementById('t-principal'); if (el) { el.focus(); el.select(); } } break;
       case 'tk-cancelar': E.editTk = false; E.erros = {}; E.limparRascunho = true; desenhar(); break;
-      case 'abrir': E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; desenhar(); break;
-      case 'salvar-status': if (d && E.statusRascunho) salvarStatus(d); break;
+      case 'abrir': abrirCard(id); break;
+      case 'salvar-status': if (d && E.statusRascunho) acao(() => salvarStatus(d)); break;
       case 'fechar-det': guardar(() => { E.aberta = null; E.erros = {}; desenhar(); }); break;
       case 'aba': if (v === E.aba) break; guardar(() => { E.aba = v; E.erros = {}; E.editTk = false; desenhar(); }, true); break;
-      // API: DELETE /api/mudancas/{id} { motivo } (vai para a lixeira; o servidor guarda o registro da exclusão)
       case 'excluir': { const x = demanda(id) || d; if (!x || x.situacao === 'concluida') break; E.menu = null; // Concluída não vai para a lixeira
         E.modal = 'confirmar'; E.erros = {};
         E.modalDados = { titulo: 'Excluir a Demanda ' + (x.sei || num4(x.id)) + '?', texto: 'Ela vai para a Lixeira e pode ser restaurada em até ' + DIAS_LIXEIRA + ' dias. Depois disso, é removida sem retorno.', motivo: true, botao: 'Excluir demanda', perigo: true,
-          acao: (motivo) => {
-            registrar(x, 'Demanda excluída. Motivo: ' + motivo + '.');
-            E.excluidas.push({ data: agoraISO(), usuario: E.usuario, id: x.id, sei: x.sei, comarca: x.comarca, situacao: x.situacao, motivo });
-            E.lixeira.push(Object.assign(x, { excluidaEm: agoraISO(), excluidaPor: E.usuario, motivoExclusao: motivo }));
-            E.demandas = E.demandas.filter((y) => y.id !== x.id); E.aberta = null; E.statusRascunho = null; E.sujo = false; aviso('Demanda enviada para a Lixeira.'); mudou();
-          } };
+          acao: (motivo) => acao(async () => {
+            await api('DELETE', 'mudancas/' + x.id, { motivo });
+            E.demandas = E.demandas.filter((y) => y.id !== x.id); E.aberta = null; E.statusRascunho = null; E.sujo = false;
+            await carregarCoordenador(); aviso('Demanda enviada para a Lixeira.'); desenhar();
+          }) };
         desenhar(); document.getElementById('mc-motivo').focus(); break; }
-      case 'lixeira': E.menu = null; E.modal = 'lixeira'; E.modalDados = null; desenhar(); break;
+      case 'lixeira': E.menu = null; E.modal = 'lixeira'; E.modalDados = null; desenhar(); acao(async () => { await carregarCoordenador(); if (E.modal === 'lixeira') desenhar(); }); break;
       case 'config': E.menu = null; E.cfg = { v: cfgRascunho(), tocados: {} }; E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break;
       case 'cfg-fechar': { const st = cfgEstado(); if (!st.mudancas.length && !st.invalidos.length) { cfgFechar(); break; }
         E.modal = 'confirmar'; E.modalDados = { titulo: 'Descartar Alterações?', texto: 'Você mudou os valores e ainda não salvou.', botao: 'Descartar', perigo: true, acao: cfgFechar }; desenhar(); break; }
-      // API: POST /api/lixeira/{id}/restaurar
-      case 'restaurar': { const i = E.lixeira.findIndex((x) => x.id === id); if (i < 0) break;
-        const x = E.lixeira.splice(i, 1)[0]; delete x.excluidaEm; delete x.excluidaPor; delete x.motivoExclusao;
-        registrar(x, 'Demanda restaurada da lixeira.');
-        // quem estava com ela foi desativado enquanto estava na lixeira: volta para o coordenador
-        const resp = usr(x.responsavel);
-        if (ABERTAS.includes(x.situacao) && x.responsavel !== 'admin' && !(resp && resp.ativo)) { const ant = x.responsavel; atribuir(x, 'admin'); regResp(x, ant, 'admin', 'responsável desativado'); }
-        if (x.responsavel) avisar(x, 'retornou', x.responsavel);
-        E.demandas.push(x); aviso('Demanda restaurada.'); mudou(); break; }
+      case 'restaurar': acao(async () => {
+        trocarDemanda(await api('POST', 'lixeira/' + id + '/restaurar'));
+        E.lixeira = E.lixeira.filter((x) => x.id !== id); aviso('Demanda restaurada.'); desenhar();
+      }); break;
       case 'concluir-dem': { const x = demanda(id) || d; if (x) pedirConclusao(x); break; }
       case 'cancelar':
         if (!d) break; E.menu = null;
         E.modal = 'confirmar'; E.erros = {};
         E.modalDados = { titulo: 'Cancelar a Demanda ' + num4(d.id) + '?', texto: 'A ação não poderá ser desfeita.', motivo: true, botao: 'Cancelar demanda', perigo: true,
-          acao: (motivo) => { setSituacao(d, 'cancelada', 'Status alterado: ' + sit(d.situacao).um + ' → Cancelada. Motivo: ' + motivo + '.'); d.motivoCancelamento = motivo; if (d.responsavel) avisar(d, 'status', d.responsavel); aviso('Demanda cancelada.'); mudou(); } };
+          acao: (motivo) => acao(() => mudarSituacao(d, { situacao: 'cancelada', motivo }, 'Demanda cancelada.')) };
         desenhar(); document.getElementById('mc-motivo').focus(); break;
       case 'confirmar': {
         const c = E.modalDados || {}; const motivo = c.motivo ? val('mc-motivo') : '';
         if (c.motivo && !motivo) { E.erros.motivo = 'Informe o motivo.'; desenhar(); document.getElementById('mc-motivo').focus(); break; }
-        const fn = c.acao; E.modal = null; E.modalDados = null; E.erros = {}; if (fn) fn(motivo); else desenhar(); break;
+        const fn = c.acao; E.modal = c.voltarPara || null; E.modalDados = c.voltarPara ? {} : null; E.erros = {}; if (fn) fn(motivo); else desenhar(); break;
       }
-      case 'fechar-modal': if (E.modal === 'confirmar' && E.cfg) { E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break; } // Não/Voltar: segue editando os valores
-        if (E.modal === 'equipe') E.toast = null; E.modal = null; E.modalDados = null; E.erros = {}; desenhar(); break;
+      case 'fechar-modal': {
+        if (E.modal === 'confirmar' && E.cfg) { E.modal = 'config'; E.modalDados = null; E.erros = {}; desenhar(); break; } // Não/Voltar: segue editando os valores
+        const volta = E.modal === 'confirmar' && E.modalDados && E.modalDados.voltarPara;
+        if (E.modal === 'equipe') E.toast = null;
+        E.modal = volta || null; E.modalDados = volta ? {} : null; E.erros = {}; desenhar(); break;
+      }
       case 'copiar': copiar(v, 'Copiado: ' + v); break;
-      case 'relatorio': if (!d) break; E.menu = null; E.modal = 'relatorio'; E.modalDados = { id: d.id }; E.limparRascunho = true; desenhar(); break;
-      case 'baixar-relatorio': baixarRelatorio(); break;
+      // a confirmação fica no próprio botão (a senha não aparece em aviso nenhum)
+      case 'copiar-senha': navigator.clipboard.writeText(v).then(() => { alvo.innerHTML = I.check; alvo.title = 'Senha copiada'; alvo.setAttribute('aria-label', 'Senha copiada'); alvo.classList.add('copiado'); },
+        () => { alvo.title = 'Não foi possível copiar: selecione a senha e use Ctrl+C'; }); break;
+      case 'relatorio': if (!d) break; E.menu = null; acao(async () => {
+        const custo = await api('GET', 'mudancas/' + d.id + '/custo');
+        E.modal = 'relatorio'; E.modalDados = { id: d.id, custo }; E.limparRascunho = true; desenhar();
+      }); break;
+      case 'baixar-relatorio': acao(baixarRelatorio); break;
       case 'acionamento': if (!d) break; E.menu = null; E.modal = 'acionamento'; E.modalDados = { id: d.id }; E.limparRascunho = true; desenhar(); break;
-      case 'copiar-acionamento': { const t = document.getElementById('ac-texto'); const x = demanda(E.modalDados && E.modalDados.id); if (!t) break; copiar(t.value, 'Texto copiado. É só colar no SEI.'); if (x) { registrar(x, 'Informação de acionamento gerada e copiada.'); persistir(); } break; }
+      case 'copiar-acionamento': { const t = document.getElementById('ac-texto'); const x = demanda(E.modalDados && E.modalDados.id); if (!t) break; copiar(t.value, 'Texto copiado. É só colar no SEI.');
+        if (x) acao(async () => { trocarDemanda((await api('POST', 'mudancas/' + x.id + '/documento', { tipo: 'acionamento' })).demanda); }); break; }
       case 'copiar-tickets': if (d) copiar(textoTickets(d), 'Tickets copiados em texto.'); break;
-      // API: DELETE /api/mudancas/{id}/subtickets/{numero}
-      case 'sub-del': if (!d) break; { const s = d.subtickets.splice(Number(alvo.dataset.i), 1)[0]; registrar(d, 'Subticket ' + s.empresa + ' ' + s.numero + ' removido.'); E.manterRolagem = true; aviso('Subticket removido.'); mudou(); } break;
+      case 'salvar-subs': if (d && temSubRasc()) acao(() => salvarSubtickets(d)); break;
+      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break; delete E.subRasc[s.numero];
+        acao(async () => { trocarDemanda((await api('DELETE', 'mudancas/' + d.id + '/subtickets/' + s.numero)).demanda); E.manterRolagem = true; aviso('Subticket removido.'); desenhar(); }); } break;
       case 'sem-sei': { const el = document.getElementById('n-sei'); if (el) { el.disabled = alvo.checked; if (alvo.checked) { el.value = ''; } } } break;
     }
   });
 
-  window.addEventListener('resize', () => mostrarAbaAtiva());
+  // o menu de um filtro nunca sai da janela: em tela estreita, fica a 12 px da borda
+  function ajustaMenus() {
+    const borda = 12;
+    document.querySelectorAll('.filtro .dropdown-menu.show').forEach((m) => {
+      m.style.transform = ''; m.style.width = '';
+      if (m.offsetWidth > window.innerWidth - 2 * borda) m.style.width = (window.innerWidth - 2 * borda) + 'px';
+      const r = m.getBoundingClientRect();
+      const dx = r.left < borda ? borda - r.left : r.right > window.innerWidth - borda ? window.innerWidth - borda - r.right : 0;
+      if (dx) m.style.transform = 'translateX(' + Math.round(dx) + 'px)';
+    });
+  }
+  window.addEventListener('resize', () => { mostrarAbaAtiva(); ajustaMenus(); });
   // abas de situação: setas, Home e End trocam de aba (padrão de tablist)
   document.addEventListener('keydown', (ev) => {
     const tab = ev.target.closest && ev.target.closest('.sit-abas .sit-aba');
@@ -2065,7 +2105,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (ev.key === 'Escape') { if (E.menu) { E.menu = null; desenhar(); } return; }
     if (ev.key === 'Enter' && ev.target.id === 'f-local-q') { ev.preventDefault(); const b = document.querySelector('.pop-local .op-local:not([hidden])'); if (b) b.click(); return; }
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList && (ev.target.classList.contains('linha-dem') || ev.target.classList.contains('postit'))) {
-      ev.preventDefault(); E.aberta = Number(ev.target.dataset.id); E.aba = 'dados'; desenhar();
+      ev.preventDefault(); abrirCard(Number(ev.target.dataset.id));
     }
   });
 
@@ -2090,6 +2130,11 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       if (CAL && CAL.id === t.id) { const iso = textoISO(f); if (iso) { CAL.ano = +iso.slice(0, 4); CAL.mes = +iso.slice(5, 7) - 1; } desenharCal(); }
       return;
     }
+    if (t.dataset.mask === 'ticket' || t.dataset.mask === 'tickets') {
+      const f = t.dataset.mask === 'ticket' ? t.value.replace(/\D/g, '').slice(0, 8) : t.value.replace(/[^\d /,;]/g, '').replace(/\d{9,}/g, (g) => g.slice(0, 8));
+      if (f !== t.value) { const pos = Math.min(t.selectionStart, f.length); t.value = f; t.setSelectionRange(pos, pos); }
+      return;
+    }
     if (t.dataset.mask === 'sei') {
       if (t.closest('#form-dados')) marcarSujo();
       const f = fmtSei(t.value); if (f !== t.value) { t.value = f; t.setSelectionRange(f.length, f.length); }
@@ -2110,21 +2155,18 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (t.dataset.status) { const d = demanda(Number(t.dataset.status)); if (d) escolherStatus(d, t.value); return; }
     if (t.closest && t.closest('#form-dados')) marcarSujo();
     if (t.dataset.campoSub) {
-      const d = demanda(E.aberta); if (!d) return; const sub = d.subtickets[Number(t.dataset.i)];
-      // API: PATCH /api/mudancas/{id}/subtickets/{numero} { servico | quantidade | metroLinear }
-      if (t.dataset.campoSub === 'metro') {
-        const m = t.value.trim() === '' ? null : Number(t.value);
-        if (m !== null && !(Number.isInteger(m) && m >= 1 && m <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
-        if (m !== (sub.metro || null)) { if (m) sub.metro = m; else delete sub.metro; registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': metro linear ' + (m ? m + ' m' : 'não informado') + '.'); E.manterRolagem = true; mudou(); }
-        return;
-      }
-      if (t.dataset.campoSub === 'quantidade') {
-        const q = parseInt(t.value, 10); if (!(q >= 1 && q <= 999)) { t.value = sub.quantidade || ''; return; }
-        if (q !== sub.quantidade) { sub.quantidade = q; registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': quantidade ' + q + '.'); E.manterRolagem = true; mudou(); }
-        return;
-      }
-      sub.finalidade = t.value.trim(); if (!usaMetro(sub.empresa, sub.finalidade)) delete sub.metro; persistir();
-      if (t.tagName === 'SELECT') { registrar(d, 'Subticket ' + sub.empresa + ' ' + sub.numero + ': serviço ' + (sub.finalidade || 'não informado') + '.'); E.manterRolagem = true; mudou(); }
+      const d = demanda(E.aberta); if (!d) return; const sub = d.subtickets[Number(t.dataset.i)]; if (!sub) return;
+      if (!E.subRasc) E.subRasc = {};
+      const campo = t.dataset.campoSub === 'finalidade' ? 'servico' : t.dataset.campoSub; const valor = t.value.trim();
+      if (campo === 'metro' && valor && !(Number.isInteger(Number(valor)) && Number(valor) >= 1 && Number(valor) <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
+      if (campo === 'quantidade' && !(parseInt(valor, 10) >= 1 && parseInt(valor, 10) <= 999)) { t.value = sub.quantidade || ''; return; }
+      const salvo = { servico: sub.finalidade || '', quantidade: String(sub.quantidade), metro: sub.metro ? String(sub.metro) : '' }[campo];
+      const r = Object.assign({}, E.subRasc[sub.numero]);
+      if (valor === salvo) delete r[campo]; else r[campo] = valor;
+      // voltar ao serviço salvo devolve também o metro salvo
+      if (campo === 'servico' && valor === salvo) delete r.metro;
+      if (Object.keys(r).length) E.subRasc[sub.numero] = r; else delete E.subRasc[sub.numero];
+      E.manterRolagem = true; desenhar();
       return;
     }
   });
@@ -2182,9 +2224,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const q = tudo ? '' : normal(inp.value.trim());
     let html = ''; const itens = [];
     // a lista mostra só o nome do local (Agudo, Alegrete…), mais fácil de localizar
-    const todos = LOCAIS.poa.concat(LOCAIS.interior).sort((a, b) => normal(a).localeCompare(normal(b), 'pt-BR'));
+    const todos = CAT.nomes;
     (q ? todos.filter((l) => normal(l).includes(q)) : todos).forEach((l) => { const i = itens.length; itens.push(l); html += `<li class="combo-op ${l === inp.value ? 'escolhido' : ''}" role="option" id="${inp.id}-op-${i}" data-i="${i}">${marcarTrecho(l, q)}</li>`; });
-    if (!itens.length) html = `<li class="combo-vazio">Nenhum local encontrado. O texto digitado será usado.</li>`;
+    if (!itens.length) html = `<li class="combo-vazio">Nenhum local encontrado.</li>`;
     lista.innerHTML = html; lista.hidden = false; inp.setAttribute('aria-expanded', 'true');
     CB = { inp, itens, ativo: q && itens.length ? 0 : itens.indexOf(inp.value) };
     comboAtivo();
@@ -2208,7 +2250,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (inp.closest('#form-dados')) marcarSujo();
     comboFechar();
   }
-  document.addEventListener('focusin', (ev) => { const t = ev.target; if (t.dataset && t.dataset.combo !== undefined) comboAbrir(t, LOCAIS.poa.concat(LOCAIS.interior).includes(t.value)); });
+  document.addEventListener('focusin', (ev) => { const t = ev.target; if (t.dataset && t.dataset.combo !== undefined) comboAbrir(t, CAT.nomes.includes(t.value)); });
   document.addEventListener('focusout', (ev) => { if (ev.target.dataset && ev.target.dataset.combo !== undefined) setTimeout(() => { if (CB.inp === ev.target && document.activeElement !== ev.target) comboFechar(); }, 100); });
   // mantém o foco no campo ao clicar na lista: sem isso, apertar a barra de rolagem fechava a lista
   document.addEventListener('mousedown', (ev) => {
@@ -2228,22 +2270,20 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   }, true);
 
 
-  // dados salvos no navegador passam por uma checagem mínima de formato antes de entrar na tela
-  E.demandas = E.demandas.filter((d) => d && Number.isFinite(d.id) && sit(d.situacao) && Array.isArray(d.subtickets) && Array.isArray(d.historico));
-  E.equipe = E.equipe.filter((u) => u && typeof u.id === 'string' && typeof u.nome === 'string');
-  E.lixeira = E.lixeira.filter((d) => d && Number.isFinite(d.id) && sit(d.situacao) && Array.isArray(d.subtickets) && Array.isArray(d.historico) && d.excluidaEm);
-  // toda demanda tem responsável (no mínimo, o coordenador); só a Concluída fica com o Setor
-  let semResp = 0;
-  // e ninguém desativado fica com demanda em aberto
-  E.demandas.concat(E.lixeira).forEach((d) => {
-    const inativo = ABERTAS.includes(d.situacao) && d.responsavel && d.responsavel !== 'admin' && !(E.equipe.find((u) => u.id === d.responsavel) || {}).ativo;
-    if ((!d.responsavel && d.situacao !== 'concluida') || inativo) { if (inativo) d.tecnico = d.responsavel; d.responsavel = 'admin'; semResp++; }
-  });
-  // o serviço da WECOM mudou de nome: atualiza o que já estava salvo no navegador
-  E.demandas.concat(E.lixeira).forEach((d) => d.subtickets.forEach((s) => { if (s.empresa === 'WECOM' && s.finalidade === 'Instalação de Infraestrutura') s.finalidade = 'Infraestrutura'; if (s.metro && !usaMetro(s.empresa, s.finalidade)) delete s.metro; }));
-  if (automatizar() + semResp) persistir();
-  // a data muda com o sistema aberto: confere de hora em hora
-  setInterval(() => { if (automatizar()) mudou(); }, 3600000);
+  // a cada minuto: encerra a sessão depois de 30 minutos sem uso (a releitura automática mantém a sessão viva no
+  // servidor, então quem conta a inatividade é a tela); a cada 5 minutos, com a tela parada (sem card nem janela
+  // aberta), relê a lista, porque a data muda e outras pessoas alteram demandas
+  const INATIVIDADE = 30 * 60000;
+  let ultimoUso = Date.now(); let minutos = 0;
+  ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { ultimoUso = Date.now(); }, { capture: true, passive: true }));
+  setInterval(() => {
+    if (E.usuario && !E.ocupado && Date.now() - ultimoUso > INATIVIDADE) {
+      api('POST', 'logout').catch(() => null).then(sairDaSessao).then(() => { aviso('Sessão encerrada depois de 30 minutos sem uso.', true); desenhar(); });
+      return;
+    }
+    if (++minutos % 5 || !E.carregado || E.aberta || E.modal || E.ocupado || document.hidden) return;
+    recarregar().then(desenhar, () => { /* sem conexão: tenta de novo na próxima vez */ });
+  }, 60000);
 
   // caixas de texto crescem até mostrar todo o conteúdo (descrição até 250 caracteres sem rolagem)
   function alturaDetalhe() {
@@ -2265,4 +2305,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   document.addEventListener('input', (ev) => { if (ev.target.matches && ev.target.matches('textarea.txt')) { ev.target.style.height = 'auto'; ev.target.style.height = (ev.target.scrollHeight + 2) + 'px'; } });
 
   desenhar();
+  // com sessão, carrega tudo; sem ela, abre a consulta (o botão Entrar fica no topo)
+  api('GET', 'sessao').then((s) => iniciarSessao(s), (e) => {
+    if (e.status !== 401) { aviso(e.message, true); desenhar(); return; }
+    carregarTudo().then(desenhar, (x) => { aviso(x.message, true); desenhar(); });
+  });
 })();

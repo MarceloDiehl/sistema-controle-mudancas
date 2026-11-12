@@ -1,76 +1,78 @@
 # Controle de Demandas de Mudanças
 
-Sistema do Departamento de Suporte (DSUP) da DITIC, no Tribunal de Justiça do Rio Grande do Sul, para acompanhar
-as demandas de mudança de equipamentos de informática, do expediente SEI à conclusão. Vai substituir a planilha
-usada hoje pelo setor.
+Sistema do DITIC-DSUP (Tribunal de Justiça do RS) para acompanhar as demandas de mudança de equipamentos de
+informática, do expediente SEI à conclusão. Substitui a planilha usada hoje pelo setor.
 
-> **Situação:** as telas estão prontas (versão 1.0.0) e guardam os dados no navegador, com login de demonstração.
-> O back-end em Spring Boot e MySQL está em construção.
+## Como funciona
 
-## Funcionalidades
+```mermaid
+flowchart LR
+    A([Expediente SEI chega]) --> B[Nova demanda<br/>local, datas e responsável]
+    B --> C[Tickets do 4Biz<br/>ticket principal e subtickets]
+    C --> D[Acionar<br/>gera o texto para o SEI]
+    D -->|na Data de Início| E[Em Atendimento]
+    E -->|um dia depois da<br/>Data para Conclusão| F[Para Validação]
+    F --> G[Relatório de execução<br/>PDF com o custo]
+    G --> H([Concluída<br/>fica com o Setor])
+```
 
-- Cadastro de demandas por expediente SEI, com local, período e responsável
-- Tickets principais e subtickets do 4Biz, por empresa contratada e serviço
-- Mudança automática de status conforme as datas do agendamento
-- Contagem dos dias até o início do atendimento
-- Histórico de cada demanda, com quem fez o quê e quando
-- Lixeira com restauração em até 30 dias
-- Texto de acionamento para o SEI e relatório de execução em PDF
-- Custo do relatório calculado para CDS e WECOM, com valores editáveis pelo coordenador
+- **Nova → Acionada:** à mão, depois de registrar o ticket principal e a Data de Início.
+- **Em Atendimento e Para Validação:** o sistema muda sozinho, pelas datas, sem trocar o responsável.
+- **Concluída:** técnico ou coordenador conclui a partir de Para Validação. Até lá, o coordenador pode cancelar.
+- **Histórico:** cada alteração fica registrada com quem fez e quando.
 
-**Fluxo de status:** Nova → Acionada → Em Atendimento → Para Validação → Concluída. Técnico e coordenador criam,
-editam e concluem demandas; a mudança automática de status não tira a demanda do responsável. Até a conclusão,
-o coordenador pode cancelar a demanda.
+## Quem faz o quê
 
-## Tecnologias
+| | Sem login | Técnico | Coordenador |
+|---|:---:|:---:|:---:|
+| Ver a lista, os cards e o histórico | ✓ | ✓ | ✓ |
+| Incluir, editar, acionar e concluir demandas | | ✓ | ✓ |
+| Gerar o texto de acionamento e o relatório em PDF | | ✓ | ✓ |
+| Cancelar, excluir e restaurar da lixeira | | | ✓ |
+| Equipe, pedidos de acesso e Configuração de valores | | | ✓ |
 
-| Camada | Tecnologia |
-|---|---|
-| Telas | HTML, CSS e JavaScript puro, com Bootstrap 5.3 local |
-| Back-end | Java 17, Spring Boot 4 e Spring Security |
-| Banco de dados | MySQL |
-| Testes | JUnit e Playwright |
+Qualquer pessoa vê no que o setor está trabalhando, só para consulta. Para alterar, é preciso clicar em **Entrar**,
+com usuário e senha; a **Nova demanda** só aparece depois disso. Quem não tem conta pede acesso na tela de entrada, e o
+coordenador aprova em **Equipe**.
 
-## Como executar
+## Instalação
 
-**Somente as telas:** abra `front_end/index.html` em um navegador atual. Não precisa de instalação nem de internet.
-No primeiro acesso, entre com o usuário `admin` e qualquer senha.
+Precisa de Java 17 e MySQL 8.
 
-**Com o Spring Boot:** é preciso ter Java 17 e MySQL.
+1. **Banco:** no MySQL Workbench, como root, abra `db/ditic_mudancas_db.sql`, troque `TROCAR_SENHA` pela senha do
+   `ditic_user` (sem salvar o arquivo) e execute. O script cria as tabelas e carrega os locais, as empresas, os
+   serviços e os valores do custo.
+2. **Configuração:** copie `src/main/resources/application-local.properties.exemplo` para
+   `application-local.properties` e preencha a senha do banco e a senha inicial do coordenador.
+3. **Aplicação:** rode `ControleMudancasApplication` no IntelliJ (ou `mvnw.cmd spring-boot:run`) e abra
+   `http://localhost:8088`.
+4. **Primeiro acesso:** entre com `admin` e a senha inicial, crie a sua senha e troque o nome "Coordenador" pelo seu
+   em **Equipe**. Depois inclua a equipe: cada pessoa recebe uma senha temporária, válida por 24 horas.
 
-1. Copie `src/main/resources/application-local.properties.exemplo` para `application-local.properties`, na mesma
-   pasta, e preencha os dados de acesso.
-2. Rode `./mvnw spring-boot:run` (no Windows, `mvnw.cmd spring-boot:run`).
-3. Acesse `http://localhost:8088`.
+Sem nenhum coordenador disponível, inicie a aplicação com `--mudancas.redefinir-senha=<usuário>`: a senha temporária
+aparece no console.
 
 ## Testes
 
 ```bash
-./mvnw test                                   # aplicação Spring Boot
+mvnw.cmd test                                  # testes JUnit da API e das regras (banco H2 em memória)
 
-pip install playwright
-python -m playwright install chromium
-python front_end/testes/teste_ponta_a_ponta.py   # fluxos das telas
+mvnw.cmd test-compile spring-boot:test-run     # servidor de teste, em um terminal
+python src/test/e2e/teste_ponta_a_ponta.py     # teste das telas (Playwright), em outro terminal
 ```
 
 ## Estrutura
 
-```
-docs/ESPECIFICACAO.md      regras de negócio, telas, modelo de dados e API
-front_end/                 telas do sistema e teste de ponta a ponta
-src/main/java/             aplicação Spring Boot
-src/main/resources/static/ cópia das telas servida pelo Spring Boot
-db/                        scripts do banco (em construção)
-```
+| Pasta | Conteúdo |
+|---|---|
+| `db/` | script do banco |
+| `src/main/java/` | aplicação Spring Boot: regras em `service/`, API em `controller/` |
+| `src/main/resources/static/` | telas (HTML, CSS e JavaScript, com Bootstrap local) |
+| `src/test/` | testes JUnit e o teste das telas |
 
-## Próximos passos
+## Tecnologias
 
-1. Banco de dados e API, com as regras de status e permissão no servidor
-2. Login individual para coordenadores e técnicos
-3. Status automáticos e limpeza da lixeira no servidor
-4. Integração das telas com a API
-
-As regras completas estão em [docs/ESPECIFICACAO.md](docs/ESPECIFICACAO.md).
+Java 17 · Spring Boot 4 · Spring Security · MySQL · HTML, CSS e JavaScript puro · Bootstrap 5.3 · JUnit · Playwright
 
 ## Autoria
 
