@@ -1391,3 +1391,67 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---------------------------------------------------------------- usuário de cada pessoa na Equipe */
 .eq-usr { font-size: 11.5px; color: var(--muted); font-weight: 400; }
+
+/* ---------------------------------------------------------------- Configuração com a mesma dimensão da Nova demanda */
+.modal-content.config { max-width: 960px; width: 100%; }
+@media (min-width: 701px) { .modal-content.config { height: min(810px, 100%); } }
+
+/* ---------------------------------------------------------------- navbar mais baixo, marca maior (11/11/2026) */
+.topo-in { min-height: 56px; padding-top: 8px; padding-bottom: 8px; }
+.marca { white-space: nowrap; }
+.marca b, .marca span { font-size: 21px; }
+.topo-acoes .btn-nova { height: 36px; display: inline-flex; align-items: center; }
+@media (max-width: 700px) { .marca b, .marca span { font-size: 19px; } }
+@media (max-width: 420px) { .marca > span { display: none; } }
+
+/* ---------------------------------------------------------------- abas: Todas | Em aberto … Para Validação | Concluídas, Canceladas */
+.sit-abas .aba-sep, .sit-abas .aba-sep:nth-last-of-type(1) { display: block; margin: 0 6px; }
+@media (max-width: 1080px) { .sit-abas .aba-sep, .sit-abas .aba-sep:nth-last-of-type(1) { margin: 0 3px; } }
+
+/* ---------------------------------------------------------------- pesquisa, Local, Responsável e visualização: mesma altura e cantos */
+:root { --ctl-h: 36px; --ctl-r: 10px; }
+.filtros { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; }
+.filtros .campo-busca { flex: 1 1 240px; min-width: 200px; }
+.filtros .campo-busca svg { top: 50%; left: 12px; transform: translateY(-50%); }
+.filtros .campo-busca input { height: var(--ctl-h); padding-left: 35px; border-radius: var(--ctl-r); }
+.filtros .filtro { height: var(--ctl-h); border-radius: var(--ctl-r); }
+.filtros .filtro-local { flex: 0 0 300px; }
+.filtros .filtro-resp { flex: 0 0 270px; }
+.filtros .vistas { flex: none; height: var(--ctl-h); padding: 3px; gap: 2px; border-radius: var(--ctl-r); }
+.filtros .vista-btn { height: 28px; border-radius: 7px; }
+.filtros .filtro-limpa { border-radius: 7px; }
+/* escolhido: ícone, nome e o número de demandas num círculo cinza claro */
+.filtros .filtro-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #E6E9ED; color: var(--ink-2); font-size: 11.5px; font-weight: 600; }
+.filtro.ativo .filtro-ico { color: var(--ink-2); }
+@media (max-width: 1100px) and (min-width: 901px) { .filtros .filtro-local { flex-basis: 220px; } .filtros .filtro-resp { flex-basis: 200px; } }
+@media (max-width: 900px) { .marca .longo { display: none; } .topo-in { padding-left: 16px; padding-right: 16px; } }
+/* abaixo de 900 px: a pesquisa ocupa a linha toda; Local, Responsável e visualização logo abaixo */
+@media (max-width: 900px) {
+  .filtros { flex-wrap: wrap; }
+  .filtros .campo-busca { flex: 1 1 100%; min-width: 0; }
+  .filtros .filtro, .filtros .filtro-local, .filtros .filtro-resp { flex: 1 1 0; min-width: 0; }
+}
+/* faltando espaço, só as abas rolam, com a borda esmaecida do lado que tem mais */
+.sit-abas.rola-dir { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+.sit-abas.rola-esq { -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px); mask-image: linear-gradient(90deg, transparent, #000 32px); }
+.sit-abas.rola-esq.rola-dir { -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent); }
+@media (max-width: 1200px) and (min-width: 901px) {
+  .sit-abas { gap: 0; }
+  .sit-aba { padding: 0 7px; gap: 5px; }
+  .sit-aba:first-child { padding-left: 2px; }
+}
+/* celular pequeno: o ícone sai do seletor escolhido para sobrar espaço ao nome */
+@media (max-width: 460px) { .filtros .filtro.ativo .filtro-ico { display: none; } .filtros .filtro-btn { padding-left: 10px; gap: 6px; } }
+
+/* ---------------------------------------------------------------- abas: Concluídas, Canceladas | Todas alinhadas à direita */
+.sit-abas .aba-sep.aba-grupo { margin-left: auto; }
+.sit-abas .aba-sep.aba-grupo + .sit-aba { margin-left: 0; }
+@media (max-width: 900px) { .sit-abas .aba-sep.aba-grupo { margin-left: 3px; } }
+
+/* ---------------------------------------------------------------- modal do card: mais ar entre o local, o status e a nota */
+.det-l1 { column-gap: 18px; }
+.det-l2 .l2-tk + .mini-copia { margin-left: -12px; }
+
+/* ---------------------------------------------------------------- ordenar post-its: mais espaço entre os campos em telas largas */
+@media (min-width: 1101px) { .l-ord { column-gap: 30px; } .l-ord .ord-rot { margin-right: 6px; } }
+@media (min-width: 1400px) { .l-ord { column-gap: 40px; } }

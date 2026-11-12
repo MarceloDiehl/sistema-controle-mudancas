@@ -355,12 +355,18 @@ textos gerados e anotações livres ("Registrar andamento").
 
 ### 8.1 Lista (tela principal)
 
-- **Cabeçalho:** "DITIC-DSUP | Controle de Mudanças". À direita: **Nova demanda** (para todos) e **Entrar**,
-  ou, para o coordenador, o menu da conta (Equipe, Lixeira, Configuração, Sair da conta). Não há "Movimentações do
-  dia": o que aconteceu com cada demanda está no Histórico dela.
-- **Abas de situação** (uma por vez), com contagem. À esquerda as em desenvolvimento: **Em aberto**
-  (padrão), Novas, Acionadas, Em Atendimento, Para Validação. Na ponta direita as encerradas:
-  Concluídas, Canceladas. Não há aba "Todas". Teclado: setas, Home e End.
+- **Cabeçalho (navbar):** baixo, só com "DITIC-DSUP | Controle de Mudanças" à esquerda e, à direita, **Nova demanda**
+  (para todos) e **Entrar**, ou, para o coordenador, o menu da conta (Equipe, Lixeira, Configuração, Sair da conta).
+  Não há "Movimentações do dia": o que aconteceu com cada demanda está no Histórico dela.
+- **Abas de situação**, sem título (uma por vez, com contagem): à esquerda, **Em aberto** (padrão), Novas,
+  Acionadas, Em Atendimento, Para Validação; alinhadas à direita, Concluídas, Canceladas | **Todas**. Quando falta espaço, só as abas rolam na horizontal, com
+  a borda esmaecida. Teclado: setas, Home e End.
+- **Linha de pesquisa**, logo abaixo das abas: pesquisa, filtro de Local, filtro de Responsável e os ícones de
+  visualização (linhas ou post-its), todos com a mesma altura e os mesmos cantos arredondados. Escolhido, o
+  seletor mostra o ícone, o nome e o número de demandas num círculo cinza claro: no Responsável, o total que está
+  com a pessoa no momento (sem a sigla do nome); no Local, as demandas daquele local na aba escolhida. Telas
+  menores: abaixo de 900 px a pesquisa ocupa a linha toda e Local, Responsável e visualização ficam logo abaixo;
+  até 460 px o seletor escolhido deixa o ícone de lado; até 420 px a marca fica só "DITIC-DSUP".
 - **Pesquisa:** busca por SEI, descrição, local, informações, número, ticket principal e subtickets.
 - **Filtros:** Local (com busca; lista só os locais que têm demandas) e Responsável (com o total de cards de
   cada um, independente de aba, pesquisa e demais filtros, incluindo "Coordenador").
@@ -375,8 +381,9 @@ textos gerados e anotações livres ("Registrar andamento").
 
 ### 8.2 Detalhes da demanda (modal)
 
-- **Topo:** nome do prédio, status (lista de escolha, ou selo com cadeado quando é automático ou final), SEI com botão
-  de copiar, ticket, agendamento, região e com quem está.
+- **Topo:** nome do prédio, status (lista de escolha, ou selo com cadeado quando é automático ou final), SEI e ticket
+  principal, cada um com botão de copiar, agendamento, região e com quem está. Na linha do nome, o status e a
+  nota ao lado ficam com mais espaço entre si, sem bolinhas de separação (as bolinhas ficam só na linha de baixo).
 - **Aba Detalhes:** Expediente (SEI, local, descrição) e Atendimento (responsável, Data de Início,
   Data para Conclusão e Hora, as duas últimas opcionais, informações adicionais). "Salvar alterações" só fica ativo quando há mudança, inclusive
   de status; se a pessoa sair sem salvar, o sistema pergunta antes de descartar.
@@ -398,7 +405,13 @@ textos gerados e anotações livres ("Registrar andamento").
   inativo e ativa quando algum campo muda; ele pede confirmação (Sim ou Não), só o Sim grava e a mesma janela mostra "Valores Atualizados" com o botão Fechar, que volta à tela de valores. Fechar com
   alterações pede confirmação para descartar.
 - **Informação de Acionamento:** texto pronto para o SEI, editável, com botão de copiar.
-- **Relatório de Execução de Mudança:** formulário preenchido automaticamente que baixa o PDF.
+- **Relatório de Execução de Mudança:** formulário preenchido automaticamente que baixa o PDF. O texto do corpo
+  fica num campo só, **Descrição**: os itens (um por parágrafo) e, no fim, a observação de custo da Infraestrutura
+  da WECOM, que no PDF entra sem número. Com Infraestrutura da WECOM, o check **"Somar a Infraestrutura (WECOM)
+  no custo"** (marcado) tira esse valor do custo quando desmarcado e troca a observação por uma frase única,
+  qualquer que seja o número de tickets: "O valor de Instalação de Infraestrutura (WECOM) referente ao Contrato de
+  Salas de Audiências Digitais, não consta na soma do valor total de custo discriminado neste relatório.", sem
+  perder o que já foi editado na Descrição.
 - **Lixeira** (coordenador): demandas excluídas, com motivo, dias restantes e botão Restaurar.
 - **Entrar:** login de técnico ou coordenador; no primeiro acesso do coordenador, pede a criação da senha. A Equipe mostra o
   usuário de cada pessoa.
@@ -406,7 +419,8 @@ textos gerados e anotações livres ("Registrar andamento").
 
 Os modais **não fecham** com clique fora nem com Esc: só pelo X ou pelos botões do próprio modal.
 
-Nova demanda, Equipe, Transferir Demandas e Lixeira têm **altura única**: o conteúdo a mais rola por dentro do
+Nova demanda, Equipe, Transferir Demandas e Lixeira têm **altura única** (a Configuração tem a mesma largura e
+altura da Nova demanda): o conteúdo a mais rola por dentro do
 campo (responsáveis, Pessoas a partir da 6ª, demandas em aberto e demandas excluídas). A altura só cede quando
 não cabe na janela e no layout de celular.
 
@@ -459,12 +473,14 @@ bibliotecas. Ele segue o modelo-mestre do DSUP:
   - Serviços realizados (Mudança de Prédio, Desinstalação, Mudança de Local, Instalação): marcados pelos
     serviços dos subtickets. A Realocação da WECOM marca Mudança de Local.
   - Local de origem e Local de destino:
-    - origem = `DMP` se há Instalação; o local, se há Mudança de Local, Mudança de Prédio ou
-      Desinstalação.
+    - origem = o local, se há Mudança de Local, Mudança de Prédio ou Desinstalação; `DMP` se há
+      Instalação.
     - destino = o local, se há Mudança de Local, Mudança de Prédio ou Instalação (ou se não há
       Desinstalação); `DMP – Carga CDS` se há Desinstalação.
     - A **Desinstalação da Selbetti** (multifuncional) não vai para lugar nenhum: não conta para origem e destino.
       No quadro de serviços, ela continua marcando Desinstalação.
+    - Um local por linha, **sem a), b)**: o local da demanda vem primeiro nas duas colunas (fica na mesma linha) e o
+      DMP depois, que é o que difere entre origem e destino (decisão de 11/11/2026).
   - Custo (aproximado): a soma calculada quando há CDS ou WECOM; `-` quando não há.
 - **Corpo:** "Em atendimento à demanda solicitada a esse DITIC-DSUP, referente às mudanças de equipamentos
   de informática no Foro da Comarca de Canoas, informo que foram realizadas:" (o local entra só aqui),
@@ -810,9 +826,10 @@ esconde os botões.
 
 **Lista principal**
 
-- Título da lista: **Filtro de Demanda**, em fonte menor.
-- Abas de situação: **Em aberto** + uma por situação, uma por vez; as encerradas na ponta direita.
-  **Sem aba "Todas"**.
+- Sem título na lista (o "Filtro de Demanda" saiu em 11/11/2026); a pesquisa fica abaixo das abas, com Local, Responsável e visualização ao lado.
+- Abas de situação: **Em aberto** + uma por situação em desenvolvimento, à esquerda; Concluídas, Canceladas | **Todas**,
+  alinhadas à direita; uma por vez (o menu "Encerradas" saiu em 11/11/2026).
+- Ordenar post-its: em telas largas, mais espaço entre os campos (30 px; 40 px a partir de 1400 px).
 - Linhas e post-its **sempre do mesmo tamanho**: 10 linhas ou 8 post-its por folha.
 - Post-its sem fita nem rotação, alinhados e sem fundo pontilhado.
 - Aviso de demanda nova: **só a bolinha azul**, sem tarjas (NOVA/RETORNOU/PENDENTE foram retiradas).

@@ -115,15 +115,15 @@
       const s = r.servicos || {};
       quatro([s.predio, s.desinst, s.local, s.inst].map((x) => (x ? '( X )' : '(   )')), false);
       duas('Local de origem:', 'Local de destino:', true);
-      // listas a), b)…
-      const lista = (itens, x0, largMax) => {
-        const out = []; itens.filter(Boolean).forEach((it, i) => { quebrar(it, 'H', T, largMax - 30).forEach((l, j) => out.push([j ? '' : String.fromCharCode(97 + i) + ')', l])); });
+      // um local por linha, sem a), b): o que muda entre origem e destino é o DMP, e o local da demanda fica na mesma linha nas duas colunas
+      const lista = (itens, largMax) => {
+        const out = []; itens.filter(Boolean).forEach((it) => { quebrar(it, 'H', T, largMax - 30).forEach((l) => out.push(l)); });
         return out;
       };
-      const lo = lista(r.origem || [], L, W / 2); const ld = lista(r.destino || [], M, W / 2);
+      const lo = lista(r.origem || [], W / 2); const ld = lista(r.destino || [], W / 2);
       const hl = Math.max(80, Math.max(lo.length, ld.length) * 12.5 + 14);
-      lo.forEach(([m, l], i) => { if (m) pdf.texto(L + 14, topo + 15 + i * 12.5, m, { tam: T }); pdf.texto(L + 32, topo + 15 + i * 12.5, l, { tam: T }); });
-      ld.forEach(([m, l], i) => { if (m) pdf.texto(M + 14, topo + 15 + i * 12.5, m, { tam: T }); pdf.texto(M + 32, topo + 15 + i * 12.5, l, { tam: T }); });
+      lo.forEach((l, i) => pdf.texto(L + 14, topo + 15 + i * 12.5, l, { tam: T }));
+      ld.forEach((l, i) => pdf.texto(M + 14, topo + 15 + i * 12.5, l, { tam: T }));
       pdf.caixa(L, topo, W, hl); pdf.linha(M, topo, M, topo + hl); topo += hl;
       duas('Custo (aproximado):', r.custo || ' ', false, true);
       // corpo do relatório, numa caixa que segue até o fim (quebra de página se precisar)
@@ -244,7 +244,7 @@
     lixeira: (salvo && Array.isArray(salvo.lixeira)) ? salvo.lixeira : [],
     senhaDefinida: !!(salvo && salvo.senhaDefinida), // primeiro acesso: o coordenador precisa criar uma senha
     precos: carregarPrecos(salvo && salvo.precos),
-    sitAtivas: new Set((salvo && Array.isArray(salvo.sitAtivas) && salvo.sitAtivas.length === 1 && SITUACOES.some((x) => x.id === salvo.sitAtivas[0])) ? salvo.sitAtivas : ABERTAS),
+    sitAtivas: new Set((salvo && Array.isArray(salvo.sitAtivas) && (salvo.sitAtivas.length === 1 || salvo.sitAtivas.length === SITUACOES.length) && salvo.sitAtivas.every((v) => SITUACOES.some((x) => x.id === v))) ? salvo.sitAtivas : ABERTAS),
     busca: '', filtroResp: '', filtroLocal: '', localQ: '', ordCol: 'ag', ordDir: 'desc', folha: 1,
     vista: (salvo && salvo.vista === 'postits') ? 'postits' : 'linhas',
     aberta: null, aba: 'dados',
@@ -285,8 +285,8 @@
     box.classList.toggle('rola-esq', box.scrollLeft > 2);
     box.classList.toggle('rola-dir', box.scrollLeft + box.clientWidth < box.scrollWidth - 2);
   }
-  // aba ativa do filtro de situação: 'abertas' (em desenvolvimento: as 4 situações em aberto) ou o id de uma situação
-  function abaSit() { return E.sitAtivas.size === 1 ? [...E.sitAtivas][0] : 'abertas'; }
+  // aba ativa do filtro de situação: 'todas', 'abertas' (as 4 situações em aberto) ou o id de uma situação
+  function abaSit() { return E.sitAtivas.size === 1 ? [...E.sitAtivas][0] : E.sitAtivas.size === SITUACOES.length ? 'todas' : 'abertas'; }
   const num4 = (n) => String(n).padStart(4, '0');
   const pad = (n) => String(n).padStart(2, '0');
   function hojeISO() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -479,6 +479,13 @@
     xP: svg(12, '<path d="M6 6l12 12M18 6 6 18"/>', 2.4)
   };
 
+  // ícones de visualização (linhas ou post-its), ao lado do filtro de Responsável
+  function vistasHtml() {
+    return `<div class="btn-group vistas" role="group" aria-label="Visualização">
+      <button type="button" class="vista-btn" data-acao="vista" data-v="linhas" aria-pressed="${E.vista === 'linhas'}" aria-label="Ver em linhas" title="Ver em linhas">${I.vLinhas}</button>
+      <button type="button" class="vista-btn" data-acao="vista" data-v="postits" aria-pressed="${E.vista === 'postits'}" aria-label="Ver em post-its" title="Ver em post-its">${I.vPostits}</button>
+    </div>`;
+  }
   // filtro de responsável: lista própria, com o número de demandas de cada um num círculo na cor da pessoa
   function filtroResp() {
     // todos os cards que estão com cada um, independente de aba, pesquisa e demais filtros
@@ -495,11 +502,11 @@
         <span class="op-check" aria-hidden="true">${on ? I.check : ''}</span>
       </button>`;
     };
-    return `<div class="menu-ancora filtro ${sel ? 'ativo' : ''} ${aberto ? 'aberto' : ''}">
+    return `<div class="menu-ancora filtro filtro-resp ${sel ? 'ativo' : ''} ${aberto ? 'aberto' : ''}">
       <button type="button" class="filtro-btn" data-acao="resp-pop" aria-haspopup="listbox" aria-expanded="${aberto}" aria-label="Filtrar por responsável${sel ? ': ' + esc(u ? u.nome : 'sem responsável') : ''}">
-        ${sel ? (u ? avatar(u.id, 'xs') : '<span class="avatar xs vazio">?</span>') : `<span class="filtro-ico">${I.pessoa}</span>`}
-        <span class="filtro-nome">${sel ? (u ? esc(u.curto) : 'Sem responsável') : 'Responsável'}</span>
-        ${sel ? `<span class="badge filtro-n">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
+        <span class="filtro-ico">${I.pessoa}</span>
+        <span class="filtro-nome">${sel ? esc((lista.find((x) => x.id === sel) || u || { nome: 'Sem responsável' }).nome) : 'Responsável'}</span>
+        ${sel ? `<span class="filtro-n" title="Demandas com ${esc((lista.find((x) => x.id === sel) || u || { nome: '' }).nome)} no momento">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
       </button>
       ${sel ? `<button type="button" class="filtro-limpa" data-acao="resp-escolher" data-v="" aria-label="Limpar filtro de responsável" title="Limpar filtro">${I.xP}</button>` : ''}
       ${aberto ? `<div class="dropdown-menu show pop-resp" role="listbox" aria-label="Responsável">
@@ -523,7 +530,7 @@
       <button type="button" class="filtro-btn" data-acao="local-pop" aria-haspopup="listbox" aria-expanded="${aberto}" aria-label="Filtrar por local${sel ? ': ' + esc(sel) : ''}">
         <span class="filtro-ico">${I.local}</span>
         <span class="filtro-nome">${sel ? esc(sel) : 'Local'}</span>
-        ${sel ? `<span class="badge filtro-n">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
+        ${sel ? `<span class="filtro-n" title="Demandas neste local, na aba escolhida">${n(sel)}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
       </button>
       ${sel ? `<button type="button" class="filtro-limpa" data-acao="local-escolher" data-v="" aria-label="Limpar filtro de local" title="Limpar filtro">${I.xP}</button>` : ''}
       ${aberto ? `<div class="dropdown-menu show pop-local">
@@ -633,8 +640,8 @@
     const filtrando = E.busca || E.filtroResp || E.filtroLocal;
     return `
 <main class="painel">
+  <h1 class="visually-hidden">Demandas de mudança</h1>
   <div class="titulo-linha">
-    <h1>Filtro de Demanda</h1>
     <div class="nav sit-abas" role="tablist" aria-label="Filtrar por situação">
       ${(() => {
         const atual = abaSit();
@@ -643,8 +650,9 @@
         const st = (x) => aba(x.id, x.nome, base.filter((d) => d.situacao === x.id).length, x.cor, x.dica || 'Mostrar só ' + x.nome.toLowerCase());
         const sep = '<span class="aba-sep" aria-hidden="true"></span>';
         return aba('abertas', 'Em aberto', nAb, '', 'Novas, acionadas, em atendimento e para validação')
-          + sep + SITUACOES.filter((x) => ABERTAS.includes(x.id)).map(st).join('')
-          + '<span class="aba-sep aba-grupo" aria-hidden="true"></span>' + SITUACOES.filter((x) => !ABERTAS.includes(x.id)).map(st).join('');
+          + SITUACOES.filter((x) => ABERTAS.includes(x.id)).map(st).join('')
+          + '<span class="aba-sep aba-grupo" aria-hidden="true"></span>' + SITUACOES.filter((x) => !ABERTAS.includes(x.id)).map(st).join('')
+          + sep + aba('todas', 'Todas', base.length, '', 'Todas as demandas, em aberto e encerradas');
       })()}
     </div>
   </div>
@@ -656,10 +664,7 @@
     </div>
     ${filtroLocal()}
     ${filtroResp()}
-    <div class="btn-group vistas" role="group" aria-label="Visualização">
-      <button type="button" class="vista-btn" data-acao="vista" data-v="linhas" aria-pressed="${E.vista === 'linhas'}" aria-label="Ver em linhas" title="Ver em linhas">${I.vLinhas}</button>
-      <button type="button" class="vista-btn" data-acao="vista" data-v="postits" aria-pressed="${E.vista === 'postits'}" aria-label="Ver em post-its" title="Ver em post-its">${I.vPostits}</button>
-    </div>
+    ${vistasHtml()}
   </div>
 
   <section class="lista vista-${E.vista}" aria-label="Demandas">
@@ -750,7 +755,7 @@
       <div class="det-l1"><h2 id="det-titulo">${esc(predio(d.comarca) || 'Local não informado')}</h2>${statusCab(d)}</div>
       <div class="det-l2">
         ${d.sei ? `<span class="mono">${esc(d.sei)}</span><button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.sei)}" aria-label="Copiar expediente" title="Copiar número">${I.copiar}</button>` : '<span>Fora do SEI</span>'}
-        <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${I.agenda}${d.inicio ? esc(agendaComHora(d)) : 'A agendar'}</span>
         <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(regiaoDe(d.comarca) || 'não identificada')}</span>
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === 'admin' ? 'Coordenador' : u.nome) + (u.id === 'admin' && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
@@ -1343,8 +1348,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     const origem = []; const destino = [];
     // a Desinstalação da Selbetti (multifuncional) não vai para lugar nenhum: não conta para origem e destino
     const desinstLocal = d.subtickets.some((x) => x.finalidade === 'Desinstalação' && x.empresa !== 'Selbetti');
-    if (sv.inst) origem.push('DMP');
+    // o local da demanda vem primeiro nas duas colunas; o DMP (de onde vem ou para onde vai o equipamento) depois
     if (sv.local || sv.predio || desinstLocal) origem.push(lugar);
+    if (sv.inst) origem.push('DMP');
     if (sv.local || sv.predio || sv.inst || !desinstLocal) destino.push(lugar);
     if (desinstLocal) destino.push('DMP – Carga CDS');
     // um item por subticket, na ordem das empresas
@@ -1375,16 +1381,20 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       itens.push(((FRASE_EMPRESA[e] || {})[x.finalidade] || frase(x.finalidade)) + (q ? ', em total de ' + String(q).padStart(2, '0') + (q === 1 ? ' serviço' : ' serviços') : '') + (wecom ? ', se tratando de contrato referente às Salas de Audiência Digital' : '') + '. A atividade foi executada pela contratada ' + e + ' através do ticket ' + x.numero + '.');
     }));
     const pagos = d.subtickets.filter((x) => ['CDS', 'WECOM'].includes(x.empresa)); const pago = pagos.length > 0;
-    const regiao = regiaoDe(d.comarca); let total = 0; const notas = []; const semPreco = [];
+    const regiao = regiaoDe(d.comarca); let total = 0; let infra = 0; const notas = []; const semPreco = [];
     pagos.forEach((x) => {
       const c = custoSub(x, regiao);
       if (c !== null) total += c; else semPreco.push(x.numero);
+      // Infraestrutura da WECOM: guardada à parte para o check "Somar a Infraestrutura (WECOM) no custo"
+      if (c !== null && usaMetro(x.empresa, x.finalidade)) {
+        infra += c;
+      }
       // Infraestrutura sem metro linear: entra a verba estimada, explicada antes de "Era o que cabia informar."
       if (c !== null && usaMetro(x.empresa, x.finalidade) && !x.metro) {
         notas.push('A demanda referente a Instalação de Infraestrutura (WECOM), ticket ' + x.numero + ', utiliza o valor de verba de ' + reais(c) + ' somado ao valor total do relatório. Valor estimado com base em uma média de ' + METROS_ESTIMADOS + ' metros lineares de instalação. O valor por metro linear consiste em ' + reais(centavos(E.precos.wecom.metro)) + '.');
       }
     });
-    return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (total ? moeda(total) : ''), itens, global: !pago, notas, semPreco };
+    return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (total ? moeda(total) : ''), total, infra, itens, global: !pago, notas, notasSemInfra: infra ? [OBS_SEM_INFRA] : [], semPreco };
   }
   function modalRelatorio() {
     const d = demanda(E.modalDados && E.modalDados.id); if (!d) return '';
@@ -1408,10 +1418,10 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
         <div class="col-md-6 campo"><label class="form-label" for="rl-origem">Local de origem <em>(um por linha)</em></label><textarea id="rl-origem" data-rascunho class="form-control txt" rows="3">${esc(r.origem.join('\n'))}</textarea></div>
         <div class="col-md-6 campo"><label class="form-label" for="rl-destino">Local de destino <em>(um por linha)</em></label><textarea id="rl-destino" data-rascunho class="form-control txt" rows="3">${esc(r.destino.join('\n'))}</textarea></div>
       </div>
-      <div class="campo rl-custo"><label class="form-label" for="rl-custo">Custo (aproximado)</label><input id="rl-custo" data-rascunho class="form-control" value="${esc(r.custo)}" placeholder="R$ 0,00"></div>`)}
-    ${bloco('Serviços executados', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
-      <div class="campo"><label for="rl-itens" class="visually-hidden">Itens</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="6">${esc(r.itens.join('\n\n'))}</textarea></div>
-      ${r.notas.length ? `<div class="campo"><label class="form-label" for="rl-notas">Observações de custo <em>(uma por linha)</em></label><textarea id="rl-notas" data-rascunho class="form-control txt" rows="3">${esc(r.notas.join('\n'))}</textarea></div>` : ''}`)}
+      <div class="campo rl-custo"><label class="form-label" for="rl-custo">Custo (aproximado)</label><input id="rl-custo" data-rascunho class="form-control" value="${esc(r.custo)}" placeholder="R$ 0,00"></div>
+      ${r.infra ? ck('rl-infra', 'Somar a Infraestrutura (WECOM) no custo', true) : ''}`)}
+    ${bloco('Descrição', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
+      <div class="campo"><label for="rl-itens" class="visually-hidden">Descrição</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="8">${esc(r.itens.concat(r.notas).join('\n\n'))}</textarea></div>`)}
   </div>
   <footer class="modal-footer">${flash('relatorio')}<span class="esp"></span>
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-modal">Fechar</button>
@@ -1492,6 +1502,19 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     return 'ok';
   }
+  // observações de custo da Infraestrutura (WECOM): entram no PDF sem número, antes de "Era o que cabia informar."
+  const RE_OBS = /^(A demanda referente a Instalação de Infraestrutura|O valor d[ae] Instalação de Infraestrutura)/;
+  // Infraestrutura fora da soma: uma frase só, qualquer que seja o número de tickets
+  const OBS_SEM_INFRA = 'O valor de Instalação de Infraestrutura (WECOM) referente ao Contrato de Salas de Audiências Digitais, não consta na soma do valor total de custo discriminado neste relatório.';
+  const paragrafos = (t) => String(t).split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
+  // o check tira (ou devolve) a Infraestrutura da soma e troca a observação dela na Descrição, sem perder o resto do que foi editado
+  function atualizaInfra(somar) {
+    const d = demanda(E.modalDados && E.modalDados.id); if (!d) return;
+    const r = montarRelatorio(d);
+    const custo = document.getElementById('rl-custo'); if (custo) custo.value = moeda(r.total - (somar ? 0 : r.infra));
+    const desc = document.getElementById('rl-itens');
+    if (desc) desc.value = paragrafos(desc.value).filter((x) => !RE_OBS.test(x)).concat(somar ? r.notas : r.notasSemInfra).join('\n\n');
+  }
   async function baixarRelatorio() {
     const d = demanda(E.modalDados && E.modalDados.id); if (!d) return;
     const ln = (id) => val(id).split('\n').map((x) => x.trim()).filter(Boolean);
@@ -1501,8 +1524,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       acionamento: val('rl-acion'), execucao: val('rl-exec'),
       servicos: { predio: chk('rl-predio'), desinst: chk('rl-desinst'), local: chk('rl-local'), inst: chk('rl-inst') },
       origem: ln('rl-origem'), destino: ln('rl-destino'), custo: val('rl-custo'),
-      itens: val('rl-itens').split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean),
-      global: base.global, lugar: base.lugar, notas: ln('rl-notas')
+      // na Descrição, as observações de custo (sem número no PDF) vêm depois dos itens numerados
+      itens: paragrafos(val('rl-itens')).filter((x) => !RE_OBS.test(x)),
+      global: base.global, lugar: base.lugar, notas: paragrafos(val('rl-itens')).filter((x) => RE_OBS.test(x))
     };
     const nome = 'Relatório de execução - ' + (d.sei ? d.sei.replace(/\//g, '-') : 'demanda ' + num4(d.id)) + '.pdf';
     const res = await salvarArquivo(nome, RelatorioPDF.gerar(r));
@@ -1878,7 +1902,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       registrar(nova, 'Demanda registrada a partir do expediente SEI' + (v.responsavel ? ' e ' + atribuidaA(v.responsavel) : '') + '.');
       if (nova.responsavel) { avisar(nova, 'nova', nova.responsavel); nova.passou = [nova.responsavel]; }
       E.demandas.push(nova);
-      E.sitAtivas.add('nova');
+      if (!E.sitAtivas.has('nova')) E.sitAtivas = new Set(ABERTAS);
       irPara(id); destacar(id);
       E.modalDados = { sucesso: id };
       mudou();
@@ -1963,9 +1987,9 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
       case 'resp-escolher': E.filtroResp = v || ''; E.menu = null; E.folha = 1; desenhar(); break;
       case 'menu-mais': E.menu = E.menu === 'mais' ? null : 'mais'; desenhar(); break;
       case 'sobre': E.modal = 'sobre'; E.modalDados = null; desenhar(); break;
-      // abas: Em aberto (em desenvolvimento) ou uma situação por vez
+      // abas: Todas, Em aberto ou uma situação por vez
       case 'sit-aba': E.folha = 1;
-        E.sitAtivas = new Set(v === 'abertas' ? ABERTAS : [v]);
+        E.sitAtivas = new Set(v === 'todas' ? SITUACOES.map((x) => x.id) : v === 'abertas' ? ABERTAS : [v]);
         mudou(); break;
       case 'limpar': E.folha = 1; E.busca = ''; E.filtroResp = ''; E.filtroLocal = ''; desenhar(); break;
       case 'folha': E.folha = Number(v); E.zerarLista = true; desenhar(); break;
@@ -2028,12 +2052,12 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
   window.addEventListener('resize', () => mostrarAbaAtiva());
   // abas de situação: setas, Home e End trocam de aba (padrão de tablist)
   document.addEventListener('keydown', (ev) => {
-    const tab = ev.target.closest && ev.target.closest('.sit-aba');
+    const tab = ev.target.closest && ev.target.closest('.sit-abas .sit-aba');
     if (!tab || !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(ev.key)) return;
-    const ls = [...document.querySelectorAll('.sit-aba')]; const i = ls.indexOf(tab);
+    const ls = [...document.querySelectorAll('.sit-abas .sit-aba')]; const i = ls.indexOf(tab);
     const j = ev.key === 'Home' ? 0 : ev.key === 'End' ? ls.length - 1 : (i + (ev.key === 'ArrowRight' ? 1 : -1) + ls.length) % ls.length;
     ev.preventDefault(); ev.stopImmediatePropagation(); ls[j].click();
-    const nova = document.querySelector('.sit-aba[aria-selected="true"]'); if (nova) nova.focus();
+    const nova = document.querySelector('.sit-abas .sit-aba[aria-selected="true"]'); if (nova) nova.focus();
   });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && CAL) { const id = CAL.id; fecharCal(); const i = document.getElementById(id); if (i) i.focus(); return; }
@@ -2079,6 +2103,7 @@ ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.
     if (t.dataset.campo && t.dataset.campo !== 'busca') { E[t.dataset.campo] = t.value; E.folha = 1; desenhar(); return; }
     if (t.id === 'tr-dest' && E.erros.transf) { E.erros.transf = ''; const er = document.querySelector('.equipe .erro'); if (er) er.remove(); t.removeAttribute('aria-invalid'); }
     if (t.name === 'tr-d') { const all = [...document.querySelectorAll('input[name="tr-d"]')]; const l = document.querySelector('[data-acao=tr-todas]'); if (l) l.textContent = all.every((c) => c.checked) ? 'Desmarcar todas' : 'Marcar todas'; atualizaTransf(); return; }
+    if (t.id === 'rl-infra') { atualizaInfra(t.checked); return; }
     if (t.id === 'n-emp') { E.ultimaEmp = t.value; trocarFinalidade(); ajustarMetro(); return; }
     if (t.id === 'n-fin') { ajustarMetro(); return; }
     if ((t.dataset.status || t.dataset.campoSub) && !podeEditar(demanda(E.aberta))) { const d = demanda(E.aberta); if (t.dataset.status && d) t.value = d.situacao; precisaEditar(d); return; }

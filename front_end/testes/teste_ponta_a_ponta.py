@@ -5,7 +5,7 @@
 # Passa pelos fluxos principais (abas, filtros, nova demanda, tickets, status ao salvar, automação por data,
 # relatório PDF, conclusão pelo técnico, cancelamento, exclusão, lixeira, equipe) e confere o resultado no
 # localStorage. O sistema começa vazio: as demandas usadas aqui são criadas pelo próprio teste, só no navegador dele.
-import sys, pathlib, json, datetime
+import sys, pathlib, json, datetime, re
 from playwright.sync_api import sync_playwright
 URL = sys.argv[1] if len(sys.argv) > 1 else (pathlib.Path(__file__).resolve().parent.parent / 'index.html').as_uri()
 CH = 'ditic-dsup-mudancas-v5'; ok = []; falhas = []
@@ -39,7 +39,8 @@ with sync_playwright() as p:
     pg.goto(URL); pg.evaluate('localStorage.clear()'); pg.reload(); pg.wait_for_timeout(500)
     chk(len(pg.query_selector_all('.linha-dem')) == 0 and pg.query_selector('.vazio-lista') is not None, 'sistema começa sem nenhuma demanda')
     clk(pg, '[data-acao=resp-pop]'); chk(len(pg.query_selector_all('.op-resp')) == 1 and 'Sem responsável' not in pg.inner_text('.pop-resp'), 'sistema novo sem técnicos: só o Coordenador, sem a opção Sem responsável'); clk(pg, '[data-acao=resp-pop]')
-    chk(pg.inner_text('h1') == 'Filtro de Demanda', 'título Filtro de Demanda')
+    chk('Filtro de Demanda' not in pg.inner_text('body') and pg.query_selector('.topo #busca') is None and pg.evaluate("document.querySelector('.topo').getBoundingClientRect().height") < 60, 'sem o título Filtro de Demanda; navbar baixo, sem a pesquisa')
+    chk(pg.evaluate("Math.abs(document.querySelector('#busca').getBoundingClientRect().height - document.querySelector('.btn-nova').getBoundingClientRect().height) < 1"), 'pesquisa com a mesma altura do botão Nova demanda')
     for vista in ('linhas', 'postits'):
         clk(pg, f'[data-acao=vista][data-v={vista}]'); dif = pg.evaluate("(()=>{const a=document.querySelector('.rolagem').getBoundingClientRect();const c=document.querySelector('.vazio-lista');const r=document.createRange();r.selectNodeContents(c);const b=r.getBoundingClientRect();return Math.abs((a.top+a.height/2)-(b.top+b.height/2))})()"); chk(dif < 3, 'lista vazia centralizada em ' + vista)
     clk(pg, '[data-acao=vista][data-v=linhas]')
@@ -50,11 +51,18 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=nova]'); chk(pg.query_selector('form.login') is not None and pg.query_selector('form[data-form=nova]') is None, 'sem login, Nova demanda pede para entrar'); clk(pg, '.login [data-acao=fechar-modal]')
     clk(pg, '[data-acao=abrir]'); chk(pg.is_disabled('#f-desc') and pg.query_selector('#d-status') is None and 'entre para alterar' in pg.inner_text('.det-id') and pg.query_selector('form[data-form=principal]') is None, 'sem login, o card é só para consulta')
     clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=acionamento]'); chk(pg.query_selector('form.login') is not None, 'sem login, gerar texto pede para entrar'); clk(pg, '.login [data-acao=fechar-modal]'); clk(pg, '[data-acao=fechar-det]')
-    abas = [e.inner_text() for e in pg.query_selector_all('.sit-aba .aba-nome')]; chk(abas == ['Em aberto', 'Novas', 'Acionadas', 'Em Atendimento', 'Para Validação', 'Concluídas', 'Canceladas'], 'nomes das abas de status')
+    abas = [e.inner_text() for e in pg.query_selector_all('.sit-aba .aba-nome')]; chk(abas == ['Em aberto', 'Novas', 'Acionadas', 'Em Atendimento', 'Para Validação', 'Concluídas', 'Canceladas', 'Todas'], f'nomes das abas de status, com Todas no fim {abas}')
+    seps = pg.evaluate("[...document.querySelectorAll('.sit-abas > *')].map(e => e.classList.contains('aba-sep') ? '|' : e.dataset.v).join(' ')"); chk(seps == 'abertas nova acionada atendimento pendente | concluida cancelada | todas' and pg.evaluate("[...document.querySelectorAll('.sit-abas .aba-sep')].every(e => getComputedStyle(e).display !== 'none')") and pg.evaluate("document.querySelector('.sit-aba[data-v=todas]').getBoundingClientRect().right > document.querySelector('.sit-abas').getBoundingClientRect().right - 4"), f'Em aberto e as quatro à esquerda; Concluídas, Canceladas | Todas à direita {seps}')
+    ordem = pg.evaluate("[...document.querySelectorAll('.filtros > *')].map(e => e.className.split(' ').find(c => ['campo-busca','filtro-local','filtro-resp','vistas'].includes(c)))"); chk(ordem == ['campo-busca', 'filtro-local', 'filtro-resp', 'vistas'] and pg.query_selector('.topo #busca') is None and pg.query_selector('.l-cab .vistas') is None, f'abaixo das abas: pesquisa, Local, Responsável e visualização {ordem}')
+    alt = pg.evaluate("['#busca', '.filtro-local', '.filtro-resp', '.filtros .vistas'].map(s => { const e = document.querySelector(s); const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.height), getComputedStyle(e).borderTopLeftRadius]; })"); chk(len(set(map(tuple, alt))) == 1, f'pesquisa, seletores e visualização com a mesma altura e os mesmos cantos {alt}')
+    clk(pg, '[data-acao=resp-pop]'); clk(pg, '[data-acao=resp-escolher][data-v=tecnico2]'); n_t2 = sum(1 for d in st(pg)['demandas'] if d['responsavel'] == 'tecnico2')
+    chk(pg.inner_text('.filtro-resp .filtro-nome').strip() == 'Tecnico2' and pg.query_selector('.filtro-resp .filtro-btn .avatar') is None and pg.query_selector('.filtro-resp .filtro-ico svg') is not None and pg.inner_text('.filtro-resp .filtro-n').strip() == str(n_t2), f'Responsável escolhido: ícone, nome e o total de demandas da pessoa ({n_t2}), sem a sigla'); clk(pg, '.filtro-resp .filtro-limpa')
+    clk(pg, '[data-acao=local-pop]'); clk(pg, '[data-acao=local-escolher][data-v=Canoas]'); n_c = len(pg.query_selector_all('.linha-dem')) if len(pg.query_selector_all('.folhas .page-link[data-v]')) <= 3 else None
+    chk(pg.inner_text('.filtro-local .filtro-nome').strip() == 'Canoas' and pg.query_selector('.filtro-local .filtro-n') is not None and (n_c is None or pg.inner_text('.filtro-local .filtro-n').strip() == str(n_c)) and pg.query_selector('.op-local') is None, 'Local escolhido: ícone, nome e o número de demandas'); clk(pg, '.filtro-local .filtro-limpa')
     chk('Data passou' not in pg.content(), 'não existe mais o selo Data passou')
     # abas
     clk(pg, '[data-acao=sit-aba][data-v=concluida]'); chk(all(c.get_attribute('data-sit') == 'concluida' for c in pg.query_selector_all('.linha-dem')), 'aba Concluídas filtra')
-    chk(not pg.query_selector('[data-v=todas]'), 'não existe aba Todas')
+    clk(pg, '[data-acao=sit-aba][data-v=todas]'); chk(len({c.get_attribute('data-sit') for c in pg.query_selector_all('.linha-dem')}) > 1 and pg.inner_text('.sit-aba[data-v=todas] .aba-n').strip() == str(len(st(pg)['demandas'])), 'aba Todas mostra todas as situações')
     clk(pg, '[data-acao=sit-aba][data-v=abertas]')
     pg.fill('#busca', 'Pelotas'); pg.wait_for_timeout(300); chk(len(pg.query_selector_all('.linha-dem')) >= 1 and all('Pelotas' in c.inner_text() for c in pg.query_selector_all('.linha-dem')), 'busca por local')
     pg.fill('#busca', ''); pg.wait_for_timeout(300)
@@ -77,7 +85,7 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=fechar-det]'); chk(pg.query_selector('.confirma') is not None, 'fechar com status não salvo pede confirmação'); clk(pg, '.confirma [data-acao=confirmar]')
     chk(dem(pg, prim)['situacao'] == 'nova', 'descartar mantém o status original')
     # acionada não volta e, para o técnico, fica travada
-    clk(pg, '[data-acao=sit-aba][data-v=acionada]'); clk(pg, '[data-acao=abrir]'); chk(pg.query_selector('#d-status') is None and pg.query_selector('.st-fixo') is not None, 'técnico: Acionada não volta para Nova'); clk(pg, '[data-acao=fechar-det]')
+    clk(pg, '[data-acao=sit-aba][data-v=acionada]'); clk(pg, '[data-acao=abrir]'); chk(pg.query_selector('#d-status') is None and pg.query_selector('.st-fixo') is not None, 'técnico: Acionada não volta para Nova'); chk(pg.query_selector('.det-l2 .l2-tk + .mini-copia[data-acao=copiar]') is not None and re.fullmatch(r'\d{6}', pg.get_attribute('.det-l2 .l2-tk + .mini-copia', 'data-v') or '') is not None, 'modal do card: botão de copiar ao lado do ticket'); clk(pg, '[data-acao=fechar-det]')
     # login coordenador
     sai(pg); clk(pg, '[data-acao=login]'); chk(pg.query_selector('form.login') is not None, 'modal de login abre'); clk(pg, '[data-acao=proto-gestor]'); pg.wait_for_timeout(300)
     chk(pg.query_selector('form[data-form=senha]') is not None and not st(pg)['usuario'], 'primeiro acesso exige criar senha antes de entrar')
@@ -294,10 +302,19 @@ with sync_playwright() as p:
     itens = pg.input_value('#rl-itens'); chk('em total de 03 serviços' in itens and 'em total de 01 serviço,' in itens and 'em total de 12 serviços' in itens, 'relatório: quantidade com dois dígitos')
     chk('Foro da Comarca' not in itens and 'Mudança de local de equipamentos de informática, em total de 03 serviços. A atividade foi executada pela contratada CDS através do ticket 189301.' in itens, 'item sem o local, que fica só no texto de abertura')
     chk('Instalação de novos equipamentos de informática, em total de 12 serviços, se tratando de contrato referente às Salas de Audiência Digital. A atividade foi executada pela contratada WECOM através do ticket 189303.' in itens and 'Instalação de Infraestrutura (redes lógicas, elétricas, canaletas e suportes para TV), em total de 01 serviço, se tratando de contrato referente às Salas de Audiência Digital. A atividade foi executada pela contratada WECOM através do ticket 189304.' in itens, 'itens da WECOM com o contrato das Salas de Audiência Digital')
-    nota = pg.input_value('#rl-notas'); chk('A demanda referente a Instalação de Infraestrutura (WECOM), ticket 189304, utiliza o valor de verba de R$2.462,70 somado ao valor total do relatório. Valor estimado com base em uma média de 15 metros lineares de instalação. O valor por metro linear consiste em R$164,18.' == nota, 'frase da verba só para a Infraestrutura sem metro linear')
+    verba = 'A demanda referente a Instalação de Infraestrutura (WECOM), ticket 189304, utiliza o valor de verba de R$2.462,70 somado ao valor total do relatório. Valor estimado com base em uma média de 15 metros lineares de instalação. O valor por metro linear consiste em R$164,18.'
+    desc = pg.input_value('#rl-itens'); chk(pg.query_selector('#rl-notas') is None and desc.split(chr(10) * 2)[-1] == verba and desc.count('Infraestrutura (WECOM)') == 1 and 'Descrição' in pg.inner_text('.relat') and 'Serviços executados' not in pg.inner_text('.relat'), 'frase da verba no fim da Descrição (sem campo de observações), só para a Infraestrutura sem metro linear')
+    # check: tirar a Infraestrutura da WECOM do custo
+    chk(pg.is_checked('#rl-infra'), 'check da Infraestrutura (WECOM) começa marcado')
+    pg.click('#rl-infra'); pg.wait_for_timeout(150); desc = pg.input_value('#rl-itens')
+    chk(pg.input_value('#rl-custo') == 'R$ 16.253,02' and verba not in desc and desc.split(chr(10) * 2)[-1] == 'O valor de Instalação de Infraestrutura (WECOM) referente ao Contrato de Salas de Audiências Digitais, não consta na soma do valor total de custo discriminado neste relatório.' and desc.count('não consta na soma') == 1, 'sem o check: custo sem a Infraestrutura e uma frase única de que não consta na soma, mesmo com dois tickets')
+    with pg.expect_download() as dl2: clk(pg, '[data-acao=baixar-relatorio]')
+    pdf2 = open(dl2.value.path(), 'rb').read(); chk(b'(5 -)' in pdf2 and b'(6 -)' not in pdf2 and b'(O valor de Instala' in pdf2, 'PDF: a frase de que não consta na soma sai sem número')
+    pg.fill('#rl-itens', desc.replace('A atividade foi executada pela contratada CDS', 'A atividade foi executada pela contratada CDS (editado)')); pg.click('#rl-infra'); pg.wait_for_timeout(150); desc = pg.input_value('#rl-itens')
+    chk(pg.input_value('#rl-custo') == 'R$ 20.357,52' and desc.endswith(verba) and '(editado)' in desc and 'não consta na soma' not in desc, 'marcar de novo devolve o custo e a frase da verba, sem perder o que foi editado')
     chk(pg.is_checked('#rl-local'), 'Realocação marca Mudança de Local no quadro')
     with pg.expect_download() as dl: clk(pg, '[data-acao=baixar-relatorio]')
-    pdf_b = open(dl.value.path(), 'rb').read(); chk(pdf_b[:5] == b'%PDF-' and b'0.6 w' not in pdf_b and b'/F2 10 Tf' in pdf_b and 'no Foro da Comarca de Canoas'.encode('cp1252') in pdf_b, 'PDF com linhas finas, local na abertura e a observação de custo'); fecha_relatorio()
+    pdf_b = open(dl.value.path(), 'rb').read(); chk(pdf_b[:5] == b'%PDF-' and b'0.6 w' not in pdf_b and b'/F2 10 Tf' in pdf_b and 'no Foro da Comarca de Canoas'.encode('cp1252') in pdf_b and b'(5 -)' in pdf_b and b'(6 -)' not in pdf_b and b'(A demanda referente a Instala' in pdf_b and b'(a\\))' not in pdf_b and b'(b\\))' not in pdf_b, 'PDF com linhas finas, local na abertura, origem e destino sem a), b) e a observação de custo sem número'); fecha_relatorio()
     # local fora do catálogo: não soma e avisa
     muda(pg, 20, "d.comarca='Lugar sem região'"); abre_relatorio(); chk('189301' in pg.inner_text('.relat .ac-aviso') and pg.input_value('#rl-custo') == 'R$ 19.877,52', 'CDS sem região fica fora da soma, com aviso'); fecha_relatorio(); muda(pg, 20, "d.comarca='Canoas'")
     # Desinstalação da Selbetti não vai para lugar nenhum; a da CDS vai para o DMP
@@ -305,6 +322,9 @@ with sync_playwright() as p:
     muda(pg, 20, f"d.subtickets={json.dumps(s_sel)}"); abre_relatorio(); chk('Carga CDS' not in pg.input_value('#rl-destino') and pg.is_checked('#rl-desinst'), 'Desinstalação da Selbetti não leva destino (continua marcada no quadro)'); fecha_relatorio()
     s_cds2 = s_sel + [{'empresa': 'CDS', 'numero': '187003', 'finalidade': 'Desinstalação', 'quantidade': 1}]
     muda(pg, 20, f"d.subtickets={json.dumps(s_cds2)}"); abre_relatorio(); chk('DMP – Carga CDS' in pg.input_value('#rl-destino'), 'Desinstalação da CDS leva o destino DMP – Carga CDS'); fecha_relatorio()
+    s_od = [{'empresa': 'CDS', 'numero': '187101', 'finalidade': 'Instalação', 'quantidade': 1}, {'empresa': 'CDS', 'numero': '187102', 'finalidade': 'Desinstalação', 'quantidade': 1}, {'empresa': 'CDS', 'numero': '187103', 'finalidade': 'Mudança de Local', 'quantidade': 1}]
+    muda(pg, 20, f"d.subtickets={json.dumps(s_od)}"); abre_relatorio(); o_, d_ = pg.input_value('#rl-origem'), pg.input_value('#rl-destino'); chk(o_.splitlines() == ['Foro da Comarca de Canoas', 'DMP'] and d_.splitlines() == ['Foro da Comarca de Canoas', 'DMP – Carga CDS'], f'origem e destino: o local primeiro nas duas colunas, o DMP depois {o_!r} {d_!r}'); fecha_relatorio()
+    muda(pg, 20, f"d.subtickets={json.dumps(s_od[:1])}"); abre_relatorio(); o_, d_ = pg.input_value('#rl-origem'), pg.input_value('#rl-destino'); chk(o_ == 'DMP' and d_ == 'Foro da Comarca de Canoas', f'só Instalação: do DMP para o local {o_!r} {d_!r}'); fecha_relatorio()
     muda(pg, 20, f"d.subtickets={json.dumps(subs_custo)}")
     # Configuração: o coordenador altera os valores
     def cfg_salvar(): pg.evaluate("document.querySelector('form[data-form=config]').requestSubmit()"); pg.wait_for_timeout(250)
@@ -320,7 +340,7 @@ with sync_playwright() as p:
     clk(pg, '.confirma [data-acao=fechar-modal]'); pg.wait_for_timeout(200); chk(pg.query_selector('.confirma') is None and pg.query_selector('.config') is not None and pg.input_value('#pw-metro') == '200,00' and pg.is_disabled('#cfg-salvar'), 'Fechar volta à tela de valores, já com os novos'); clk(pg, '.modal-footer [data-acao=cfg-fechar]'); pg.wait_for_timeout(200)
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=config]'); pg.fill('#pc-0-0', '300'); clk(pg, '.modal-footer [data-acao=cfg-fechar]'); pg.wait_for_timeout(200); chk('Descartar' in pg.inner_text('.confirma') and pg.query_selector('.config') is not None, 'fechar com alterações pede confirmação')
     clk(pg, '.confirma [data-acao=confirmar]'); pg.wait_for_timeout(200); chk(pg.query_selector('.config') is None and st(pg)['precos']['cds']['Instalação'][0] == 285, 'descartar não altera os valores')
-    abre_relatorio(); chk(pg.input_value('#rl-custo') == 'R$ 21.951,66' and 'R$3.000,00' in pg.input_value('#rl-notas') and 'R$200,00' in pg.input_value('#rl-notas'), 'relatório e frase da verba usam os valores configurados'); fecha_relatorio()
+    abre_relatorio(); chk(pg.input_value('#rl-custo') == 'R$ 21.951,66' and 'R$3.000,00' in pg.input_value('#rl-itens') and 'R$200,00' in pg.input_value('#rl-itens'), 'relatório e frase da verba usam os valores configurados'); fecha_relatorio()
     # só a demanda Acionada conta os dias
     for sit_, inicio_ in (('nova', em_dias(5)), ('atendimento', em_dias(-1)), ('pendente', em_dias(-5))):
         muda(pg, 22, f"d.situacao='{sit_}'; d.responsavel='admin'; d.inicio='{inicio_}'; d.fim=null; d.ticketPrincipal='199996'"); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); pg.fill('#busca', '000022'); pg.wait_for_timeout(300); chk(pg.query_selector('.c-ag .prazo') is None, f'sem contagem de dias em {sit_}'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
@@ -398,6 +418,11 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=fechar-det]'); pg.fill('#busca', ''); pg.wait_for_timeout(250)
     sei_rep = dem(pg, 14)['sei']; clk(pg, '[data-acao=nova]'); pg.fill('#n-sei', sei_rep.replace('.', '').replace('/', '').replace('-', '')); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'SEI repetido'); pg.evaluate("document.querySelector('form[data-form=nova]').requestSubmit()"); pg.wait_for_timeout(300)
     chk(pg.query_selector('.sucesso') is not None and 'Este SEI também está em outra demanda' in pg.inner_text('.sucesso'), 'Nova demanda com SEI repetido: inclui e avisa'); clk(pg, '.sucesso [data-acao=fechar-modal]')
+    # Configuração com a mesma dimensão da Nova demanda
+    tam = lambda q: pg.evaluate(f"(() => {{ const r = document.querySelector('{q}').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }})()")
+    clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=config]'); t_cfg = tam('.config'); clk(pg, '.modal-footer [data-acao=cfg-fechar]'); pg.wait_for_timeout(200)
+    clk(pg, '[data-acao=nova]'); t_nova = tam('.modal-n'); clk(pg, '.modal-n [data-acao=fechar-modal]'); pg.wait_for_timeout(200)
+    chk(t_cfg == t_nova, f'Configuração do mesmo tamanho da Nova demanda {t_cfg} {t_nova}')
     # coerência de todas as demandas que sobraram depois do teste inteiro
     hoje = em_dias(0); incoer = []
     for d in st(pg)['demandas']:
