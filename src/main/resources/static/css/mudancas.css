@@ -1476,3 +1476,6 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
   .modal { padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)) !important; }
   .modal-content, .modal-dialog-scrollable .modal-content { border-radius: var(--r-modal); max-height: 100%; }
 }
+
+/* subticket alterado e ainda não salvo */
+.tabela tr.sub-alterado > td:first-child { box-shadow: inset 3px 0 0 var(--acio-dot); }

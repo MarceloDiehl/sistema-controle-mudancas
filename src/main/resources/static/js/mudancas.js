@@ -241,6 +241,7 @@
     modal: null, modalDados: null,
     menu: null, toast: null, destaque: null,
     statusRascunho: null, // status escolhido no select e ainda não salvo
+    subRasc: {}, // serviço, quantidade e metro de subtickets alterados e ainda não salvos
     erros: {}
   };
   function guardarPreferencias() {
@@ -701,10 +702,11 @@
     </div>
     ${flash('det')}
     <span class="esp"></span>
-    ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
+    ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho || temSubRasc() ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho || temSubRasc() ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-det">Fechar</button>
     ${E.usuario && d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
     ${E.aba === 'dados' && podeEditar(d) ? `<button type="submit" form="form-dados" id="btn-salvar" class="btn btn-primary btn-lg" ${E.sujo || E.statusRascunho ? '' : 'disabled'}>Salvar alterações</button>`
+    : E.aba === 'tickets' && temSubRasc() ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-subs">Salvar alterações</button>`
     : E.statusRascunho ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-status">Salvar alterações</button>` : ''}
   </footer>
 </section>
@@ -877,10 +879,12 @@
   function abaTickets(d) {
     // em qualquer etapa em aberto dá para incluir, alterar e remover tickets; encerrada fica só para consulta
     const ro = !podeEditar(d); const fixos = ro; const trava = fixos ? 'disabled' : '';
-    const temMetro = d.subtickets.some((s) => usaMetro(s.empresa, s.finalidade));
+    // serviço, quantidade e metro editados ficam em rascunho (E.subRasc) até Salvar alterações
+    const subs = d.subtickets.map(comRascunho);
+    const temMetro = subs.some((s) => usaMetro(s.empresa, s.finalidade));
     const tabela = d.subtickets.length ? `<table class="table tabela">
       <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th>${temMetro ? '<th class="th-qtd">Metro</th>' : ''}<th><span class="visually-hidden">Ações</span></th></tr></thead>
-      <tbody>${d.subtickets.map((s, i) => `<tr>
+      <tbody>${subs.map((s, i) => `<tr class="${E.subRasc[s.numero] ? 'sub-alterado' : ''}">
         <td><span class="badge emp-tag">${esc(s.empresa)}</span></td>
         <td class="mono">${esc(s.numero)}</td>
         <td><label class="visually-hidden" for="sf-${i}">Serviço</label><select id="sf-${i}" class="form-select sel-tab ${s.finalidade ? '' : 'falta'}" data-campo-sub="finalidade" data-i="${i}" ${trava}>${opcoesServ(s.empresa, s.finalidade)}${s.finalidade && !servicosDe(s.empresa).includes(s.finalidade) ? `<option selected>${esc(s.finalidade)}</option>` : ''}</select></td>
@@ -1130,7 +1134,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): volta à consulta sem login
   async function sairDaSessao() {
     Object.assign(E, { usuario: null, perfil: null, lixeira: [], solicitacoes: [], precos: null,
-      aberta: null, statusRascunho: null, sujo: false, cfg: null, modal: null, modalDados: null, menu: null });
+      aberta: null, statusRascunho: null, subRasc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null });
     try { await carregarTudo(); } catch (e) { E.carregado = false; }
   }
   function sessaoEncerrada(msg) { sairDaSessao().then(() => abrirLogin(msg)); }
@@ -1172,7 +1176,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   // abre o card na hora e completa com o histórico, que não vem na lista
   async function abrirCard(id) {
-    E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null;
+    E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; E.subRasc = {};
     desenhar();
     try { const d = trocarDemanda(await api('GET', 'mudancas/' + id)); if (E.aberta === d.id) desenhar(); } catch (e) { if (e.status !== 401) { aviso(e.message, true); desenhar(); } }
   }
@@ -1642,12 +1646,38 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // pergunta antes de perder alterações não salvas nos detalhes; o status escolhido continua valendo ao trocar de aba,
   // porque o select fica no cabeçalho (ex.: escolher Acionada e ir registrar o ticket)
   function guardar(fn, trocaAba) {
-    if ((E.sujo && E.aberta && E.aba === 'dados') || (E.statusRascunho && !trocaAba)) {
+    if ((E.sujo && E.aberta && E.aba === 'dados') || (E.statusRascunho && !trocaAba) || temSubRasc()) {
       E.modal = 'confirmar';
-      E.modalDados = { titulo: 'Descartar Alterações?', texto: 'Você mudou os detalhes desta demanda e ainda não salvou.', botao: 'Descartar', perigo: true, acao: () => { E.sujo = false; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
+      E.modalDados = { titulo: 'Descartar Alterações?', texto: temSubRasc() ? 'Você mudou subtickets desta demanda e ainda não salvou.' : 'Você mudou os detalhes desta demanda e ainda não salvou.', botao: 'Descartar', perigo: true,
+        acao: () => { E.sujo = false; E.subRasc = {}; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
       desenhar(); return;
     }
     E.sujo = false; fn();
+  }
+  // subtickets: rascunho por número ({ servico, quantidade, metro }), aplicado por cima do que está salvo
+  const temSubRasc = () => Object.keys(E.subRasc).length > 0;
+  function comRascunho(s) {
+    const r = E.subRasc[s.numero]; if (!r) return s;
+    const x = Object.assign({}, s);
+    if ('servico' in r) x.finalidade = r.servico || null;
+    if ('quantidade' in r) x.quantidade = Number(r.quantidade);
+    if ('metro' in r) x.metro = r.metro ? Number(r.metro) : null;
+    if (!usaMetro(x.empresa, x.finalidade)) x.metro = null;
+    return x;
+  }
+  // grava o rascunho: um pedido por campo alterado; o servidor registra cada mudança no histórico
+  async function salvarSubtickets(d) {
+    for (const [numero, r] of Object.entries(E.subRasc)) {
+      if (!d.subtickets.some((x) => x.numero === numero)) continue;
+      for (const campo of ['servico', 'quantidade', 'metro']) {
+        if (!(campo in r)) continue;
+        if (campo === 'metro' && 'servico' in r && !usaMetro(d.subtickets.find((x) => x.numero === numero).empresa, r.servico)) continue;
+        trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/subtickets/' + numero, { campo, valor: String(r[campo] || '') })).demanda);
+      }
+      delete E.subRasc[numero];
+    }
+    E.subRasc = {}; E.manterRolagem = true;
+    aviso('Subtickets atualizados.'); desenhar();
   }
   function irPara(id) {
     // leva a lista até a folha onde a demanda está
@@ -2041,7 +2071,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'copiar-acionamento': { const t = document.getElementById('ac-texto'); const x = demanda(E.modalDados && E.modalDados.id); if (!t) break; copiar(t.value, 'Texto copiado. É só colar no SEI.');
         if (x) acao(async () => { trocarDemanda((await api('POST', 'mudancas/' + x.id + '/documento', { tipo: 'acionamento' })).demanda); }); break; }
       case 'copiar-tickets': if (d) copiar(textoTickets(d), 'Tickets copiados em texto.'); break;
-      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break;
+      case 'salvar-subs': if (d && temSubRasc()) acao(() => salvarSubtickets(d)); break;
+      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break; delete E.subRasc[s.numero];
         acao(async () => { trocarDemanda((await api('DELETE', 'mudancas/' + d.id + '/subtickets/' + s.numero)).demanda); E.manterRolagem = true; aviso('Subticket removido.'); desenhar(); }); } break;
       case 'sem-sei': { const el = document.getElementById('n-sei'); if (el) { el.disabled = alvo.checked; if (alvo.checked) { el.value = ''; } } } break;
     }
@@ -2125,10 +2156,17 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if (t.closest && t.closest('#form-dados')) marcarSujo();
     if (t.dataset.campoSub) {
       const d = demanda(E.aberta); if (!d) return; const sub = d.subtickets[Number(t.dataset.i)]; if (!sub) return;
+      if (!E.subRasc) E.subRasc = {};
       const campo = t.dataset.campoSub === 'finalidade' ? 'servico' : t.dataset.campoSub; const valor = t.value.trim();
       if (campo === 'metro' && valor && !(Number.isInteger(Number(valor)) && Number(valor) >= 1 && Number(valor) <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
       if (campo === 'quantidade' && !(parseInt(valor, 10) >= 1 && parseInt(valor, 10) <= 999)) { t.value = sub.quantidade || ''; return; }
-      acao(async () => { trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/subtickets/' + sub.numero, { campo, valor })).demanda); E.manterRolagem = true; desenhar(); });
+      const salvo = { servico: sub.finalidade || '', quantidade: String(sub.quantidade), metro: sub.metro ? String(sub.metro) : '' }[campo];
+      const r = Object.assign({}, E.subRasc[sub.numero]);
+      if (valor === salvo) delete r[campo]; else r[campo] = valor;
+      // voltar ao serviço salvo devolve também o metro salvo
+      if (campo === 'servico' && valor === salvo) delete r.metro;
+      if (Object.keys(r).length) E.subRasc[sub.numero] = r; else delete E.subRasc[sub.numero];
+      E.manterRolagem = true; desenhar();
       return;
     }
   });

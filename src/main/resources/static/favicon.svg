@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- caixa de mudança com a fita no amarelo das demandas acionadas, sobre o fundo escuro do tema -->
+  <!-- duas setas em sentidos opostos (mudança), sobre o fundo escuro do tema; a de baixo no amarelo das acionadas -->
   <rect width="32" height="32" rx="7" fill="#1F2937"/>
-  <path d="M6.5 11.5 16 7l9.5 4.5v10L16 26l-9.5-4.5z" fill="#F3F4F6"/>
-  <path d="M6.5 11.5 16 16l9.5-4.5M16 16v10" fill="none" stroke="#1F2937" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M11.2 9.2 20.8 13.8v4" fill="none" stroke="#D4A514" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M7 10.5h17M19.5 6l4.5 4.5-4.5 4.5" fill="none" stroke="#F3F4F6" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 21.5H8M12.5 17l-4.5 4.5 4.5 4.5" fill="none" stroke="#E0B21C" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
