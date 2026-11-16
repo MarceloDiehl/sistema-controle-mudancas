@@ -31,7 +31,7 @@ public class Subticket {
     @JoinColumn(name = "empresa_id", nullable = false)
     private Empresa empresa;
 
-    @Column(nullable = false, unique = true, columnDefinition = "char(8)")
+    @Column(nullable = false, unique = true, columnDefinition = "char(7)")
     private String numero;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,0 +1,20 @@
+# Copie este arquivo para application-local.properties (na mesma pasta: raiz do projeto no IntelliJ, ou ao lado
+# do .jar no servidor) e preencha. O application-local.properties fica fora do Git e fora do .jar.
+
+# Usuario e senha do MySQL (o script db/ditic_mudancas_db.sql cria o ditic_admin; pode ser outro usuario,
+# desde que tenha SELECT, INSERT, UPDATE e DELETE no banco ditic_mudancas_db)
+spring.datasource.username=ditic_admin
+spring.datasource.password=SENHA_DO_MYSQL
+
+# Senha inicial do coordenador "admin", criado ao iniciar quando ainda nao existe (trocada no primeiro acesso)
+mudancas.admin.senha-inicial=SENHA_DO_ADMIN
+
+# ---- so no servidor (descomente o que precisar) ----
+# MySQL em outra maquina ou porta:
+#spring.datasource.url=jdbc:mysql://SERVIDOR:3306/ditic_mudancas_db?serverTimezone=America/Sao_Paulo
+# Com HTTPS:
+#server.servlet.session.cookie.secure=true
+# Atras de um proxy (IIS, Apache, nginx):
+#server.forward-headers-strategy=framework
+# Log em arquivo:
+#logging.file.name=logs/controle-mudancas.log

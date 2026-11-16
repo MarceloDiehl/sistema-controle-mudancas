@@ -1,8 +1,0 @@
-# Copie este arquivo para application-local.properties (mesma pasta) e preencha.
-# O application-local.properties fica fora do Git.
-
-spring.datasource.username=ditic_user
-spring.datasource.password=SENHA_DO_MYSQL
-
-# Senha inicial do coordenador "admin", criado ao iniciar quando ainda nao existe (trocada no primeiro acesso)
-mudancas.admin.senha-inicial=SENHA_DO_ADMIN

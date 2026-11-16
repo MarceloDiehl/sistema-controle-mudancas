@@ -1323,7 +1323,7 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 
 /* versão 1.0.0: campos travados, Data de Início | Data para Conclusão | Hora, motivo e lixeira */
 .trava-grupo { display: contents; }
-.linha-atend-det { grid-template-columns: minmax(0, 1fr) 170px 170px 130px; }
+.linha-atend-det { grid-template-columns: minmax(0, 1fr) 200px 200px 120px; }
 .grade-ini { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .grade-ini > * { grid-column: span 2; grid-row: auto; }
 .grade-ini > :nth-child(1), .grade-ini > :nth-child(2) { grid-column: span 3; grid-row: auto; }
@@ -1336,7 +1336,11 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
   .grade-ini > * { grid-column: auto; }
   .grade-ini > :nth-child(1), .grade-ini > :nth-child(2) { grid-column: 1 / -1; }
 }
-@media (max-width: 560px) { .linha-atend-det { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .linha-atend-det { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .linha-atend-det { grid-template-columns: minmax(0, 1fr); } }
+/* o rótulo "Data para Conclusão (opcional)" fica numa linha só e os campos de data e hora alinham pela base */
+.linha-atend-det { align-items: end; }
+.linha-atend-det .trava-grupo .form-label { white-space: nowrap; }
 .rolagem.postits:has(> .vazio-lista) { display: flex; flex-direction: column; }
 .conf-motivo { width: 100%; margin-top: 12px; text-align: left; }
 .conf-motivo .txt { min-height: 72px; }
@@ -1422,15 +1426,16 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .filtros .campo-busca svg { top: 50%; left: 12px; transform: translateY(-50%); }
 .filtros .campo-busca input { height: var(--ctl-h); padding-left: 35px; border-radius: var(--ctl-r); }
 .filtros .filtro { height: var(--ctl-h); border-radius: var(--ctl-r); }
-.filtros .filtro-local { flex: 0 0 300px; }
-.filtros .filtro-resp { flex: 0 0 270px; }
+.filtros .filtro-local { flex: 0 0 340px; }
+.filtros .filtro-resp { flex: 0 0 320px; }
 .filtros .vistas { flex: none; height: var(--ctl-h); padding: 3px; gap: 2px; border-radius: var(--ctl-r); }
 .filtros .vista-btn { height: 28px; border-radius: 7px; }
 .filtros .filtro-limpa { border-radius: 7px; }
 /* escolhido: ícone, nome e o número de demandas num círculo cinza claro */
 .filtros .filtro-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #E6E9ED; color: var(--ink-2); font-size: 11.5px; font-weight: 600; }
 .filtro.ativo .filtro-ico { color: var(--ink-2); }
-@media (max-width: 1100px) and (min-width: 901px) { .filtros .filtro-local { flex-basis: 220px; } .filtros .filtro-resp { flex-basis: 200px; } }
+@media (max-width: 1280px) and (min-width: 1101px) { .filtros .filtro-local { flex-basis: 300px; } .filtros .filtro-resp { flex-basis: 280px; } }
+@media (max-width: 1100px) and (min-width: 901px) { .filtros .filtro-local { flex-basis: 230px; } .filtros .filtro-resp { flex-basis: 220px; } }
 @media (max-width: 900px) { .marca .longo { display: none; } .topo-in { padding-left: 16px; padding-right: 16px; } }
 /* abaixo de 900 px: a pesquisa ocupa a linha toda; Local, Responsável e visualização logo abaixo */
 @media (max-width: 900px) {
@@ -1479,3 +1484,187 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 
 /* subticket alterado e ainda não salvo */
 .tabela tr.sub-alterado > td:first-child { box-shadow: inset 3px 0 0 var(--acio-dot); }
+
+/* ------------------------------------------------------------------ linha de filtros: um estilo só */
+/* pesquisa, Local, Responsável e visualização com a mesma cara dos campos do sistema: fundo branco, a mesma borda,
+   os mesmos cantos, o mesmo destaque ao passar o mouse e ao focar; o que está escolhido ganha um preenchimento suave */
+.filtros { gap: 10px; }
+.filtros .campo-busca input, .filtros .filtro, .filtros .vistas {
+  background: var(--surface); border: 1px solid var(--line-inp); border-radius: var(--ctl-r);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04); transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.filtros .campo-busca input:hover, .filtros .filtro:hover, .filtros .vistas:hover { border-color: #C3CAD2; }
+.filtros .campo-busca input:focus, .filtros .filtro.aberto { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(90, 99, 112, .13); outline: 0; }
+.filtros .campo-busca input:not(:placeholder-shown):not(:focus), .filtros .filtro.ativo:not(.aberto) { background: #F4F6F8; border-color: #A9B1BB; }
+.filtros .campo-busca svg, .filtros .filtro-ico, .filtros .filtro-seta { color: #78808A; }
+.filtros .campo-busca input::placeholder, .filtros .filtro-nome { color: var(--muted); }
+.filtros .campo-busca input { color: var(--ink); }
+.filtros .vista-btn[aria-pressed="true"] { background: #EEF0F3; color: var(--ink); box-shadow: none; }
+
+/* ------------------------------------------------------------------ Período e Minhas demandas, entre o Responsável e a visualização */
+/* Minhas demandas: chave liga/desliga numa caixa de borda tracejada (referência em botoes/funções novas.png) */
+.filtros .filtro.filtro-comigo { border-style: dashed; }
+.filtro-comigo .filtro-btn { gap: 9px; padding: 0 12px; }
+.chave { position: relative; flex: none; width: 34px; height: 20px; border-radius: 999px; background: #E6E9ED; box-shadow: inset 0 0 0 1px #D3D8DE, inset 0 1px 2px rgba(16, 24, 40, .08); transition: background-color .2s, box-shadow .2s; }
+.chave::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16, 24, 40, .28), 0 0 0 .5px rgba(16, 24, 40, .06); transition: transform .28s cubic-bezier(.3, 1.35, .5, 1); }
+.filtro-comigo.ativo .chave { background: #2E9E73; box-shadow: inset 0 0 0 1px #2A8F69, inset 0 1px 2px rgba(0, 0, 0, .12); }
+.filtro-comigo.ativo .chave::after { transform: translateX(14px); }
+.filtro-comigo.ativo .filtro-nome { color: var(--ink); font-weight: 600; }
+.filtros .filtro-comigo { flex: none; }
+.filtros .filtro-periodo { flex: 0 0 auto; min-width: 150px; max-width: 240px; }
+.filtros .filtro-comigo .filtro-btn { cursor: pointer; }
+.pop-periodo { right: -1px; left: auto; width: 344px; padding: 10px 12px 12px; gap: 0; display: block; }
+.pop-periodo .pop-cab { padding: 2px 0 8px; }
+.per-atalhos { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.pop-periodo .per-atalho { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border: 1px solid var(--line-inp); border-radius: 999px; background: var(--surface); font: inherit; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.pop-periodo .per-atalho:hover { border-color: #A9B1BB; background: #F4F6F8; }
+.per-datas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.per-datas .campo { margin: 0; }
+.pop-periodo .erro { display: block; margin-top: 6px; }
+.per-pe { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.pop-periodo .per-pe .btn { display: inline-flex; height: 34px; padding: 0 14px; border-radius: var(--r); font-size: 13.5px; }
+.pop-periodo .per-pe .btn-primary { background: var(--accent-btn); color: #fff; }
+.pop-periodo .per-pe .btn-primary:hover { background: var(--accent-btn-hover); }
+.pop-periodo .data-btn { width: 32px; height: 32px; padding: 0; justify-content: center; gap: 0; background: transparent; }
+/* telas largas: Local e Responsável cedem um pouco de largura para os dois filtros novos */
+@media (min-width: 1281px) { .filtros .filtro-local { flex-basis: 300px; } .filtros .filtro-resp { flex-basis: 280px; } }
+@media (max-width: 1280px) and (min-width: 1101px) { .filtros .filtro-local { flex-basis: 250px; } .filtros .filtro-resp { flex-basis: 230px; } }
+@media (max-width: 1100px) and (min-width: 901px) { .filtros .filtro-local { flex-basis: 200px; } .filtros .filtro-resp { flex-basis: 190px; } .filtros .filtro-periodo { min-width: 0; } }
+/* abaixo de 1100 px os dois novos mostram só o ícone (e o número), para não apertar os demais */
+@media (max-width: 1100px) {
+  .filtros .filtro-comigo .filtro-nome, .filtros .filtro-periodo:not(.ativo) .filtro-nome, .filtros .filtro-periodo:not(.ativo) .filtro-seta { display: none; }
+  .filtros .filtro-comigo, .filtros .filtro-periodo { flex: none !important; min-width: 0; }
+  .filtros .filtro-periodo.ativo { max-width: 180px; }
+}
+/* celular: Local e Responsável dividem uma linha; Comigo, Período e a visualização ficam na de baixo */
+@media (max-width: 560px) {
+  .filtros .filtro-local, .filtros .filtro-resp { flex: 1 1 calc(50% - 5px) !important; }
+  .filtros .vistas { margin-left: auto; }
+}
+
+/* ------------------------------------------------------------------ abas de situação como um seletor físico */
+/* um trilho levemente afundado e uma peça branca em relevo que desliza até a aba escolhida (sem o sublinhado) */
+.sit-abas { position: relative; height: 42px; padding: 4px; gap: 2px; border: 0; border-radius: 12px; background: #ECEEF1;
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, .10), inset 0 0 0 1px rgba(16, 24, 40, .045); align-items: stretch; }
+.sit-abas .sit-aba { position: relative; z-index: 1; border-radius: 9px; padding: 0 12px; }
+.sit-abas .sit-aba:first-of-type { padding-left: 12px; }
+.sit-abas .sit-aba::after, .sit-abas .sit-aba:hover:not([aria-selected="true"])::after { display: none; }
+.sit-abas .sit-aba:hover:not([aria-selected="true"]) { color: var(--ink); background: rgba(255, 255, 255, .5); }
+.sit-abas .sit-aba:focus-visible { outline-offset: -2px; border-radius: 9px; }
+.sit-cursor { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 9px; pointer-events: none;
+  background: linear-gradient(#FFFFFF, #F8F9FA);
+  box-shadow: 0 1px 1px rgba(16, 24, 40, .06), 0 2px 6px rgba(16, 24, 40, .13), inset 0 -1px 0 rgba(16, 24, 40, .05);
+  transition: transform .32s cubic-bezier(.3, 1.2, .5, 1), width .32s cubic-bezier(.3, 1.2, .5, 1); }
+.sit-abas .aba-sep { background: #D3D8DE; }
+@media (prefers-reduced-motion: reduce) { .sit-cursor { transition: none; } }
+
+
+/* ------------------------------------------------------------------ linha de filtros estável */
+/* cada controle tem largura fixa, que não depende do que está escrito (o texto longo corta com reticências);
+   só a pesquisa ocupa o espaço que sobra. Assim nada se mexe ao escolher um filtro ou ligar Minhas demandas. */
+.filtros > * { flex-shrink: 0; }
+.filtros .campo-busca { flex: 1 1 0 !important; min-width: 0 !important; }
+.filtros .filtro-local { flex: 0 0 300px !important; }
+.filtros .filtro-resp { flex: 0 0 280px !important; }
+.filtros .filtro-periodo { flex: 0 0 210px !important; min-width: 0 !important; max-width: none !important; }
+.filtros .filtro-comigo { flex: 0 0 192px !important; }
+.filtro-comigo.ativo .filtro-nome { font-weight: inherit; }
+@media (max-width: 1500px) {
+  .filtros .filtro-local { flex-basis: 250px !important; }
+  .filtros .filtro-resp { flex-basis: 230px !important; }
+  .filtros .filtro-periodo { flex-basis: 196px !important; }
+  .filtros .filtro-comigo { flex-basis: 192px !important; }
+}
+@media (max-width: 1280px) {
+  .filtros .filtro-local { flex-basis: 205px !important; }
+  .filtros .filtro-resp { flex-basis: 190px !important; }
+  .filtros .filtro-periodo { flex-basis: 184px !important; }
+  .filtros .filtro-comigo { flex-basis: 192px !important; }
+}
+/* até 1100 px: Período só com o ícone e Minhas demandas só com a chave, sempre do mesmo tamanho */
+@media (max-width: 1100px) {
+  .filtros .filtro-local { flex-basis: 200px !important; }
+  .filtros .filtro-resp { flex-basis: 190px !important; }
+  .filtros .filtro-periodo { flex-basis: 44px !important; }
+  .filtros .filtro-comigo { flex-basis: 62px !important; }
+  .filtros .filtro-periodo .filtro-nome, .filtros .filtro-periodo .filtro-n, .filtros .filtro-periodo .filtro-seta,
+  .filtros .filtro-periodo .filtro-limpa { display: none !important; }
+  .filtros .filtro-periodo .filtro-btn, .filtros .filtro-comigo .filtro-btn { justify-content: center; padding: 0; }
+}
+@media (max-width: 1000px) and (min-width: 900px) {
+  .filtros .filtro-local { flex-basis: 170px !important; }
+  .filtros .filtro-resp { flex-basis: 160px !important; }
+}
+@media (max-width: 899px) {
+  .filtros .filtro-local, .filtros .filtro-resp { flex: 1 1 0 !important; min-width: 0; }
+}
+@media (max-width: 560px) {
+  .filtros .filtro-local, .filtros .filtro-resp { flex: 1 1 calc(50% - 5px) !important; }
+}
+
+/* trilho das abas em cinza mais leve, com relevo mais suave */
+.sit-abas { background: #F3F4F6; box-shadow: inset 0 1px 1px rgba(16, 24, 40, .06), inset 0 0 0 1px rgba(16, 24, 40, .035); }
+.sit-abas .aba-sep { background: #E1E4E8; }
+.sit-abas .sit-aba:hover:not([aria-selected="true"]) { background: rgba(255, 255, 255, .7); }
+.sit-cursor { background: #FFFFFF; box-shadow: 0 1px 2px rgba(16, 24, 40, .08), 0 1px 1px rgba(16, 24, 40, .04), 0 0 0 1px rgba(16, 24, 40, .03); }
+
+/* ------------------------------------------------------------------ unidade visual da parte de cima */
+/* o mesmo espaço (16 px) entre o navbar e as abas, entre as abas e os filtros e entre os filtros e a lista */
+.painel { padding-top: 16px; gap: 16px; }
+@media (max-width: 700px) { .painel { padding-top: 16px; } }
+/* filtros, pesquisa e visualização com a mesma altura (42 px), os mesmos cantos (12 px) e a mesma letra das abas,
+   na aparência aprovada: fundo branco com borda fina; o escolhido ganha um preenchimento suave e o foco, um anel discreto */
+:root { --ctl-h: 42px; --ctl-r: 12px; }
+.filtros .campo-busca input, .filtros .filtro, .filtros .vistas {
+  height: 42px; border: 1px solid var(--line-inp); border-radius: 12px; background: var(--surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04); font-size: 13px; transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.filtros .filtro.filtro-comigo { border-style: dashed; }
+.filtros .campo-busca input:hover, .filtros .filtro:hover, .filtros .vistas:hover { border-color: #C3CAD2; }
+.filtros .campo-busca input:focus, .filtros .filtro.aberto { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(90, 99, 112, .13); outline: 0; }
+.filtros .campo-busca input:not(:placeholder-shown):not(:focus), .filtros .filtro.ativo:not(.aberto) { background: #F4F6F8; border-color: #A9B1BB; }
+.filtros .campo-busca input { padding-left: 38px; color: var(--ink); }
+.filtros .campo-busca svg { left: 14px; }
+.filtros .filtro-btn { padding: 0 12px 0 14px; font-size: 13px; }
+.filtros .filtro-nome, .filtros .campo-busca input::placeholder { color: var(--muted); font-weight: 400; }
+.filtros .filtro.ativo .filtro-nome, .filtros .filtro-comigo.ativo .filtro-nome { color: var(--ink); font-weight: 600; }
+.filtros .filtro-limpa { border-radius: 8px; }
+.filtros .vistas { padding: 4px; gap: 2px; }
+.filtros .vista-btn { height: 32px; width: 32px; border-radius: 9px; }
+.filtros .vista-btn[aria-pressed="true"] { background: #EEF0F3; color: var(--ink); box-shadow: none; }
+
+/* abaixo de 900 px, a pesquisa volta a ocupar a linha inteira */
+@media (max-width: 899px) { .filtros .campo-busca { flex: 1 1 100% !important; } }
+
+/* ------------------------------------------------------------------ controles mais baixos */
+/* abas, pesquisa, seletores e visualização com a mesma altura (36 px) e cantos de 10 px */
+:root { --ctl-h: 36px; --ctl-r: 10px; }
+.sit-abas { height: 36px; padding: 3px; border-radius: 10px; }
+.sit-abas .sit-aba, .sit-abas .sit-aba:focus-visible { border-radius: 7px; }
+.sit-cursor { top: 3px; bottom: 3px; border-radius: 7px; }
+.filtros .campo-busca input, .filtros .filtro, .filtros .vistas { height: 36px; border-radius: 10px; }
+.filtros .campo-busca input { padding-left: 35px; }
+.filtros .campo-busca svg { left: 12px; }
+.filtros .filtro-btn { padding: 0 10px 0 12px; gap: 7px; }
+.filtros .filtro-n { height: 20px; min-width: 20px; font-size: 11px; }
+.filtros .filtro-limpa { width: 24px; height: 24px; border-radius: 7px; }
+.filtros .vistas { padding: 3px; }
+.filtros .vista-btn { height: 28px; width: 30px; border-radius: 7px; }
+
+/* ------------------------------------------------------------------ acabamento da parte de cima */
+/* abas, filtros e lista com a mesma borda fina e sem sombra; o trilho das abas continua cinza-claro */
+.sit-abas { padding: 2px; border: 1px solid var(--line); box-shadow: none; background: #F5F6F8; }
+.sit-cursor { top: 2px; bottom: 2px; }
+.filtros .campo-busca input, .filtros .filtro, .filtros .vistas { border-color: var(--line); box-shadow: none; }
+.filtros .campo-busca input:hover, .filtros .filtro:hover, .filtros .vistas:hover { border-color: #C9CFD6; }
+/* os filtros leem como botões, não como campos vazios: rótulo escuro, ícone e seta mais leves;
+   só a pesquisa fica com o texto claro de exemplo */
+.filtros .filtro-nome { color: var(--ink-2); font-weight: 500; }
+.filtros .filtro-ico, .filtros .filtro-seta { color: #9AA1AB; }
+.filtros .campo-busca input::placeholder { color: #9AA1AB; }
+.filtros .campo-busca svg { color: #9AA1AB; }
+/* larguras do tamanho do conteúdo (continuam fixas: nada se mexe ao escolher um filtro) */
+@media (min-width: 1101px) {
+  .filtros .filtro-local, .filtros .filtro-resp { flex-basis: 200px !important; }
+  .filtros .filtro-periodo { flex-basis: 190px !important; }
+}

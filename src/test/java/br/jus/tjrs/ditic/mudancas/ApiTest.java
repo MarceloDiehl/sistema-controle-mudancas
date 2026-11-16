@@ -71,7 +71,7 @@ class ApiTest {
         assertThat(mvc.perform(get("/api/precos")).andReturn().getResponse().getStatus()).isEqualTo(401);
         assertThat(mvc.perform(get("/api/lixeira")).andReturn().getResponse().getStatus()).isEqualTo(401);
         assertThat(mvc.perform(json(post("/api/mudancas"), "{}")).andReturn().getResponse().getStatus()).isEqualTo(401);
-        assertThat(mvc.perform(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"12345678\"}")).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"1234567\"}")).andReturn().getResponse().getStatus()).isEqualTo(401);
         assertThat(mvc.perform(post("/api/mudancas/" + id + "/visto").with(csrf())).andReturn().getResponse().getStatus()).isEqualTo(401);
     }
 
@@ -105,7 +105,7 @@ class ApiTest {
         String id = criar(tec, LocalDate.now().toString(), "Canoas");
         // acionar exige o ticket principal
         assertThat(status(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"acionada\"}"), tec)).isEqualTo(409);
-        assertThat(status(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"1234567\"}"), tec)).isEqualTo(400);
+        assertThat(status(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"123456\"}"), tec)).isEqualTo(400);
         assertThat(status(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"" + ticket() + "\"}"), tec)).isEqualTo(200);
         // agendada para hoje: acionar leva direto para Em atendimento, com o mesmo responsável
         String r = body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"acionada\"}"), tec);
@@ -178,7 +178,7 @@ class ApiTest {
         assertThat(r.getResponse().getStatus()).isEqualTo(409);
         assertThat(r.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8)).contains(n);
         assertThat((List<?>) JsonPath.read(body(get("/api/mudancas/" + b), tec), "$.subtickets")).isEmpty();
-        // 8 dígitos
+        // 7 dígitos
         assertThat(status(json(post("/api/mudancas/" + b + "/subtickets"), "{\"empresa\":\"CDS\",\"numeros\":\"123456\",\"servico\":\"Instalação\",\"quantidade\":1}"), tec)).isEqualTo(400);
     }
 
@@ -281,7 +281,7 @@ class ApiTest {
         return "{\"sei\":\"8.2026.9745/000001-1\",\"comarca\":\"" + local + "\",\"descricao\":\"Teste\",\"responsavel\":\"coordenador\",\"inicio\":\"" + inicio + "\"}";
     }
 
-    private static String ticket() { return String.valueOf(50000000 + SEQ.incrementAndGet()); }
+    private static String ticket() { return String.valueOf(5000000 + SEQ.incrementAndGet()); }
 
     private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder b, String corpo) {
         return b.contentType(MediaType.APPLICATION_JSON).content(corpo).with(csrf());

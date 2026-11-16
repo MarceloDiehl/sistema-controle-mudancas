@@ -27,7 +27,7 @@ uso e o fluxo.
   login, e a Nova demanda só aparece depois de entrar. O técnico faz tudo nas demandas; só o coordenador cancela, exclui, restaura da lixeira,
   aprova acessos e mantém Equipe e Configuração. Toda demanda tem responsável (no mínimo, o Coordenador, carga
   compartilhada); só a Concluída fica com o Setor. A conta inicial `admin` se chama "Coordenador".
-- Tickets: principal e subtickets com 8 dígitos. Subticket é único entre todas as demandas (repetido bloqueia).
+- Tickets: principal e subtickets com 7 dígitos. Subticket é único entre todas as demandas (repetido bloqueia).
   Ticket principal ou SEI repetido só avisam. Local só da lista do catálogo.
 - Custo do relatório: CDS = quantidade × preço da região; WECOM Realocação e Instalação = quantidade × valor;
   Infraestrutura = metro linear × valor do metro (a quantidade não multiplica) ou, sem metro, uma verba de 15 m por

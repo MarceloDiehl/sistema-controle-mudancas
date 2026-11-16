@@ -4,15 +4,16 @@
 -- Pode ser executado mais de uma vez: não apaga nem altera dados existentes (as tabelas e linhas que já existem ficam
 -- como estão). Se uma versão anterior deste script já foi executada e o banco ainda não tem dados, rode antes:
 --     DROP DATABASE ditic_mudancas_db;
--- Antes de rodar, troque TROCAR_SENHA pela senha do ditic_user (sem salvar o arquivo com a senha) e use a mesma em
--- src/main/resources/application-local.properties. Se o usuário já existir, a senha dele não muda.
+-- Antes de rodar, troque TROCAR_SENHA pela senha do ditic_admin (sem salvar o arquivo com a senha) e use a mesma em
+-- application-local.properties (na pasta do sistema). Se o usuário já existir, a senha dele não muda.
 -- O coordenador "admin" não é criado aqui: a aplicação o cria ao iniciar (mudancas.admin.senha-inicial).
 
 SET NAMES utf8mb4;
 
 CREATE DATABASE IF NOT EXISTS ditic_mudancas_db CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER IF NOT EXISTS 'ditic_user'@'localhost' IDENTIFIED BY 'TROCAR_SENHA';
-GRANT ALL PRIVILEGES ON ditic_mudancas_db.* TO 'ditic_user'@'localhost';
+CREATE USER IF NOT EXISTS 'ditic_admin'@'localhost' IDENTIFIED BY 'TROCAR_SENHA';
+-- a aplicação só lê e grava dados: as tabelas são criadas por este script, rodado como root
+GRANT SELECT, INSERT, UPDATE, DELETE ON ditic_mudancas_db.* TO 'ditic_admin'@'localhost';
 FLUSH PRIVILEGES;
 USE ditic_mudancas_db;
 
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS demanda (
     motivo_exclusao VARCHAR(100) NULL,
     carga ENUM('TECNICO','COORDENADOR','SETOR') NOT NULL,  -- sempre há responsável (no mínimo COORDENADOR, compartilhada); SETOR só na concluída
     tecnico_id BIGINT NULL,                            -- responsável (carga TECNICO) ou quem atendeu (COORDENADOR/SETOR)
-    ticket_principal CHAR(8) NULL,                     -- sempre 8 dígitos
+    ticket_principal CHAR(7) NULL,                     -- sempre 7 dígitos
     ticket_em DATETIME NULL,
     ticket_por_id BIGINT NULL,
     acionada_em DATE NULL,
@@ -102,7 +103,7 @@ CREATE TABLE IF NOT EXISTS demanda (
     aviso_em DATETIME NULL,
     criada_em DATETIME NOT NULL,
     atualizada_em DATETIME NOT NULL,
-    CONSTRAINT ck_demanda_ticket CHECK (ticket_principal IS NULL OR ticket_principal REGEXP '^[0-9]{8}$'),
+    CONSTRAINT ck_demanda_ticket CHECK (ticket_principal IS NULL OR ticket_principal REGEXP '^[0-9]{7}$'),
     CONSTRAINT fk_demanda_local FOREIGN KEY (local_id) REFERENCES `local`(id),
     CONSTRAINT fk_demanda_tecnico FOREIGN KEY (tecnico_id) REFERENCES pessoa(id),
     CONSTRAINT fk_demanda_ticket_por FOREIGN KEY (ticket_por_id) REFERENCES pessoa(id),
@@ -125,11 +126,11 @@ CREATE TABLE IF NOT EXISTS subticket (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     demanda_id BIGINT NOT NULL,
     empresa_id BIGINT NOT NULL,
-    numero CHAR(8) NOT NULL,                           -- sempre 8 dígitos; único entre todas as demandas
+    numero CHAR(7) NOT NULL,                           -- sempre 7 dígitos; único entre todas as demandas
     servico_id BIGINT NULL,
     quantidade SMALLINT NOT NULL DEFAULT 1,
     metro_linear INT NULL,                             -- só WECOM em Infraestrutura; opcional
-    CONSTRAINT ck_subticket_numero CHECK (numero REGEXP '^[0-9]{8}$'),
+    CONSTRAINT ck_subticket_numero CHECK (numero REGEXP '^[0-9]{7}$'),
     CONSTRAINT ck_subticket_quantidade CHECK (quantidade BETWEEN 1 AND 999),
     CONSTRAINT ck_subticket_metro CHECK (metro_linear IS NULL OR metro_linear BETWEEN 1 AND 9999),
     CONSTRAINT fk_subticket_demanda FOREIGN KEY (demanda_id) REFERENCES demanda(id) ON DELETE CASCADE,
