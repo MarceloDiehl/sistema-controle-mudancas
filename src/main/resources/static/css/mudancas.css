@@ -1650,3 +1650,21 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .filtros .filtro-limpa { width: 24px; height: 24px; border-radius: 7px; }
 .filtros .vistas { padding: 3px; }
 .filtros .vista-btn { height: 28px; width: 30px; border-radius: 7px; }
+
+/* ------------------------------------------------------------------ acabamento da parte de cima */
+/* abas, filtros e lista com a mesma borda fina e sem sombra; o trilho das abas continua cinza-claro */
+.sit-abas { padding: 2px; border: 1px solid var(--line); box-shadow: none; background: #F5F6F8; }
+.sit-cursor { top: 2px; bottom: 2px; }
+.filtros .campo-busca input, .filtros .filtro, .filtros .vistas { border-color: var(--line); box-shadow: none; }
+.filtros .campo-busca input:hover, .filtros .filtro:hover, .filtros .vistas:hover { border-color: #C9CFD6; }
+/* os filtros leem como botões, não como campos vazios: rótulo escuro, ícone e seta mais leves;
+   só a pesquisa fica com o texto claro de exemplo */
+.filtros .filtro-nome { color: var(--ink-2); font-weight: 500; }
+.filtros .filtro-ico, .filtros .filtro-seta { color: #9AA1AB; }
+.filtros .campo-busca input::placeholder { color: #9AA1AB; }
+.filtros .campo-busca svg { color: #9AA1AB; }
+/* larguras do tamanho do conteúdo (continuam fixas: nada se mexe ao escolher um filtro) */
+@media (min-width: 1101px) {
+  .filtros .filtro-local, .filtros .filtro-resp { flex-basis: 200px !important; }
+  .filtros .filtro-periodo { flex-basis: 190px !important; }
+}

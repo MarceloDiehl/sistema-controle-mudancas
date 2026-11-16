@@ -5,14 +5,15 @@
 -- como estão). Se uma versão anterior deste script já foi executada e o banco ainda não tem dados, rode antes:
 --     DROP DATABASE ditic_mudancas_db;
 -- Antes de rodar, troque TROCAR_SENHA pela senha do ditic_admin (sem salvar o arquivo com a senha) e use a mesma em
--- src/main/resources/application-local.properties. Se o usuário já existir, a senha dele não muda.
+-- application-local.properties (na pasta do sistema). Se o usuário já existir, a senha dele não muda.
 -- O coordenador "admin" não é criado aqui: a aplicação o cria ao iniciar (mudancas.admin.senha-inicial).
 
 SET NAMES utf8mb4;
 
 CREATE DATABASE IF NOT EXISTS ditic_mudancas_db CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 CREATE USER IF NOT EXISTS 'ditic_admin'@'localhost' IDENTIFIED BY 'TROCAR_SENHA';
-GRANT ALL PRIVILEGES ON ditic_mudancas_db.* TO 'ditic_admin'@'localhost';
+-- a aplicação só lê e grava dados: as tabelas são criadas por este script, rodado como root
+GRANT SELECT, INSERT, UPDATE, DELETE ON ditic_mudancas_db.* TO 'ditic_admin'@'localhost';
 FLUSH PRIVILEGES;
 USE ditic_mudancas_db;
 

@@ -34,4 +34,8 @@ build/
 
 ### Controle de Mudancas ###
 # senhas e ajustes da maquina
-src/main/resources/application-local.properties
+/application-local.properties
+# backups do banco (backup.bat): têm dados reais
+backup_ditic_mudancas_*.sql
+# pasta montada para levar ao trabalho (tem o .bat com a senha inicial)
+/executavel/

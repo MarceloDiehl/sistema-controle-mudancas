@@ -42,8 +42,9 @@ Precisa de Java 17 e MySQL 8.
 1. **Banco:** no MySQL Workbench, como root, abra `db/ditic_mudancas_db.sql`, troque `TROCAR_SENHA` pela senha do
    `ditic_admin` (sem salvar o arquivo) e execute. O script cria as tabelas e carrega os locais, as empresas, os
    serviços e os valores do custo.
-2. **Configuração:** copie `src/main/resources/application-local.properties.exemplo` para
-   `application-local.properties` e preencha a senha do banco e a senha inicial do coordenador.
+2. **Configuração:** na raiz do projeto, copie `application-local.properties.exemplo` para
+   `application-local.properties` e preencha a senha do banco e a senha inicial do coordenador. Esse arquivo fica
+   fora do Git e fora do `.jar`.
 3. **Aplicação:** rode `ControleMudancasApplication` no IntelliJ (ou `mvnw.cmd spring-boot:run`) e abra
    `http://localhost:8088`.
 4. **Primeiro acesso:** entre com `admin` e a senha inicial, crie a sua senha e troque o nome "Coordenador" pelo seu
@@ -56,6 +57,29 @@ produção.
 
 Sem nenhum coordenador disponível, inicie a aplicação com `--mudancas.redefinir-senha=<usuário>`: a senha temporária
 aparece no console.
+
+### No servidor
+
+1. **Banco:** rode `db/ditic_mudancas_db.sql` como root (passo 1 acima). O script cria o usuário `ditic_admin` só com
+   leitura e gravação de dados. Para usar um usuário do MySQL que já existe, apague as linhas `CREATE USER` e `GRANT`
+   antes de rodar e dê a ele `SELECT, INSERT, UPDATE, DELETE` no banco `ditic_mudancas_db`.
+2. **Pacote:** nesta máquina, `mvnw.cmd clean package -DskipTests` gera `target/controle-mudancas-1.0.0.jar`.
+3. **Pasta do sistema:** copie o `.jar` e o `iniciar.bat` para a mesma pasta. No `iniciar.bat` dessa cópia, preencha
+   `SENHA_INICIAL_ADMIN` (nunca na cópia do Git). Sem `application-local.properties`, o sistema entra no MySQL local
+   como `ditic_admin`, sem senha. Se o banco tiver senha, ou estiver em outra máquina, crie o
+   `application-local.properties` na mesma pasta (modelo em `application-local.properties.exemplo`). Com HTTPS, ligue
+   `server.servlet.session.cookie.secure=true`.
+4. **Iniciar:** dois cliques no `iniciar.bat` (precisa do Java 17 ou mais novo). Enquanto a janela estiver aberta, o
+   sistema fica em `http://localhost:8088` e o navegador abre sozinho; para parar, feche a janela. Para o sistema voltar
+   sozinho quando a máquina reiniciar, ele pode ser instalado como serviço do Windows.
+5. **Primeiro acesso:** como no passo 4 acima. O `admin` só é criado se ainda não existir no banco; depois disso, a
+   senha inicial do arquivo não vale mais e pode sair de lá.
+
+Não rode `db/dados_ficticios.sql` no servidor.
+
+**Backup:** dois cliques no `backup.bat` geram, na pasta dele, `backup_ditic_mudancas_AAAA-MM-DD_HHMM.sql`, com as
+tabelas e todos os dados (pode rodar com o sistema no ar). Para restaurar, abra o arquivo no Workbench, como root, e
+execute: ele recria o banco com os dados do backup. Guarde as cópias fora da máquina; os backups ficam fora do Git.
 
 ## Testes
 
