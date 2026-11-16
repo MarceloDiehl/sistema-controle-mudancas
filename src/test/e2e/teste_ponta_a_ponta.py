@@ -101,10 +101,13 @@ with sync_playwright() as p:
 
     # ------------------------------------------------------------------ tela principal
     abas = [e.inner_text() for e in pg.query_selector_all('.sit-aba .aba-nome')]
+    clk(pg, '[data-acao=sit-aba][data-v=nova]'); pg.wait_for_timeout(450)
+    chk(pg.evaluate("(() => { const c = document.querySelector('.sit-cursor').getBoundingClientRect(); const a = document.querySelector('.sit-aba[aria-selected=true]').getBoundingClientRect(); return Math.abs(c.left - a.left) < 2 && Math.abs(c.width - a.width) < 2; })()"), 'a peça das abas desliza e para sobre a aba escolhida')
+    clk(pg, '[data-acao=sit-aba][data-v=abertas]')
     chk(abas == ['Em aberto', 'Novas', 'Acionadas', 'Em Atendimento', 'Para Validação', 'Concluídas', 'Canceladas', 'Todas'], f'abas de situação {abas}')
-    ordem = pg.evaluate("[...document.querySelectorAll('.filtros > *')].map(e => e.className.split(' ').find(c => ['campo-busca','filtro-local','filtro-resp','vistas'].includes(c)))")
-    chk(ordem == ['campo-busca', 'filtro-local', 'filtro-resp', 'vistas'], f'abaixo das abas: pesquisa, Local, Responsável e visualização {ordem}')
-    alt = pg.evaluate("['#busca', '.filtro-local', '.filtro-resp', '.filtros .vistas'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [Math.round(r.top), Math.round(r.height)]; })")
+    ordem = pg.evaluate("[...document.querySelectorAll('.filtros > *')].map(e => e.className.split(' ').find(c => ['campo-busca','filtro-local','filtro-resp','filtro-periodo','filtro-comigo','vistas'].includes(c)))")
+    chk(ordem == ['campo-busca', 'filtro-local', 'filtro-resp', 'filtro-periodo', 'filtro-comigo', 'vistas'], f'abaixo das abas: pesquisa, Local, Responsável, Período, Minhas demandas e visualização {ordem}')
+    alt = pg.evaluate("['#busca', '.filtro-local', '.filtro-resp', '.filtro-comigo', '.filtro-periodo', '.filtros .vistas'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [Math.round(r.top), Math.round(r.height)]; })")
     chk(len(set(map(tuple, alt))) == 1, f'pesquisa, seletores e visualização na mesma linha e altura {alt}')
     chk(pg.evaluate("document.querySelector('.topo').getBoundingClientRect().height") < 60, 'navbar baixo')
     clk(pg, '[data-acao=sobre]'); chk(texto(pg, '.sobre-ver') == 'Versão do Sistema: 1.0.0 · Novembro/2026', 'informações do sistema'); clk(pg, '[data-acao=fechar-modal]')
@@ -178,6 +181,35 @@ with sync_playwright() as p:
     chk('A data já passou' in texto(pg, '.sucesso'), 'demanda antiga: a confirmação avisa que a data já passou')
     clk(pg, '[data-acao=fechar-modal]'); clk(pg, '[data-acao=sit-aba][data-v=nova]')
     chk(pg.query_selector(f'.linha-dem.nv-venc[data-id="{d3}"] .nv-ponto.venc') is not None, 'Nova vencida ganha bolinha e contorno vermelhos')
+
+    # a hora fica só dentro do card
+    clk(pg, '[data-acao=sit-aba][data-v=todas]')
+    chk(pg.query_selector('.linha-dem .c-hora') is None and '13:00' not in texto(pg, f'[data-acao=abrir][data-id="{d1}"]'), 'a hora não aparece ao lado da data na lista')
+    clk(pg, '[data-acao=vista][data-v=postits]'); chk('13:00' not in texto(pg, '.rolagem'), 'nem no post-it'); clk(pg, '[data-acao=vista][data-v=linhas]')
+    abre(pg, d1); chk('13:00' in texto(pg, '.det-l2'), 'dentro do card, a hora aparece'); fecha(pg)
+    # Período: atalhos, datas digitadas, calendário e validação
+    linhas = lambda: sorted(int(e.get_attribute('data-id')) for e in pg.query_selector_all('.linha-dem'))
+    clk(pg, '[data-acao=periodo-pop]'); clk(pg, '[data-acao=periodo-atalho][data-v=hoje]')
+    chk(linhas() == [d2] and pg.inner_text('.filtro-periodo .filtro-nome').strip() == br(HOJE.isoformat()), f'Período "Hoje": só a demanda de hoje {linhas()}')
+    clk(pg, '[data-acao=periodo-pop]'); pg.fill('#per-de', br(em_dias(6))); pg.fill('#per-ate', br(em_dias(4))); clk(pg, '[data-acao=periodo-aplicar]')
+    chk('antes da inicial' in texto(pg, '.pop-periodo .erro'), 'Período com a data final antes da inicial é recusado')
+    pg.fill('#per-de', br(em_dias(4))); pg.fill('#per-ate', br(em_dias(6))); clk(pg, '[data-acao=periodo-aplicar]')
+    chk(linhas() == [d1], f'Período digitado: só a demanda dentro dele {linhas()}')
+    clk(pg, '[data-acao=periodo-pop]'); clk(pg, '.pop-periodo .data-btn'); chk(pg.query_selector('#cal-pop') is not None and pg.query_selector('.pop-periodo') is not None, 'o calendário abre dentro do Período sem fechá-lo')
+    clk(pg, '#cal-pop [data-acao=cal-hoje]'); chk(pg.input_value('#per-de') == br(HOJE.isoformat()), 'escolher no calendário preenche a data')
+    clk(pg, '.pop-periodo [data-acao=periodo-limpar]'); chk(pg.query_selector('.filtro-periodo.ativo') is None and len(linhas()) == 3, 'Limpar tira o filtro de período')
+    # a linha de filtros não se mexe ao escolher filtros ou ligar Minhas demandas
+    caixas = lambda: pg.evaluate("['#busca', '.filtro-local', '.filtro-resp', '.filtro-periodo', '.filtro-comigo', '.filtros .vistas'].map(s => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round(b.left), Math.round(b.width)]; })")
+    antes_f = caixas()
+    clk(pg, '[data-acao=comigo]'); m1 = caixas(); clk(pg, '[data-acao=comigo]')
+    clk(pg, '[data-acao=periodo-pop]'); clk(pg, '[data-acao=periodo-atalho][data-v=prox30]'); m2 = caixas(); clk(pg, '[data-acao=periodo-pop]'); clk(pg, '.pop-periodo [data-acao=periodo-limpar]')
+    clk(pg, '[data-acao=resp-pop]'); clk(pg, '.op-resp'); m3 = caixas(); clk(pg, '.filtro-resp .filtro-limpa')
+    chk(antes_f == m1 == m2 == m3, f'os filtros não mudam de tamanho nem de lugar ao serem escolhidos {antes_f} {m1} {m2} {m3}')
+    # Comigo: o coordenador vê a carga do Coordenador
+    clk(pg, '[data-acao=comigo]')
+    chk(pg.query_selector('.filtro-comigo.ativo') is not None and all('Coordenador' in e.inner_text() for e in pg.query_selector_all('.linha-dem')), 'Minhas demandas (coordenador): só as demandas com o Coordenador')
+    clk(pg, '[data-acao=comigo]'); chk(pg.query_selector('.filtro-comigo.ativo') is None and len(linhas()) == 3, 'um segundo clique desliga Minhas demandas')
+    clk(pg, '[data-acao=sit-aba][data-v=abertas]')
 
     # ------------------------------------------------------------------ demanda antiga: tickets → Para Validação → relatório → concluir
     d4 = nova_demanda(pg, '8.2026.9745/000104-1', 'Canoas', em_dias(-10), resp=ana, fim=em_dias(-9)); clk(pg, '[data-acao=fechar-modal]')
@@ -253,6 +285,9 @@ with sync_playwright() as p:
     pg.select_option('#f-resp', ana); clk(pg, '#btn-salvar')
     chk(dem(pg, d2)['responsavel'] == ana and any('Responsável alterado: Bruno Lima → Ana Souza' in h['texto'] for h in dem(pg, d2)['historico']), 'técnico troca o responsável de uma demanda de outro')
     hist = dem(pg, d2)['historico'][-1]; chk(hist['usuario'] == ana, 'o histórico grava o autor real')
+    fecha(pg); clk(pg, '[data-acao=sit-aba][data-v=todas]'); clk(pg, '[data-acao=comigo]')
+    chk(len(pg.query_selector_all('.linha-dem')) > 0 and all('Ana' in e.inner_text() for e in pg.query_selector_all('.linha-dem')), 'Minhas demandas (técnico): só as demandas da própria pessoa')
+    clk(pg, '[data-acao=comigo]'); clk(pg, '[data-acao=sit-aba][data-v=abertas]'); abre(pg, d2)
     clk(pg, '[data-acao=aba][data-v=hist]'); pg.fill('#h-nota', 'Solicitado ao DMP'); enviar(pg, 'form[data-form=nota]')
     chk(dem(pg, d2)['historico'][-1]['texto'] == 'Solicitado ao DMP', 'registrar andamento')
     fecha(pg)

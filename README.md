@@ -49,6 +49,11 @@ Precisa de Java 17 e MySQL 8.
 4. **Primeiro acesso:** entre com `admin` e a senha inicial, crie a sua senha e troque o nome "Coordenador" pelo seu
    em **Equipe**. Depois inclua a equipe: cada pessoa recebe uma senha temporária, válida por 24 horas.
 
+**Para testar com dados:** depois do primeiro acesso, rode `db/dados_ficticios.sql` no Workbench. Ele cria 5 técnicos
+e 28 demandas de exemplo, em todas as situações, com tickets, subtickets e histórico; as datas acompanham o dia em que
+o script roda. Os técnicos de exemplo entram depois que o coordenador usar **Redefinir senha** em Equipe. Não use em
+produção.
+
 Sem nenhum coordenador disponível, inicie a aplicação com `--mudancas.redefinir-senha=<usuário>`: a senha temporária
 aparece no console.
 

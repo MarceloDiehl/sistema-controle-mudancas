@@ -240,6 +240,7 @@
     aberta: null, aba: 'dados',
     modal: null, modalDados: null,
     menu: null, toast: null, destaque: null,
+    periodo: null, // filtro de período do agendamento: { de, ate } (AAAA-MM-DD; um dos dois pode ficar vazio)
     statusRascunho: null, // status escolhido no select e ainda não salvo
     subRasc: {}, // serviço, quantidade e metro de subtickets alterados e ainda não salvos
     erros: {}
@@ -263,8 +264,23 @@
   const nomeUsr = (id) => (usr(id) ? usr(id).nome : (id || 'Sem responsável'));
   const sit = (id) => SITUACOES.find((s) => s.id === id);
   // em telas estreitas as abas rolam: mantém a ativa à vista
-  function mostrarAbaAtiva() {
+  // a peça em relevo das abas: parte de onde estava e desliza até a aba escolhida (sem animação, se o sistema pedir menos movimento)
+  let cursorAntes = null;
+  const menosMovimento = window.matchMedia('(prefers-reduced-motion: reduce)');
+  function moverCursor(box, animar) {
+    const c = box.querySelector('.sit-cursor'); const b = box.querySelector('.sit-aba[aria-selected="true"]'); if (!c || !b) return;
+    const novo = [b.offsetLeft, b.offsetWidth];
+    const pos = ([x, w]) => { c.style.transform = 'translateX(' + x + 'px)'; c.style.width = w + 'px'; };
+    if (animar && cursorAntes && !menosMovimento.matches && (cursorAntes[0] !== novo[0] || cursorAntes[1] !== novo[1])) {
+      c.style.transition = 'none'; pos(cursorAntes); void c.offsetWidth; c.style.transition = '';
+    } else {
+      c.style.transition = 'none'; pos(novo); void c.offsetWidth; c.style.transition = '';
+    }
+    pos(novo); cursorAntes = novo;
+  }
+  function mostrarAbaAtiva(redimensionou) {
     const box = document.querySelector('.sit-abas'); const b = box && box.querySelector('.sit-aba[aria-selected="true"]');
+    if (box) moverCursor(box, !redimensionou);
     if (box && !box.dataset.ouve) { box.dataset.ouve = '1'; box.addEventListener('scroll', () => bordasAbas(box), { passive: true }); }
     if (box) bordasAbas(box);
     if (!b || box.scrollWidth <= box.clientWidth) return;
@@ -434,6 +450,58 @@
     </div>`;
   }
 
+  // Minhas demandas: chave que, com um clique, mostra só o que está com quem entrou (para o coordenador, a carga do Coordenador)
+  const meuResp = () => (ehGestor() ? COORD : E.usuario);
+  function filtroComigo() {
+    if (!E.usuario) return '';
+    const eu = meuResp(); const on = E.filtroResp === eu;
+    return `<div class="filtro filtro-comigo ${on ? 'ativo' : ''}">
+      <button type="button" class="filtro-btn" data-acao="comigo" role="switch" aria-checked="${on}" title="${ehGestor() ? 'Só as demandas com o Coordenador' : 'Só as demandas que estão comigo'}">
+        <span class="chave" aria-hidden="true"></span><span class="filtro-nome">Minhas Demandas</span>
+      </button>
+    </div>`;
+  }
+
+  // Período: demandas com agendamento que cruza o intervalo escolhido (sem data, ficam de fora enquanto o filtro vale)
+  const ATALHOS_PERIODO = [['hoje', 'Hoje'], ['semana', 'Esta semana'], ['mes', 'Este mês'], ['prox30', 'Próximos 30 dias']];
+  const noPeriodo = (d, p) => !!d.inicio && (!p.ate || d.inicio <= p.ate) && (!p.de || (d.fim || d.inicio) >= p.de);
+  function textoPeriodo(p) {
+    // no ano corrente, sem o ano: cabe no botão sem mudar a largura dele
+    const ano = hojeISO().slice(0, 4);
+    if (p.de && p.ate && p.de !== p.ate && p.de.slice(0, 4) === ano && p.ate.slice(0, 4) === ano) return br(p.de).slice(0, 5) + ' a ' + br(p.ate).slice(0, 5);
+    if (p.de && p.ate) return p.de === p.ate ? br(p.de) : br(p.de).slice(0, 5) + ' a ' + br(p.ate);
+    return p.de ? 'A partir de ' + br(p.de) : 'Até ' + br(p.ate);
+  }
+  function atalhoPeriodo(v) {
+    const hoje = hojeISO(); const d = new Date(hoje + 'T12:00');
+    if (v === 'hoje') return { de: hoje, ate: hoje };
+    if (v === 'semana') { const seg = somarDias(hoje, -((d.getDay() + 6) % 7)); return { de: seg, ate: somarDias(seg, 6) }; }
+    if (v === 'mes') return { de: hoje.slice(0, 8) + '01', ate: somarDias(somarDias(hoje.slice(0, 8) + '01', 32).slice(0, 8) + '01', -1) };
+    return { de: hoje, ate: somarDias(hoje, 30) };
+  }
+  function filtroPeriodo() {
+    const p = E.periodo; const aberto = E.menu === 'periodo';
+    const n = p ? E.demandas.filter((d) => E.sitAtivas.has(d.situacao) && noPeriodo(d, p)).length : 0;
+    return `<div class="menu-ancora filtro filtro-periodo ${p ? 'ativo' : ''} ${aberto ? 'aberto' : ''}">
+      <button type="button" class="filtro-btn" data-acao="periodo-pop" aria-haspopup="dialog" aria-expanded="${aberto}" aria-label="Filtrar por período${p ? ': ' + esc(textoPeriodo(p)) : ''}">
+        <span class="filtro-ico">${I.agenda}</span>
+        <span class="filtro-nome">${p ? esc(textoPeriodo(p)) : 'Período'}</span>
+        ${p ? `<span class="filtro-n" title="Demandas no período, na aba escolhida">${n}</span>` : `<span class="filtro-seta">${I.setaBaixo}</span>`}
+      </button>
+      ${p ? `<button type="button" class="filtro-limpa" data-acao="periodo-limpar" aria-label="Limpar filtro de período" title="Limpar filtro">${I.xP}</button>` : ''}
+      ${aberto ? `<div class="dropdown-menu show pop-periodo" role="dialog" aria-label="Período do agendamento">
+        <div class="pop-cab"><span>Período do agendamento</span></div>
+        <div class="per-atalhos">${ATALHOS_PERIODO.map(([v, r]) => `<button type="button" class="per-atalho" data-acao="periodo-atalho" data-v="${v}">${r}</button>`).join('')}</div>
+        <div class="per-datas">
+          <div class="campo"><label class="form-label" for="per-de">De</label>${campoData('per-de', p && p.de, E.erros.periodo)}</div>
+          <div class="campo"><label class="form-label" for="per-ate">Até</label>${campoData('per-ate', p && p.ate, E.erros.periodo)}</div>
+        </div>
+        ${E.erros.periodo ? `<span class="erro">${esc(E.erros.periodo)}</span>` : ''}
+        <div class="per-pe"><button type="button" class="btn btn-link" data-acao="periodo-limpar">Limpar</button><button type="button" class="btn btn-primary" data-acao="periodo-aplicar">Aplicar</button></div>
+      </div>` : ''}
+    </div>`;
+  }
+
   // filtro de local: mesma aparência do de responsável, com busca e só os locais que têm demandas
   function filtroLocal() {
     const base = E.demandas.filter((d) => E.sitAtivas.has(d.situacao));
@@ -474,6 +542,7 @@
     let ls = E.demandas.filter((d) => E.sitAtivas.has(d.situacao));
     if (E.filtroResp) ls = ls.filter((d) => d.responsavel === E.filtroResp);
     if (E.filtroLocal) ls = ls.filter((d) => d.comarca === E.filtroLocal);
+    if (E.periodo) ls = ls.filter((d) => noPeriodo(d, E.periodo));
     if (q) {
       ls = ls.filter((d) => normal([d.sei, d.descricao, d.comarca, d.informacoes, num4(d.id), d.ticketPrincipal,
         d.subtickets.map((s) => s.numero + ' ' + s.empresa).join(' ')].join(' ')).includes(q));
@@ -554,12 +623,12 @@
     const ini = (E.folha - 1) * POR_FOLHA;
     const folha = ls.slice(ini, ini + POR_FOLHA);
     // todos os locais do catálogo, mais algum que exista só nas demandas
-    const filtrando = E.busca || E.filtroResp || E.filtroLocal;
+    const filtrando = E.busca || E.filtroResp || E.filtroLocal || E.periodo;
     return `
 <main class="painel">
   <h1 class="visually-hidden">Demandas de mudança</h1>
   <div class="titulo-linha">
-    <div class="nav sit-abas" role="tablist" aria-label="Filtrar por situação">
+    <div class="nav sit-abas" role="tablist" aria-label="Filtrar por situação"><span class="sit-cursor" aria-hidden="true"></span>
       ${(() => {
         const atual = abaSit();
         const nAb = base.filter((d) => ABERTAS.includes(d.situacao)).length;
@@ -577,10 +646,12 @@
   <div class="filtros" role="search">
     <div class="campo-busca">
       <label for="busca" class="visually-hidden">Pesquisar demandas</label>${I.busca}
-      <input id="busca" class="form-control" type="search" autocomplete="off" data-campo="busca" value="${esc(E.busca)}" placeholder="Expediente SEI, ticket, local ou palavra-chave">
+      <input id="busca" class="form-control" type="search" autocomplete="off" data-campo="busca" value="${esc(E.busca)}" placeholder="SEI, ticket, local ou palavra-chave">
     </div>
     ${filtroLocal()}
     ${filtroResp()}
+    ${filtroPeriodo()}
+    ${filtroComigo()}
     ${vistasHtml()}
   </div>
 
@@ -627,7 +698,7 @@
   </div>
   ${pontoAviso(d)}
   <div class="cel c-dem"><span class="ico">${I.local}</span><span class="local">${esc(d.comarca || 'Local não informado')}</span></div>
-  <div class="cel c-ag">${d.inicio ? `<span class="ico">${I.agenda}</span><span class="c-data ${vencida(d) ? 'vencida' : ''}">${esc(agendaTexto(d))}</span>${d.hora && !variosDias(d) ? `<span class="c-hora">${esc(d.hora)}</span>` : ''}` : '<span class="c-data vazia">Sem data</span>'}${prazo(d)}</div>
+  <div class="cel c-ag">${d.inicio ? `<span class="ico">${I.agenda}</span><span class="c-data ${vencida(d) ? 'vencida' : ''}">${esc(agendaTexto(d))}</span>` : '<span class="c-data vazia">Sem data</span>'}${prazo(d)}</div>
   <div class="cel c-tk">${d.ticketPrincipal ? `<span class="ico">${I.ticket}</span><span class="tk-num">${esc(d.ticketPrincipal)}</span>` : '<span class="tk-vazio">Sem ticket</span>'}</div>
   <div class="cel c-st"><span class="badge selo">${s.um}</span></div>
   <div class="cel c-resp">${cargaHtml(d)}</div>
@@ -644,7 +715,7 @@
   <h3 class="pi-local">${esc(d.comarca || 'Local não informado')}</h3>
   <p class="pi-desc">${esc(d.descricao || 'Sem descrição.')}</p>
   <div class="pi-pe">
-    <div class="pi-linha"><span class="pi-data" title="${d.inicio ? esc(agendaComHora(d)) : ''}">${d.inicio ? `${I.agenda}<span class="${vencida(d) ? 'vencida' : ''}">${esc(agendaTexto(d))}</span>${d.hora && !variosDias(d) ? `<span class="c-hora">${esc(d.hora)}</span>` : ''}` : '<span class="vazia">Sem data</span>'}</span>${prazo(d)}</div>
+    <div class="pi-linha"><span class="pi-data">${d.inicio ? `${I.agenda}<span class="${vencida(d) ? 'vencida' : ''}">${esc(agendaTexto(d))}</span>` : '<span class="vazia">Sem data</span>'}</span>${prazo(d)}</div>
     <div class="pi-linha"><span class="pi-tk">${d.ticketPrincipal ? `${I.ticket}<span>${esc(d.ticketPrincipal)}</span>` : '<span class="vazia">Sem ticket</span>'}</span><span class="badge selo">${s.um}</span></div>
   </div>
 </article>`;
@@ -1134,7 +1205,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): volta à consulta sem login
   async function sairDaSessao() {
     Object.assign(E, { usuario: null, perfil: null, lixeira: [], solicitacoes: [], precos: null,
-      aberta: null, statusRascunho: null, subRasc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null });
+      aberta: null, statusRascunho: null, subRasc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null, filtroResp: '' });
     try { await carregarTudo(); } catch (e) { E.carregado = false; }
   }
   function sessaoEncerrada(msg) { sairDaSessao().then(() => abrirLogin(msg)); }
@@ -1337,7 +1408,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <header class="modal-header"><div><h2 class="modal-title" id="ac-tit">Informação de Acionamento</h2><p>Texto gerado automaticamente, cabe revisão.</p></div>
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
-    ${semSub ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda ainda não tem subtickets das empresas. Inclua na aba Tickets para que apareçam no texto.</span></p>` : ''}
+    ${semSub ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda ainda não possui subtickets cadastrados.</span></p>` : ''}
     ${!d.inicio ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>A demanda está sem data de agendamento.</span></p>` : ''}
     <label class="visually-hidden" for="ac-texto">Texto da informação</label>
     <textarea id="ac-texto" data-rascunho class="form-control txt ac-texto" rows="12" spellcheck="false">${esc(textoAcionamento(d))}</textarea>
@@ -1949,7 +2020,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const a = alvo.dataset.acao; const id = alvo.dataset.id ? Number(alvo.dataset.id) : null; const v = alvo.dataset.v;
     // clicar fora do modal não fecha nada; só recolhe um menu que esteja aberto
     if (a === 'fundo-modal') { if (E.menu) { E.menu = null; desenhar(); } return; }
-    if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'menu-conta' && E.menu) E.menu = null;
+    if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'periodo-pop' && a !== 'periodo-aplicar' && a !== 'menu-conta' && E.menu) E.menu = null;
     // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o coordenador
     const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config', 'eq-editar', 'eq-transferir', 'eq-desativar', 'eq-reativar', 'eq-senha', 'sol-aprovar', 'sol-recusar'];
     const EDITA = ['sub-del', 'tk-alterar'];
@@ -2015,7 +2086,17 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'sit-aba': E.folha = 1;
         E.sitAtivas = new Set(v === 'todas' ? SITUACOES.map((x) => x.id) : v === 'abertas' ? ABERTAS : [v]);
         guardarPreferencias(); desenhar(); break;
-      case 'limpar': E.folha = 1; E.busca = ''; E.filtroResp = ''; E.filtroLocal = ''; desenhar(); break;
+      case 'limpar': E.folha = 1; E.busca = ''; E.filtroResp = ''; E.filtroLocal = ''; E.periodo = null; desenhar(); break;
+      case 'comigo': E.filtroResp = E.filtroResp === meuResp() ? '' : meuResp(); E.folha = 1; desenhar(); break;
+      case 'periodo-pop': E.menu = E.menu === 'periodo' ? null : 'periodo'; E.erros = {}; E.limparRascunho = true; desenhar(); break;
+      case 'periodo-atalho': E.periodo = atalhoPeriodo(v); E.menu = null; E.erros = {}; E.folha = 1; E.limparRascunho = true; desenhar(); break;
+      case 'periodo-limpar': E.periodo = null; E.menu = null; E.erros = {}; E.folha = 1; E.limparRascunho = true; desenhar(); break;
+      case 'periodo-aplicar': {
+        const de = dataISO('per-de'); const ate = dataISO('per-ate');
+        if (de === null || ate === null) { E.menu = 'periodo'; E.erros = { periodo: 'Data inválida. Use dd/mm/aaaa ou escolha no calendário.' }; desenhar(); break; }
+        if (de && ate && ate < de) { E.menu = 'periodo'; E.erros = { periodo: 'A data final não pode ser antes da inicial.' }; desenhar(); break; }
+        E.periodo = de || ate ? { de: de || '', ate: ate || '' } : null; E.menu = null; E.erros = {}; E.folha = 1; E.limparRascunho = true; desenhar(); break;
+      }
       case 'folha': E.folha = Number(v); E.zerarLista = true; desenhar(); break;
       case 'tk-alterar': E.editTk = true; E.erros = {}; desenhar(); { const el = document.getElementById('t-principal'); if (el) { el.focus(); el.select(); } } break;
       case 'tk-cancelar': E.editTk = false; E.erros = {}; E.limparRascunho = true; desenhar(); break;
@@ -2089,7 +2170,9 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (dx) m.style.transform = 'translateX(' + Math.round(dx) + 'px)';
     });
   }
-  window.addEventListener('resize', () => { mostrarAbaAtiva(); ajustaMenus(); });
+  window.addEventListener('resize', () => { mostrarAbaAtiva(true); ajustaMenus(); });
+  // as fontes chegam depois do primeiro desenho e mudam a largura das abas
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => mostrarAbaAtiva(true));
   // abas de situação: setas, Home e End trocam de aba (padrão de tablist)
   document.addEventListener('keydown', (ev) => {
     const tab = ev.target.closest && ev.target.closest('.sit-abas .sit-aba');
