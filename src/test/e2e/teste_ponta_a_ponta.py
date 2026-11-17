@@ -3,7 +3,7 @@
 #   1. Suba a aplicação com o banco de teste (H2 em memória, com os catálogos do script do banco):
 #        mvnw.cmd test-compile spring-boot:test-run        (Linux/macOS: ./mvnw ...)
 #   2. Em outro terminal:  python src/test/e2e/teste_ponta_a_ponta.py  [url]   (padrão: http://localhost:8088/)
-# O servidor de teste começa vazio, só com o coordenador "admin" (senha inicial "admin-inicial"). O teste cria as
+# O servidor de teste começa vazio, só com o administrador "admin" (senha inicial "admin-inicial"). O teste cria as
 # próprias pessoas e demandas pelas telas e confere o resultado na API. Para repetir, reinicie o servidor de teste.
 import sys, datetime, re
 from playwright.sync_api import sync_playwright
@@ -68,8 +68,8 @@ def aciona(pg):
     clk(pg, '[data-acao=aba][data-v=dados]'); pg.select_option('#d-status', 'acionada'); espera(pg)
     clk(pg, '#btn-salvar')
 def pessoa(pg, login): return next(p for p in api(pg, 'pessoas') if p['login'] == login)
-def inclui_pessoa(pg, nome, login, perfil='TECNICO'):
-    pg.fill('#eq-nome', nome); pg.fill('#eq-login', login); pg.select_option('#eq-perfil', perfil); enviar(pg, 'form[data-form=equipe-add]')
+def inclui_pessoa(pg, nome, login):
+    pg.fill('#eq-nome', nome); pg.fill('#eq-login', login); enviar(pg, 'form[data-form=equipe-add]')
     senha = texto(pg, '.senha-tmp').strip()
     chk(pg.query_selector('.senha-tmp [data-acao=copiar-senha]') is not None, 'a senha temporária tem o botão de copiar')
     clk(pg, '.confirma [data-acao=fechar-modal]'); return senha
@@ -91,13 +91,13 @@ with sync_playwright() as p:
     if pg.query_selector('form[data-form=senha]') is None:   # o servidor já tinha sido usado: entra com a senha do teste
         entra(pg, 'admin', SENHA_ADMIN)
     else:
-        chk(True, 'primeiro acesso do coordenador exige criar a senha')
+        chk(True, 'primeiro acesso do administrador exige criar a senha')
         pg.mouse.click(5, 5); pg.keyboard.press('Escape'); espera(pg); chk(pg.query_selector('form[data-form=senha]') is not None, 'a criação de senha não fecha por clique fora nem Esc')
         cria_senha(pg, 'curta'); chk('8 caracteres' in texto(pg, '.login .erro'), 'senha curta é recusada')
         cria_senha(pg, 'admin-inicial'); chk('diferente' in texto(pg, '.login .erro'), 'a nova senha precisa ser diferente da inicial')
         cria_senha(pg, SENHA_ADMIN)
-    chk(pg.query_selector('.modal-camada') is None and pg.query_selector('[data-acao=nova]') is not None and 'Coordenador' in texto(pg, '.topo'), 'coordenador entra e vê a tela principal')
-    clk(pg, '[data-acao=menu-conta]'); chk(all(pg.query_selector(f'[data-acao={a}]') for a in ('equipe', 'lixeira', 'config')), 'menu do coordenador com Equipe, Lixeira e Configuração'); clk(pg, '[data-acao=menu-conta]')
+    chk(pg.query_selector('.modal-camada') is None and pg.query_selector('[data-acao=nova]') is not None and 'Administrador' in texto(pg, '.topo'), 'administrador entra e vê a tela principal')
+    clk(pg, '[data-acao=menu-conta]'); chk(all(pg.query_selector(f'[data-acao={a}]') for a in ('equipe', 'lixeira', 'config')), 'menu do administrador com Equipe, Lixeira e Configuração'); clk(pg, '[data-acao=menu-conta]')
 
     # ------------------------------------------------------------------ tela principal
     abas = [e.inner_text() for e in pg.query_selector_all('.sit-aba .aba-nome')]
@@ -114,7 +114,9 @@ with sync_playwright() as p:
 
     # ------------------------------------------------------------------ equipe e contas
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=equipe]')
+    chk(pg.query_selector('#eq-perfil') is None and 'Coordenador' not in texto(pg, '.modal-content.equipe'), 'Equipe sem escolha de perfil e sem o nome Coordenador')
     senha_ana = inclui_pessoa(pg, 'Ana Souza', 'ana.souza')
+    chk(pessoa(pg, 'ana.souza')['perfil'] == 'TECNICO', 'conta nova é sempre de técnico')
     chk(re.fullmatch(r'[A-Za-z2-9]{10}', senha_ana or '') is not None, 'incluir pessoa mostra a senha temporária uma vez')
     larg_eq = pg.evaluate("(() => { const r = document.querySelector('.modal-content.equipe').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()")
     chk(pg.query_selector('.modal-content.equipe') is not None, 'fechar a senha temporária volta à Equipe')
@@ -205,9 +207,9 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=periodo-pop]'); clk(pg, '[data-acao=periodo-atalho][data-v=prox30]'); m2 = caixas(); clk(pg, '[data-acao=periodo-pop]'); clk(pg, '.pop-periodo [data-acao=periodo-limpar]')
     clk(pg, '[data-acao=resp-pop]'); clk(pg, '.op-resp'); m3 = caixas(); clk(pg, '.filtro-resp .filtro-limpa')
     chk(antes_f == m1 == m2 == m3, f'os filtros não mudam de tamanho nem de lugar ao serem escolhidos {antes_f} {m1} {m2} {m3}')
-    # Comigo: o coordenador vê a carga do Coordenador
+    # Comigo: o administrador vê a carga do Administrador
     clk(pg, '[data-acao=comigo]')
-    chk(pg.query_selector('.filtro-comigo.ativo') is not None and all('Coordenador' in e.inner_text() for e in pg.query_selector_all('.linha-dem')), 'Minhas demandas (coordenador): só as demandas com o Coordenador')
+    chk(pg.query_selector('.filtro-comigo.ativo') is not None and all('Administrador' in e.inner_text() for e in pg.query_selector_all('.linha-dem')), 'Minhas demandas (administrador): só as demandas com o Administrador')
     clk(pg, '[data-acao=comigo]'); chk(pg.query_selector('.filtro-comigo.ativo') is None and len(linhas()) == 3, 'um segundo clique desliga Minhas demandas')
     clk(pg, '[data-acao=sit-aba][data-v=abertas]')
 
@@ -242,6 +244,12 @@ with sync_playwright() as p:
     x = dem(pg, d4); chk(x['situacao'] == 'concluida' and x['responsavel'] is None and x['tecnico'] == ana, 'concluída fica com o Setor e guarda quem atendeu')
     clk(pg, '[data-acao=aba][data-v=dados]')
     chk(pg.is_disabled('#f-desc') and pg.query_selector('form[data-form=principal]') is None, 'demanda concluída fica somente leitura')
+    clk(pg, '[data-acao=menu-mais]'); chk(pg.query_selector('[data-acao=relatorio]') is not None, 'concluída: Mais ações tem Gerar relatório'); clk(pg, '[data-acao=menu-mais]')
+    # pelo endereço da rede (http://IP:8088) o navegador não oferece a área de transferência moderna: a cópia usa o caminho antigo
+    pg.evaluate("Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true })")
+    pg.click('.det-l2 .mini-copia[data-acao=copiar]', timeout=5000); espera(pg)
+    chk('Copiado' in flash(pg), 'copiar funciona também fora de https/localhost')
+    pg.evaluate("Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })")
     fecha(pg)
 
     # ------------------------------------------------------------------ configuração de valores
@@ -299,17 +307,26 @@ with sync_playwright() as p:
     pg.fill('#pa-nome', 'Carla Dias'); pg.fill('#pa-usr', 'carla'); enviar(pg, 'form[data-form=pedido]')
     chk('Pedido Enviado' in texto(pg, '.login'), 'pedido de acesso enviado pela tela de entrada')
     clk(pg, '[data-acao=pedir-voltar]'); entra(pg, 'admin', SENHA_ADMIN)
-    clk(pg, '[data-acao=menu-conta]'); chk('1 pedido' in texto(pg, '[data-acao=equipe]'), 'menu do coordenador avisa o pedido pendente'); clk(pg, '[data-acao=equipe]')
+    clk(pg, '[data-acao=menu-conta]'); chk('1 pedido' in texto(pg, '[data-acao=equipe]'), 'menu do administrador avisa o pedido pendente'); clk(pg, '[data-acao=equipe]')
     chk('Carla Dias' in texto(pg, '.sol-bloco'), 'pedido aparece em Equipe')
     clk(pg, '[data-acao=sol-aprovar]'); senha_carla = texto(pg, '.senha-tmp').strip()
     chk(len(senha_carla) == 10 and pessoa(pg, 'carla')['perfil'] == 'TECNICO', 'aprovar cria a conta com senha temporária')
     clk(pg, '.confirma [data-acao=fechar-modal]')
 
-    # ------------------------------------------------------------------ desativar quem tem demandas: transfere antes
-    pg.evaluate(f"document.querySelector('[data-acao=eq-desativar][data-v=\"{ana}\"]').click()"); espera(pg)
-    chk(pg.query_selector('form[data-form=equipe-transf]') is not None, 'desativar quem tem demandas em aberto pede a transferência')
+    # ------------------------------------------------------------------ excluir: quem nunca fez nada sai de vez
+    chk(pg.query_selector('.sol-acoes select') is None, 'aprovar o pedido não pede perfil')
+    carla = pessoa(pg, 'carla')['id']
+    clk(pg, f'[data-acao=eq-excluir][data-v="{carla}"]'); chk('Excluir' in texto(pg, '.confirma'), 'excluir pede confirmação')
+    clk(pg, '.confirma [data-acao=confirmar]')
+    chk(all(p['login'] != 'carla' for p in api(pg, 'pessoas')) and pg.query_selector('.modal-content.equipe') is not None, 'conta sem nenhum registro é apagada e a Equipe continua aberta')
+    adm = api(pg, 'sessao')['id']
+    chk(pg.query_selector(f'[data-acao=eq-excluir][data-v="{adm}"]') is None, 'o administrador não tem o botão Excluir')
+
+    # ------------------------------------------------------------------ excluir quem tem demandas: transfere antes
+    pg.evaluate(f"document.querySelector('[data-acao=eq-excluir][data-v=\"{ana}\"]').click()"); espera(pg)
+    chk(pg.query_selector('form[data-form=equipe-transf]') is not None, 'excluir quem tem demandas em aberto pede a transferência')
     pg.select_option('#tr-dest', bruno); enviar(pg, 'form[data-form=equipe-transf]')
-    chk(not pessoa(pg, 'ana.souza')['ativo'] and all(d['responsavel'] != ana for d in api(pg, 'mudancas') if d['situacao'] in ('nova', 'acionada', 'atendimento', 'pendente')), 'ninguém desativado fica com demanda em aberto')
+    chk(not pessoa(pg, 'ana.souza')['ativo'] and all(d['responsavel'] != ana for d in api(pg, 'mudancas') if d['situacao'] in ('nova', 'acionada', 'atendimento', 'pendente')), 'ninguém excluído fica com demanda em aberto; quem tem histórico fica só desativado')
     chk(dem(pg, d1)['responsavel'] == bruno, 'as demandas marcadas foram para quem foi escolhido')
     clk(pg, '[data-acao=fechar-modal]')
 

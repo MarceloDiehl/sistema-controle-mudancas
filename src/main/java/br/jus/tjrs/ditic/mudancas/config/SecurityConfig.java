@@ -51,7 +51,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint((req, res, ex) -> RespostaJson.enviar(res, HttpServletResponse.SC_UNAUTHORIZED, "Entre com o seu usuário para continuar."))
                         .accessDeniedHandler((req, res, ex) -> RespostaJson.enviar(res, HttpServletResponse.SC_FORBIDDEN, ex instanceof CsrfException
                                 ? "A página ficou desatualizada. Recarregue e tente de novo."
-                                : "Somente o coordenador pode fazer isso.")))
+                                : "Somente o administrador pode fazer isso.")))
                 .logout(l -> l.logoutUrl("/api/logout").logoutSuccessHandler((req, res, a) -> res.setStatus(HttpServletResponse.SC_NO_CONTENT)))
                 .headers(h -> h
                         .contentSecurityPolicy(c -> c.policyDirectives(CSP))

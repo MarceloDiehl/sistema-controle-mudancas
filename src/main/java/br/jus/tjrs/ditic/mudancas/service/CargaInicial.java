@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Ao iniciar: cria o coordenador "admin" quando ele ainda não existe (com mudancas.admin.senha-inicial, trocada no
+ * Ao iniciar: cria o administrador "admin" quando ele ainda não existe (com mudancas.admin.senha-inicial, trocada no
  * primeiro acesso) e atende o comando administrativo de redefinição de senha (mudancas.redefinir-senha=<usuário>),
  * para quando não há nenhum coordenador disponível.
  */
@@ -44,20 +44,20 @@ public class CargaInicial implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (!pessoas.existsByLogin(LOGIN_ADMIN)) {
             if (senhaInicial.isBlank()) {
-                LOG.warn("O coordenador \"admin\" não existe e mudancas.admin.senha-inicial está vazio: ninguém consegue entrar.");
+                LOG.warn("O administrador \"admin\" não existe e mudancas.admin.senha-inicial está vazio: ninguém consegue entrar.");
             } else {
                 Pessoa admin = new Pessoa();
                 admin.setLogin(LOGIN_ADMIN);
-                // o coordenador troca para o próprio nome em Equipe, e o histórico passa a mostrar quem fez cada coisa
-                admin.setNome("Coordenador");
-                admin.setNomeCurto("Coordenador");
-                admin.setIniciais("CO");
+                // o administrador troca para o próprio nome em Equipe, e o histórico passa a mostrar quem fez cada coisa
+                admin.setNome("Administrador");
+                admin.setNomeCurto("Administrador");
+                admin.setIniciais("AD");
                 admin.setCor("#374151");
                 admin.setPerfil(Perfil.COORDENADOR);
                 admin.setSenhaHash(senhas.codificar(senhaInicial));
                 admin.setDeveTrocarSenha(true);
                 pessoas.save(admin);
-                LOG.info("Coordenador \"admin\" criado. No primeiro acesso, ele cria a senha pessoal.");
+                LOG.info("Administrador \"admin\" criado. No primeiro acesso, ele cria a senha pessoal.");
             }
         }
         if (!redefinir.isBlank()) {

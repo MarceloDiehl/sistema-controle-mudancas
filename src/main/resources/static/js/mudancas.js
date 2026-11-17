@@ -174,9 +174,9 @@
   // ------------------------------------------------------------------ constantes da tela
   // paleta das cores da Equipe (a cor escolhida fica no cadastro da pessoa)
   const CORES_EQUIPE = ['#3E7C8A', '#8A6B3D', '#7B6397', '#5A6370', '#4F7A4A', '#A0573C', '#3D5F8F', '#8C4F72'];
-  // a carga compartilhada dos coordenadores aparece como uma pessoa só, "Coordenador"
+  // a carga compartilhada do administrador aparece como uma pessoa só, "Administrador" (por dentro, 'coordenador')
   const COORD = 'coordenador';
-  const COORD_USR = { id: COORD, nome: 'Coordenador', curto: 'Coordenador', ini: 'CO', cor: '#374151', ativo: true };
+  const COORD_USR = { id: COORD, nome: 'Administrador', curto: 'Administrador', ini: 'AD', cor: '#374151', ativo: true };
   const SISTEMA = { id: 'sistema', nome: 'Sistema (automático)', curto: 'Sistema', ini: 'SI', cor: '#9AA3AE' };
   // demanda excluída fica na lixeira por este número de dias (a remoção definitiva é do servidor)
   const DIAS_LIXEIRA = 30;
@@ -231,7 +231,7 @@
   const pref = lerPreferencias();
   const E = {
     _anim: {}, _k: {},
-    // sessão: id da pessoa, perfil (COORDENADOR | TECNICO) e se os dados já foram carregados
+    // sessão: id da pessoa, perfil (COORDENADOR = administrador | TECNICO) e se os dados já foram carregados
     usuario: null, perfil: null, carregado: false,
     demandas: [], pessoas: [], equipe: [], lixeira: [], solicitacoes: [], precos: null,
     sitAtivas: new Set(Array.isArray(pref.sitAtivas) && (pref.sitAtivas.length === 1 || pref.sitAtivas.length === SITUACOES.length) && pref.sitAtivas.every((v) => SITUACOES.some((x) => x.id === v)) ? pref.sitAtivas : ABERTAS),
@@ -248,7 +248,7 @@
   function guardarPreferencias() {
     try { localStorage.setItem(CHAVE_PREF, JSON.stringify({ sitAtivas: [...E.sitAtivas], vista: E.vista })); } catch (e) { /* navegador sem armazenamento */ }
   }
-  // pessoas: técnicos (Equipe, recebem demandas) e coordenadores (a carga deles é compartilhada)
+  // pessoas: técnicos (Equipe, recebem demandas) e o administrador (a carga dele é compartilhada)
   function aplicarPessoas(ls) {
     E.pessoas = ls;
     E.equipe = ls.filter((p) => p.perfil === 'TECNICO');
@@ -330,23 +330,23 @@
   const corOk = (c) => (/^#[0-9a-f]{6}$/i.test(String(c)) ? c : '#5A6370');
   function avatar(id, cls) {
     const u = usr(id);
-    return u ? `<span class="avatar ${cls || ''} ${u.ativo === false ? 'inativo' : ''}" style="background:${corOk(u.cor)}" title="${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}">${esc(u.ini)}</span>` : `<span class="avatar vazio ${cls || ''}">?</span>`;
+    return u ? `<span class="avatar ${cls || ''} ${u.ativo === false ? 'inativo' : ''}" style="background:${corOk(u.cor)}" title="${esc(u.nome)}${u.ativo === false ? ' (excluído)' : ''}">${esc(u.ini)}</span>` : `<span class="avatar vazio ${cls || ''}">?</span>`;
   }
   // ------------------------------------------------------------------ responsável e bolinha azul
   // Carga de cada demanda: fica com o responsável em todas as etapas (a mudança automática de status não a move);
   // Concluída fica com o Setor, sem atribuição. O técnico que atendeu vem em d.tecnico.
-  const nomeResp = (id) => (id === COORD ? 'Coordenador' : id ? nomeUsr(id) : 'sem responsável');
-  // "atribuída ao Coordenador" / "atribuída a Ana"
-  const atribuidaA = (id) => (id === COORD ? 'atribuída ao Coordenador' : 'atribuída a ' + nomeResp(id));
+  const nomeResp = (id) => (id === COORD ? 'Administrador' : id ? nomeUsr(id) : 'sem responsável');
+  // "atribuída ao Administrador" / "atribuída a Ana"
+  const atribuidaA = (id) => (id === COORD ? 'atribuída ao Administrador' : 'atribuída a ' + nomeResp(id));
   // aviso = { tipo: 'nova' | 'retornou' | 'atendimento' | 'pendente' | 'status', para, em }; some quando o card é aberto
   function textoAviso(a) {
-    const quem = a.para === COORD ? 'o coordenador' : (usr(a.para) ? usr(a.para).curto : '');
+    const quem = a.para === COORD ? 'o administrador' : (usr(a.para) ? usr(a.para).curto : '');
     if (a.tipo === 'pendente') return 'Para validação · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'status') return 'Status alterado · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'atendimento') return 'Em atendimento · com ' + quem + ' · ainda não aberta';
     return (a.tipo === 'nova' ? 'Nova para ' : 'Retornou para ') + quem + ' · ainda não aberta';
   }
-  // quem está com a demanda: técnico, Coordenador ou Setor (concluídas)
+  // quem está com a demanda: técnico, Administrador ou Setor (concluídas)
   function avatarCarga(d, cls) {
     if (d.situacao === 'concluida' && !d.responsavel) return `<span class="avatar ${cls || 'sm'} setor" title="Setor${d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : ''}">${svg(cls === 'xs' ? 10 : 12, '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/>', 2)}</span>`;
     return avatar(d.responsavel, cls || 'sm');
@@ -445,18 +445,18 @@
       ${sel ? `<button type="button" class="filtro-limpa" data-acao="resp-escolher" data-v="" aria-label="Limpar filtro de responsável" title="Limpar filtro">${I.xP}</button>` : ''}
       ${aberto ? `<div class="dropdown-menu show pop-resp" role="listbox" aria-label="Responsável">
         <div class="pop-cab"><span>Responsável</span><span>Demandas</span></div>
-        ${lista.map((x) => linha(x.id, x.nome + (x.ativo ? '' : ' (inativo)'), avatar(x.id, 'sm'))).join('')}
+        ${lista.map((x) => linha(x.id, x.nome + (x.ativo ? '' : ' (excluído)'), avatar(x.id, 'sm'))).join('')}
       </div>` : ''}
     </div>`;
   }
 
-  // Minhas demandas: chave que, com um clique, mostra só o que está com quem entrou (para o coordenador, a carga do Coordenador)
+  // Minhas demandas: chave que, com um clique, mostra só o que está com quem entrou (para o administrador, a carga do Administrador)
   const meuResp = () => (ehGestor() ? COORD : E.usuario);
   function filtroComigo() {
     if (!E.usuario) return '';
     const eu = meuResp(); const on = E.filtroResp === eu;
     return `<div class="filtro filtro-comigo ${on ? 'ativo' : ''}">
-      <button type="button" class="filtro-btn" data-acao="comigo" role="switch" aria-checked="${on}" title="${ehGestor() ? 'Só as demandas com o Coordenador' : 'Só as demandas que estão comigo'}">
+      <button type="button" class="filtro-btn" data-acao="comigo" role="switch" aria-checked="${on}" title="${ehGestor() ? 'Só as demandas com o Administrador' : 'Só as demandas que estão comigo'}">
         <span class="chave" aria-hidden="true"></span><span class="filtro-nome">Minhas Demandas</span>
       </button>
     </div>`;
@@ -746,7 +746,7 @@
         <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${I.agenda}${d.inicio ? esc(agendaComHora(d)) : 'A agendar'}</span>
         <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(d.regiao || 'não identificada')}</span>
-        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === COORD ? 'Coordenador' : u.nome) + (u.id === COORD && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === COORD ? 'Administrador' : u.nome) + (u.id === COORD && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
       </div>
     </div>
     <button type="button" class="btn btn-icone" data-acao="fechar-det" aria-label="Fechar">${I.fechar}</button>
@@ -871,7 +871,7 @@
   }
   function opcoesResp(sel) {
     const atual = usr(sel); const extra = atual && atual.ativo === false ? [atual] : [];
-    return `${ativos().concat(extra).map((u) => `<option value="${esc(u.id)}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}</option>`).join('')}<option value="${COORD}" ${sel === COORD ? 'selected' : ''}>Coordenador</option>`;
+    return `${ativos().concat(extra).map((u) => `<option value="${esc(u.id)}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (excluído)' : ''}</option>`).join('')}<option value="${COORD}" ${sel === COORD ? 'selected' : ''}>Administrador</option>`;
   }
 
 
@@ -1013,7 +1013,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
 
   function modalNova() {
     const er = E.erros; const v = E.modalDados || {};
-    const resp = v.responsavel || COORD; // sem escolha, a demanda fica com o coordenador
+    const resp = v.responsavel || COORD; // sem escolha, a demanda fica com o administrador
     const suc = v.sucesso ? demanda(v.sucesso) : null;
     return `
 <form class="modal-content modal-n" role="dialog" aria-modal="true" aria-labelledby="mn-tit" data-form="nova" novalidate>
@@ -1048,7 +1048,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
           <legend class="rotulo">Responsável</legend>
           <div class="grade-resp" role="radiogroup">
             ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${esc(u.id)}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
-            <label class="tile-resp"><input type="radio" name="n-resp" value="${COORD}" ${resp === COORD ? 'checked' : ''}>${avatar(COORD, 'sm')}<span>Coordenador</span></label>
+            <label class="tile-resp"><input type="radio" name="n-resp" value="${COORD}" ${resp === COORD ? 'checked' : ''}>${avatar(COORD, 'sm')}<span>Administrador</span></label>
           </div>
         </fieldset>`)}
     </div>
@@ -1120,7 +1120,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="ml-tit">Entrar no Controle de Mudanças</h2>
-    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e coordenadores entram com o próprio usuário e senha.'}</p>
+    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e administrador entram com o próprio usuário e senha.'}</p>
   </div>
   <div class="campo">
     <label class="form-label" for="l-usr">Usuário da rede</label>
@@ -1132,10 +1132,10 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     ${E.erros.login ? `<span class="erro" role="alert">${esc(E.erros.login)}</span>` : ''}
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Entrar</button>
-  <p class="login-ajuda">Esqueceu a senha? Procure o coordenador: ele gera uma senha temporária em Equipe.<br>Ainda não tem acesso? <button type="button" class="link" data-acao="pedir-acesso">Solicitar acesso</button></p>
+  <p class="login-ajuda">Esqueceu a senha? Procure o administrador: ele gera uma senha temporária em Equipe.<br>Ainda não tem acesso? <button type="button" class="link" data-acao="pedir-acesso">Solicitar acesso</button></p>
 </form>`;
   }
-  // pedido de acesso: fica pendente até um coordenador aprovar em Equipe
+  // pedido de acesso: fica pendente até o administrador aprovar em Equipe
   function modalPedido(v) {
     const er = E.erros.pedido;
     if (v.enviado) {
@@ -1144,7 +1144,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.check}</span>
     <h2 id="pa-tit">Pedido Enviado</h2>
-    <p>Um coordenador vai aprovar o acesso em Equipe e entregar a senha temporária. No primeiro acesso, você cria a sua senha.</p>
+    <p>O administrador vai aprovar o acesso em Equipe e entregar a senha temporária. No primeiro acesso, você cria a sua senha.</p>
   </div>
   <button type="button" class="btn btn-primary w-100 btn-bloco" data-acao="pedir-voltar">Voltar para entrar</button>
 </div>`;
@@ -1154,7 +1154,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.usuario}</span>
     <h2 id="pa-tit">Solicitar Acesso</h2>
-    <p>Informe o nome e o usuário da rede. O pedido vai para o coordenador.</p>
+    <p>Informe o nome e o usuário da rede. O pedido vai para o administrador.</p>
   </div>
   <div class="campo">
     <label class="form-label" for="pa-nome">Nome</label>
@@ -1252,15 +1252,15 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     try { const d = trocarDemanda(await api('GET', 'mudancas/' + id)); if (E.aberta === d.id) desenhar(); } catch (e) { if (e.status !== 401) { aviso(e.message, true); desenhar(); } }
   }
 
-  // Perfis: técnico e coordenador entram com login. O técnico faz tudo nas demandas; o coordenador também cancela,
+  // Perfis: técnico e administrador entram com login. O técnico faz tudo nas demandas; o administrador também cancela,
   // exclui, restaura da lixeira, aprova os acessos e mantém Equipe e Configuração. O servidor confere cada permissão.
   const ehGestor = () => E.perfil === 'COORDENADOR';
   // Concluída e Cancelada ficam só para consulta (no histórico ainda se registra andamento)
   const podeEditar = (d) => !!d && !!E.usuario && !FINAIS.includes(d.situacao);
   function precisaGestor() {
     if (ehGestor()) return false;
-    if (!E.usuario) { abrirLogin('Esta ação é do coordenador. Entre com o seu usuário.'); return true; }
-    aviso('Somente o coordenador pode fazer isso.', true); desenhar(); return true;
+    if (!E.usuario) { abrirLogin('Esta ação é do administrador. Entre com o seu usuário.'); return true; }
+    aviso('Somente o administrador pode fazer isso.', true); desenhar(); return true;
   }
   function precisaEditar(d) {
     if (podeEditar(d)) return false;
@@ -1284,8 +1284,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // ------------------------------------------------------------------ equipe
   const cores = (nome, sel) => `<span class="cores" role="radiogroup" aria-label="Cor">${CORES_EQUIPE.map((c) => `<label class="cor-op" style="--c:${corOk(c)}" title="${c}"><input type="radio" name="${nome}" value="${c}" ${sel === c ? 'checked' : ''}><span></span></label>`).join('')}</span>`;
   function proximaCor() { const usadas = E.pessoas.filter((u) => u.ativo).map((u) => u.cor); return CORES_EQUIPE.find((c) => !usadas.includes(c)) || CORES_EQUIPE[E.pessoas.length % CORES_EQUIPE.length]; }
-  const textoAcesso = (u) => (u.acesso === 'aguardando' ? 'aguardando o primeiro acesso' : u.acesso === 'desativado' ? 'desativado' : 'último acesso em ' + brHora(u.ultimoAcesso));
-  const opcoesPerfil = (sel) => `<option value="TECNICO" ${sel !== 'COORDENADOR' ? 'selected' : ''}>Técnico</option><option value="COORDENADOR" ${sel === 'COORDENADOR' ? 'selected' : ''}>Coordenador</option>`;
+  const textoAcesso = (u) => (u.acesso === 'aguardando' ? 'aguardando o primeiro acesso' : u.acesso === 'desativado' ? 'excluído (o nome fica no histórico)' : 'último acesso em ' + brHora(u.ultimoAcesso));
 
   function modalEquipe() {
     const v = E.modalDados || {};
@@ -1304,13 +1303,13 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       }
       return `<li class="list-group-item eq-linha ${u.ativo ? '' : 'inativa'}">
         ${avatar(u.id)}
-        <span class="eq-nome"><span class="eq-id"><b>${esc(u.nome)}</b><small class="eq-usr"><span class="mono" title="Usuário para entrar">${esc(u.login)}</span> · ${tec ? 'Técnico' : 'Coordenador'} · ${esc(textoAcesso(u))}</small></span>${u.ativo ? '' : '<span class="badge tag-inativo">Inativo</span>'}</span>
+        <span class="eq-nome"><span class="eq-id"><b>${esc(u.nome)}</b><small class="eq-usr"><span class="mono" title="Usuário para entrar">${esc(u.login)}</span> · ${tec ? 'Técnico' : 'Administrador'} · ${esc(textoAcesso(u))}</small></span>${u.ativo ? '' : '<span class="badge tag-inativo">Excluído</span>'}</span>
         <span class="eq-carga">${tec ? `<b>${ab}</b> em aberto<span class="eq-tot">· ${tot} no total</span>` : 'Carga compartilhada'}</span>
         <span class="eq-acoes">
           ${u.ativo ? `<button type="button" class="btn btn-icone" data-acao="eq-editar" data-v="${esc(u.id)}" aria-label="Editar ${esc(u.nome)}" title="Editar">${svg(15, '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', 1.9)}</button>` : '<span></span>'}
           ${ab ? `<button type="button" class="btn btn-outline-secondary btn-sm" data-acao="eq-transferir" data-v="${esc(u.id)}">${svg(14, '<path d="M4 8h13l-3-3M20 16H7l3 3"/>', 2)}Transferir</button>` : '<span></span>'}
           ${u.ativo && !eu ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-senha" data-v="${esc(u.id)}" title="Gerar senha temporária">Redefinir senha</button>` : '<span></span>'}
-          ${eu ? '<span></span>' : u.ativo ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-desativar" data-v="${esc(u.id)}">Desativar</button>` : `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="eq-reativar" data-v="${esc(u.id)}">Reativar</button>`}
+          ${eu || !tec ? '<span></span>' : u.ativo ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-excluir" data-v="${esc(u.id)}">Excluir</button>` : `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="eq-reativar" data-v="${esc(u.id)}">Reativar</button>`}
         </span>
       </li>`;
     };
@@ -1318,7 +1317,6 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         <span class="avatar vazio">?</span>
         <span class="eq-nome"><span class="eq-id"><b>${esc(s.nome)}</b><small class="eq-usr"><span class="mono">${esc(s.login)}</span> · pedido em ${esc(brHora(s.pedidaEm))}</small></span></span>
         <span class="sol-acoes">
-          <label class="visually-hidden" for="sol-perfil-${s.id}">Perfil</label><select id="sol-perfil-${s.id}" data-rascunho class="form-select sel-g">${opcoesPerfil('TECNICO')}</select>
           <button type="button" class="btn btn-sm btn-link eq-desat" data-acao="sol-recusar" data-id="${s.id}">Recusar</button>
           <button type="button" class="btn btn-sm btn-primary" data-acao="sol-aprovar" data-id="${s.id}">Aprovar</button>
         </span>
@@ -1326,7 +1324,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const ativas = E.pessoas.filter((u) => u.ativo).length; const inativas = E.pessoas.length - ativas;
     return `
 <div class="modal-content modal-m equipe" role="dialog" aria-modal="true" aria-labelledby="eq-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="eq-tit">Equipe</h2><p>Contas de técnicos e coordenadores.</p></div>
+  <header class="modal-header"><div><h2 class="modal-title" id="eq-tit">Equipe</h2><p>Contas do administrador e dos técnicos.</p></div>
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${E.solicitacoes.length ? bloco('Pedidos de Acesso', E.solicitacoes.length + (E.solicitacoes.length === 1 ? ' pendente' : ' pendentes'), `<ul class="list-group list-group-flush eq-lista">${E.solicitacoes.map(pedido).join('')}</ul>`, '', 'sol-bloco') : ''}
@@ -1334,17 +1332,16 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       <form class="eq-add" data-form="equipe-add" novalidate>
         <span class="campo"><label class="form-label" for="eq-nome">Nome</label><input id="eq-nome" data-rascunho class="form-control" maxlength="60" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
         <span class="campo"><label class="form-label" for="eq-login">Usuário da rede</label><input id="eq-login" data-rascunho class="form-control" maxlength="60" autocapitalize="none" spellcheck="false" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
-        <span class="campo"><label class="form-label" for="eq-perfil">Perfil</label><select id="eq-perfil" data-rascunho class="form-select sel-g">${opcoesPerfil('TECNICO')}</select></span>
         <span class="campo"><span class="rotulo">Cor</span>${cores('eq-cor', proximaCor())}</span>
         <button type="submit" class="btn btn-primary btn-lg">${I.mais}Incluir</button>
       </form>
       ${E.erros.eqAdd ? `<span class="erro">${esc(E.erros.eqAdd)}</span>` : ''}`)}
-    ${bloco('Pessoas', `${ativas} ${ativas === 1 ? 'ativa' : 'ativas'}${inativas ? ' · ' + inativas + (inativas === 1 ? ' inativa' : ' inativas') : ''}`, lista.length ? `<ul class="list-group list-group-flush eq-lista">${lista.map(linha).join('')}</ul>` : '<p class="vazio-bloco">Nenhuma pessoa cadastrada.</p>', '', 'tabela-bloco')}
+    ${bloco('Pessoas', `${ativas} ${ativas === 1 ? 'ativa' : 'ativas'}${inativas ? ' · ' + inativas + (inativas === 1 ? ' excluída' : ' excluídas') : ''}`, lista.length ? `<ul class="list-group list-group-flush eq-lista">${lista.map(linha).join('')}</ul>` : '<p class="vazio-bloco">Nenhuma pessoa cadastrada.</p>', '', 'tabela-bloco')}
   </div>
   <footer class="modal-footer">${flash('equipe')}<span class="esp"></span><button type="button" class="btn btn-primary btn-lg" data-acao="fechar-modal">Fechar</button></footer>
 </div>`;
   }
-  // a senha temporária aparece uma única vez, para o coordenador entregar à pessoa; Fechar volta à Equipe
+  // a senha temporária aparece uma única vez, para o administrador entregar à pessoa; Fechar volta à Equipe
   function mostrarSenha(titulo, r) {
     E.modal = 'confirmar';
     E.modalDados = { titulo, texto: 'Senha temporária de ' + r.pessoa.nome + ' (usuário ' + r.pessoa.login + '), válida até ' + brHora(r.expiraEm) + '. Anote e entregue à pessoa: ela não será mostrada de novo. No primeiro acesso, a pessoa cria a senha pessoal.', senha: r.senha, ok: true, soFechar: true, voltarPara: 'equipe' };
@@ -1357,8 +1354,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const destinos = ativos().filter((u) => u.id !== t.de);
     return `
 <form class="modal-content modal-m equipe" role="dialog" aria-modal="true" aria-labelledby="tr-tit" data-form="equipe-transf" novalidate>
-  <header class="modal-header"><div><h2 class="modal-title" id="tr-tit">${t.desativar ? 'Desativar ' + esc(de.curto) : 'Transferir Demandas'}</h2><p>${t.desativar
-    ? esc(de.nome) + ' tem ' + ls.length + (ls.length === 1 ? ' demanda' : ' demandas') + ' em aberto. Escolha quem assume antes de desativar.'
+  <header class="modal-header"><div><h2 class="modal-title" id="tr-tit">${t.desativar ? 'Excluir ' + esc(de.curto) : 'Transferir Demandas'}</h2><p>${t.desativar
+    ? esc(de.nome) + ' tem ' + ls.length + (ls.length === 1 ? ' demanda' : ' demandas') + ' em aberto. Escolha quem assume antes de excluir.'
     : 'Passe as demandas em aberto de ' + esc(de.nome) + ' para outra pessoa da equipe.'}</p></div>
     <button type="button" class="btn btn-icone" data-acao="eq-voltar" aria-label="Voltar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
@@ -1366,7 +1363,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       <span class="campo tr-de"><span class="form-label">De</span><span class="tr-pessoa">${avatar(de.id, 'sm')}<b>${esc(de.nome)}</b></span></span>
       <span class="tr-seta" aria-hidden="true">${svg(18, '<path d="M5 12h14M13 6l6 6-6 6"/>', 2)}</span>
       <span class="campo tr-para"><label class="form-label" for="tr-dest">Para</label>
-        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${esc(u.id)}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="${COORD}" ${t.para === COORD ? 'selected' : ''}>Coordenador · ${abertasDe(COORD).length} em aberto</option></select>
+        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${esc(u.id)}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="${COORD}" ${t.para === COORD ? 'selected' : ''}>Administrador · ${abertasDe(COORD).length} em aberto</option></select>
       </span>
     </div>
     ${E.erros.transf ? `<span class="erro">${esc(E.erros.transf)}</span>` : ''}
@@ -1377,11 +1374,11 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         <span class="tr-data">${d.inicio ? esc(agendaTexto(d)) : 'Sem data'}</span>
         <span class="badge tr-sit" data-sit="${esc(d.situacao)}">${esc(sit(d.situacao).um)}</span>
       </label></li>`).join('')}</ul>`, '', 'tabela-bloco')}
-    ${t.desativar ? '<p class="tr-nota">As demandas desmarcadas vão para o Coordenador: ninguém desativado fica com demanda em aberto.</p>' : ''}
+    ${t.desativar ? '<p class="tr-nota">As demandas desmarcadas vão para o Administrador: ninguém excluído fica com demanda em aberto.</p>' : ''}
   </div>
   <footer class="modal-footer">
     <button type="button" class="btn btn-link btn-lg" data-acao="eq-voltar">Voltar</button><span class="esp"></span>
-    <button type="submit" class="btn btn-primary btn-lg" id="tr-ok">${t.desativar ? 'Transferir e desativar' : 'Transferir'}</button>
+    <button type="submit" class="btn btn-primary btn-lg" id="tr-ok">${t.desativar ? 'Transferir e excluir' : 'Transferir'}</button>
   </footer>
 </form>`;
   }
@@ -1608,7 +1605,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     aviso('Relatório gerado.'); desenhar();
   }
 
-  // lixeira: só o coordenador
+  // lixeira: só o administrador
   function modalLixeira() {
     if (!ehGestor()) return '';
     const ls = E.lixeira.slice().sort((a, b) => String(b.excluidaEm).localeCompare(String(a.excluidaEm)));
@@ -1763,7 +1760,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     desenhar(); const el = foco && document.getElementById(foco); if (el) el.focus();
   }
   // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; depois de acionada, a demanda
-  // não volta para Nova; cancelar fica só em Mais ações (coordenador); Concluída e Cancelada são finais
+  // não volta para Nova; cancelar fica só em Mais ações (administrador); Concluída e Cancelada são finais
   // TRAVADOS: o status é automático (os dados continuam editáveis)
   const TRAVADOS = ['atendimento', 'pendente'];
   const FINAIS = ['concluida', 'cancelada'];
@@ -1813,7 +1810,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     E.modalDados = { titulo: 'Concluir Esta Demanda?', texto: 'A demanda passa para Concluída e fica com o setor, sem atribuição. Essa ação não pode ser desfeita e fica registrada no histórico.', botao: 'Concluir demanda', ok: true, acao: () => acao(() => mudarSituacao(d, { situacao: 'concluida' }, 'Demanda ' + num4(d.id) + ' concluída.')) };
     desenhar();
   }
-  // concluir (técnico ou coordenador) ou cancelar com motivo (coordenador): a demanda fica somente leitura
+  // concluir (técnico ou administrador) ou cancelar com motivo (administrador): a demanda fica somente leitura
   async function mudarSituacao(d, corpo, msg) {
     trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/situacao', corpo)).demanda);
     E.statusRascunho = null; E.sujo = false; E.editTk = false; E.limparRascunho = true;
@@ -1825,9 +1822,22 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     nomesEmpresas().forEach((e) => { const ls = d.subtickets.filter((s) => s.empresa === e); p.push(e + ': ' + (ls.length ? ls.map((s) => s.numero).join(' / ') : '-')); });
     return p.join('\t');
   }
+  // a área de transferência moderna só existe em https ou localhost; pelo endereço da rede (http://IP:8088) usa o
+  // caminho antigo, com um campo escondido e o comando de copiar do navegador
+  function copiarTexto(texto) {
+    const antigo = () => new Promise((ok, erro) => {
+      const ta = document.createElement('textarea');
+      ta.value = texto; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+      const foco = document.activeElement; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, texto.length);
+      let feito = false; try { feito = document.execCommand('copy'); } catch (e) { feito = false; }
+      ta.remove(); if (foco && foco.focus) foco.focus();
+      if (feito) ok(); else erro(new Error('cópia recusada'));
+    });
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(texto).catch(antigo);
+    return antigo();
+  }
   function copiar(texto, msg) {
-    const falha = () => { aviso('Não foi possível copiar. Selecione o texto e use Ctrl+C.', true); desenhar(); };
-    try { navigator.clipboard.writeText(texto).then(() => { aviso(msg || 'Copiado.'); desenhar(); }, falha); } catch (e) { falha(); }
+    copiarTexto(texto).then(() => { aviso(msg || 'Copiado.'); desenhar(); }, () => { aviso('Não foi possível copiar. Selecione o texto e use Ctrl+C.', true); desenhar(); });
   }
 
   // ------------------------------------------------------------------ formulários
@@ -1907,7 +1917,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       const cor = (form.querySelector('input[name="eq-cor"]:checked') || {}).value || proximaCor();
       if (!nome) { E.erros.eqAdd = 'Informe o nome.'; desenhar(); return; }
       if (!login) { E.erros.eqAdd = 'Informe o usuário da rede.'; desenhar(); return; }
-      const r = await api('POST', 'equipe', { nome, login, perfil: val('eq-perfil'), cor });
+      const r = await api('POST', 'equipe', { nome, login, cor });
       aplicarPessoas(await api('GET', 'pessoas'));
       E.limparRascunho = true; mostrarSenha('Conta Criada', r); return;
     }
@@ -1929,7 +1939,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       await recarregar();
       if (E.filtroResp === t.de && t.desativar) E.filtroResp = '';
       E.modalDados = {}; E.limparRascunho = true;
-      aviso((r.transferidas ? r.transferidas + (r.transferidas === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (r.paraCoordenador ? '; ' + r.paraCoordenador + (r.paraCoordenador === 1 ? ' foi' : ' foram') + ' para o Coordenador' : '') + (t.desativar ? '; ' + de.curto + ' desativado(a).' : '.'));
+      aviso((r.transferidas ? r.transferidas + (r.transferidas === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (r.paraCoordenador ? '; ' + r.paraCoordenador + (r.paraCoordenador === 1 ? ' foi' : ' foram') + ' para o Administrador' : '') + (t.desativar ? '; ' + de.curto + ' excluído(a) da equipe.' : '.'));
       desenhar(); return;
     }
     if (tipo === 'login') {
@@ -2021,8 +2031,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     // clicar fora do modal não fecha nada; só recolhe um menu que esteja aberto
     if (a === 'fundo-modal') { if (E.menu) { E.menu = null; desenhar(); } return; }
     if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'periodo-pop' && a !== 'periodo-aplicar' && a !== 'menu-conta' && E.menu) E.menu = null;
-    // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o coordenador
-    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config', 'eq-editar', 'eq-transferir', 'eq-desativar', 'eq-reativar', 'eq-senha', 'sol-aprovar', 'sol-recusar'];
+    // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o administrador
+    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config', 'eq-editar', 'eq-transferir', 'eq-excluir', 'eq-reativar', 'eq-senha', 'sol-aprovar', 'sol-recusar'];
     const EDITA = ['sub-del', 'tk-alterar'];
     if (SO_GESTOR.includes(a) && precisaGestor()) return;
     if (EDITA.includes(a) && precisaEditar(demanda(E.aberta))) return;
@@ -2039,11 +2049,19 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'eq-cancelar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-transferir': E.modalDados = { transf: { de: v } }; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-voltar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
-      case 'eq-desativar': {
+      case 'eq-excluir': {
+        // com demandas em aberto, primeiro escolhe quem assume; a exclusão vem junto com a transferência
         const u = usr(v);
         if (abertasDe(v).length) { E.modalDados = { transf: { de: v, desativar: true } }; E.erros = {}; E.limparRascunho = true; desenhar(); break; }
-        acao(async () => { await api('POST', 'equipe/' + v + '/desativar'); aplicarPessoas(await api('GET', 'pessoas')); aviso(u.curto + ' desativado(a). Não entra mais no sistema nem recebe demandas.'); desenhar(); });
-        break;
+        E.modal = 'confirmar';
+        E.modalDados = { titulo: 'Excluir ' + u.curto + '?', texto: u.nome + ' deixa de entrar no sistema e sai da equipe. Se já participou de alguma demanda, o nome continua no histórico.', botao: 'Excluir', voltarPara: 'equipe',
+          acao: () => acao(async () => {
+            const r = await api('POST', 'equipe/' + v + '/excluir');
+            aplicarPessoas(await api('GET', 'pessoas'));
+            E.modal = 'equipe'; E.modalDados = {};
+            aviso(r.nome + (r.apagada ? ' excluído(a) da equipe.' : ' excluído(a) da equipe. O nome fica no histórico das demandas.')); desenhar();
+          }) };
+        desenhar(); break;
       }
       case 'eq-reativar': { const u = usr(v); acao(async () => { await api('POST', 'equipe/' + v + '/reativar'); aplicarPessoas(await api('GET', 'pessoas')); aviso(u.curto + ' reativado(a).'); desenhar(); }); break; }
       case 'eq-senha': {
@@ -2054,7 +2072,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         desenhar(); break;
       }
       case 'sol-aprovar': acao(async () => {
-        const r = await api('POST', 'acesso/solicitacoes/' + id + '/aprovar', { perfil: val('sol-perfil-' + id), cor: proximaCor() });
+        const r = await api('POST', 'acesso/solicitacoes/' + id + '/aprovar', { cor: proximaCor() });
         aplicarPessoas(await api('GET', 'pessoas')); await carregarCoordenador();
         mostrarSenha('Acesso Aprovado', r);
       }); break;
@@ -2141,7 +2159,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       }
       case 'copiar': copiar(v, 'Copiado: ' + v); break;
       // a confirmação fica no próprio botão (a senha não aparece em aviso nenhum)
-      case 'copiar-senha': navigator.clipboard.writeText(v).then(() => { alvo.innerHTML = I.check; alvo.title = 'Senha copiada'; alvo.setAttribute('aria-label', 'Senha copiada'); alvo.classList.add('copiado'); },
+      case 'copiar-senha': copiarTexto(v).then(() => { alvo.innerHTML = I.check; alvo.title = 'Senha copiada'; alvo.setAttribute('aria-label', 'Senha copiada'); alvo.classList.add('copiado'); },
         () => { alvo.title = 'Não foi possível copiar: selecione a senha e use Ctrl+C'; }); break;
       case 'relatorio': if (!d) break; E.menu = null; acao(async () => {
         const custo = await api('GET', 'mudancas/' + d.id + '/custo');
@@ -2293,7 +2311,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   function atualizaTransf() {
     const b = document.getElementById('tr-ok'); if (!b || !E.modalDados || !E.modalDados.transf) return;
     const n = document.querySelectorAll('input[name="tr-d"]:checked').length; const des = E.modalDados.transf.desativar;
-    b.textContent = n ? 'Transferir ' + n + (n === 1 ? ' demanda' : ' demandas') + (des ? ' e desativar' : '') : (des ? 'Desativar sem transferir' : 'Transferir');
+    b.textContent = n ? 'Transferir ' + n + (n === 1 ? ' demanda' : ' demandas') + (des ? ' e excluir' : '') : (des ? 'Excluir sem transferir' : 'Transferir');
   }
   // lista de locais
   let CB = { inp: null, itens: [], ativo: -1 };

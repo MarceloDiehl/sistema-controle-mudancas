@@ -173,7 +173,7 @@ public class DemandaService {
         } else if (nova == Situacao.CONCLUIDA) {
             concluir(d, autor);
         } else if (nova == Situacao.CANCELADA) {
-            if (!u.coordenador()) throw RegraException.proibido("Somente o coordenador pode fazer isso.");
+            if (!u.coordenador()) throw RegraException.proibido("Somente o administrador pode fazer isso.");
             cancelar(d, Formatos.obrigatorio(req.motivo(), 100, "Informe o motivo.", "Motivo"), autor);
         } else {
             throw RegraException.invalido("Esta mudança de status não é permitida.");
@@ -381,7 +381,7 @@ public class DemandaService {
         d.setExcluidaPor(null);
         d.setMotivoExclusao(null);
         fluxo.registrar(d, TipoHistorico.DADOS, "Demanda restaurada da lixeira.", autor);
-        // quem estava com ela foi desativado enquanto ela estava na lixeira: volta para o Coordenador
+        // quem estava com ela foi desativado enquanto ela estava na lixeira: volta para o Administrador
         if (d.getSituacao().aberta() && d.getCarga() == Carga.TECNICO && !d.getTecnico().isAtivo()) {
             fluxo.atribuir(d, Responsavel.COORDENADORES, autor, "responsável desativado");
         }

@@ -94,14 +94,14 @@ public class FluxoDemanda {
     public static String nome(Responsavel r) {
         return switch (r.carga()) {
             case TECNICO -> r.tecnico().getNome();
-            case COORDENADOR -> "Coordenador";
+            case COORDENADOR -> "Administrador";
             case SETOR -> "Setor";
         };
     }
 
-    /** "atribuída ao Coordenador" ou "atribuída a Ana Souza". */
+    /** "atribuída ao Administrador" ou "atribuída a Ana Souza". */
     public static String atribuidaA(Responsavel r) {
-        return r.carga() == Carga.COORDENADOR ? "atribuída ao Coordenador" : "atribuída a " + nome(r);
+        return r.carga() == Carga.COORDENADOR ? "atribuída ao Administrador" : "atribuída a " + nome(r);
     }
 
     /**

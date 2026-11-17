@@ -24,9 +24,12 @@ uso e o fluxo.
   Para Validação (um dia depois da Data para Conclusão) → Concluída (fica com o Setor). Para Validação nunca volta.
   A mudança automática não troca o responsável. Concluída e Cancelada são finais e somente leitura.
 - Perfis: sem login, só consulta (lista, cards e histórico; sem custo, valores e dados das contas). Alterar exige
-  login, e a Nova demanda só aparece depois de entrar. O técnico faz tudo nas demandas; só o coordenador cancela, exclui, restaura da lixeira,
-  aprova acessos e mantém Equipe e Configuração. Toda demanda tem responsável (no mínimo, o Coordenador, carga
-  compartilhada); só a Concluída fica com o Setor. A conta inicial `admin` se chama "Coordenador".
+  login, e a Nova demanda só aparece depois de entrar. O técnico faz tudo nas demandas; só o administrador cancela, exclui, restaura da lixeira,
+  aprova acessos e mantém Equipe e Configuração. Toda demanda tem responsável (no mínimo, o Administrador, carga
+  compartilhada); só a Concluída fica com o Setor. Administrador é um só (a conta `admin`; por dentro, perfil e carga
+  continuam `COORDENADOR`); toda conta nova é de técnico. Na tela não aparece mais "Coordenador".
+  Excluir técnico: transfere as abertas; sem nenhum registro, apaga; com registro, só desativa (o histórico fica).
+- Sistema em produção com dados reais: nenhuma mudança na estrutura do banco (tabelas, colunas, ENUMs) sem combinar.
 - Tickets: principal e subtickets com 7 dígitos. Subticket é único entre todas as demandas (repetido bloqueia).
   Ticket principal ou SEI repetido só avisam. Local só da lista do catálogo.
 - Custo do relatório: CDS = quantidade × preço da região; WECOM Realocação e Instalação = quantidade × valor;
