@@ -1668,3 +1668,43 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
   .filtros .filtro-local, .filtros .filtro-resp { flex-basis: 200px !important; }
   .filtros .filtro-periodo { flex-basis: 190px !important; }
 }
+
+/* ---------------------------------------------------------------- 23/11/2026 */
+/* cabeçalho de ordenação e paginação da lista com a mesma altura das abas e dos filtros */
+.l-cab { height: var(--ctl-h); }
+.l-pe { min-height: var(--ctl-h); padding-top: 0; padding-bottom: 0; }
+/* descrição opcional do subticket: linha logo abaixo dele, sem a borda entre os dois */
+.tabela tr:has(+ tr.sub-desc) > td { border-bottom-color: transparent; }
+.tabela tr.sub-desc > td { padding-top: 0; }
+.tabela tr.sub-desc .rotulo-l { margin-bottom: 4px; }
+.tabela tr.sub-desc textarea { resize: none; font-size: 13px; }
+.sub-desc-txt { margin: 0; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.grade-resp[aria-invalid="true"] .tile-resp { border-color: var(--bs-form-invalid-border-color, #dc3545); }
+/* post-its: a mesma folga (16 px) nas quatro bordas e entre eles; com 4 colunas, as 2 fileiras ocupam toda a altura */
+.rolagem.postits { padding: 16px; gap: 16px; }
+@media (min-width: 1041px) and (min-height: 560px) {
+  .rolagem.postits { grid-template-rows: repeat(2, minmax(176px, 1fr)); grid-auto-rows: minmax(176px, 1fr); align-content: stretch; }
+  .rolagem.postits > .postit { height: auto; }
+}
+@media (max-width: 700px) { .rolagem.postits { padding: 16px 12px; gap: 16px 12px; } }
+/* Período: popup mais estreito; atalhos em duas colunas, alinhados às bordas dos campos De e Até */
+.pop-periodo { width: 300px; }
+.per-atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.pop-periodo .per-atalho { justify-content: center; height: 32px; padding: 0 8px; border-radius: var(--r); white-space: nowrap; }
+.pop-periodo .data-campo .form-control { padding-left: 10px; padding-right: 34px; }
+/* Relatório: janela solta, sem fundo esmaecido; arrasta pelo cabeçalho; o card de baixo continua em uso */
+#janela-relat { --bs-modal-title-line-height: 1.45; }
+.janela { position: fixed; z-index: 1052; width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); box-shadow: 0 18px 50px rgba(17, 24, 39, .28), 0 0 0 1px rgba(17, 24, 39, .08); }
+.janela > .modal-header { cursor: move; touch-action: none; user-select: none; }
+.janela > .modal-header .btn { cursor: pointer; }
+.janela.arrastando { opacity: .96; }
+.janela.arrastando > .modal-header { cursor: grabbing; }
+.janela .modal-footer .esp { font-size: 12px; color: var(--faint); }
+/* subticket com descrição salva: o + fica na cor de destaque, para mostrar que há o que ler */
+.acoes-sub .tem-desc { color: var(--accent); }
+.login-dica { display: block; margin: 2px 0 4px; color: var(--ink-2); }
+/* card arrastável pelo cabeçalho (como a janela do Relatório) */
+.det > .det-cab { cursor: move; touch-action: none; }
+.det > .det-cab :is(button, a, input, select, label) { cursor: pointer; }
+.det.arrastando { transition: none; user-select: none; }
+.det.arrastando > .det-cab { cursor: grabbing; }

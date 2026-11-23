@@ -70,10 +70,10 @@ public class AcessoService {
         }
         if (!p.isAtivo()) {
             LOG.warn("Entrada recusada para \"{}\": conta desativada.", login);
-            throw RegraException.proibido("Conta desativada. Procure o coordenador.");
+            throw RegraException.proibido("Conta desativada. Procure o administrador.");
         }
         if (p.isDeveTrocarSenha() && p.getSenhaTemporariaExpiraEm() != null && p.getSenhaTemporariaExpiraEm().isBefore(agora)) {
-            throw new RegraException(HttpStatus.UNAUTHORIZED, "A senha temporária expirou. Peça ao coordenador uma nova.");
+            throw new RegraException(HttpStatus.UNAUTHORIZED, "A senha temporária expirou. Peça ao administrador uma nova.");
         }
         p.setTentativasFalhas((short) 0);
         p.setBloqueadoAte(null);
@@ -97,14 +97,14 @@ public class AcessoService {
         return UsuarioLogado.de(p);
     }
 
-    /** Pedido feito na tela de login, sem sessão. Fica pendente até um coordenador aprovar em Equipe. */
+    /** Pedido feito na tela de login, sem sessão. Fica pendente até o administrador aprovar em Equipe. */
     public void solicitar(EquipeDtos.PedidoAcesso req) {
         String login = EquipeService.login(req.login());
         String nome = EquipeService.nome(req.nome());
-        if (pessoas.existsByLogin(login)) throw RegraException.conflito("Já existe uma conta com esse usuário. Procure o coordenador.");
+        if (pessoas.existsByLogin(login)) throw RegraException.conflito("Já existe uma conta com esse usuário. Procure o administrador.");
         if (solicitacoes.existsByLoginAndSituacao(login, SituacaoSolicitacao.PENDENTE)) throw RegraException.conflito("Já há um pedido de acesso pendente com esse usuário.");
         if (solicitacoes.countBySituacao(SituacaoSolicitacao.PENDENTE) >= MAX_PENDENTES)
-            throw new RegraException(HttpStatus.TOO_MANY_REQUESTS, "Há muitos pedidos pendentes. Procure o coordenador.");
+            throw new RegraException(HttpStatus.TOO_MANY_REQUESTS, "Há muitos pedidos pendentes. Procure o administrador.");
         SolicitacaoAcesso s = new SolicitacaoAcesso();
         s.setLogin(login);
         s.setNome(nome);
@@ -121,7 +121,7 @@ public class AcessoService {
 
     public EquipeDtos.SenhaTemporaria aprovar(Long id, EquipeDtos.Aprovacao req, UsuarioLogado u) {
         SolicitacaoAcesso s = pendente(id);
-        EquipeDtos.SenhaTemporaria conta = equipe.criarConta(s.getNome(), s.getLogin(), req.perfil(), req.cor(), u);
+        EquipeDtos.SenhaTemporaria conta = equipe.criarConta(s.getNome(), s.getLogin(), req.cor(), u);
         decidir(s, SituacaoSolicitacao.APROVADA, u);
         s.setPessoa(pessoas.getReferenceById(Long.valueOf(conta.pessoa().id())));
         return conta;

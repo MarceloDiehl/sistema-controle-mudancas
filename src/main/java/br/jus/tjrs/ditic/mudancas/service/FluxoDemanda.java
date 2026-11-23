@@ -94,14 +94,14 @@ public class FluxoDemanda {
     public static String nome(Responsavel r) {
         return switch (r.carga()) {
             case TECNICO -> r.tecnico().getNome();
-            case COORDENADOR -> "Coordenador";
+            case COORDENADOR -> "Administrador";
             case SETOR -> "Setor";
         };
     }
 
-    /** "atribuída ao Coordenador" ou "atribuída a Ana Souza". */
+    /** "atribuída ao Administrador" ou "atribuída a Ana Souza". */
     public static String atribuidaA(Responsavel r) {
-        return r.carga() == Carga.COORDENADOR ? "atribuída ao Coordenador" : "atribuída a " + nome(r);
+        return r.carga() == Carga.COORDENADOR ? "atribuída ao Administrador" : "atribuída a " + nome(r);
     }
 
     /**
@@ -138,7 +138,7 @@ public class FluxoDemanda {
 
     /**
      * Mudança automática de status pelas datas, sem trocar o responsável. Devolve true se a demanda mudou.
-     * Acionada → Em atendimento na Data de Início; Nova também, se já tem ticket principal e subticket.
+     * Acionada → Em atendimento na Data de Início; Pendente (NOVA) também, se já tem ticket principal e subticket.
      * Acionada ou Em atendimento → Para validação um dia depois da Data para Conclusão. Para validação nunca volta.
      */
     public boolean automatizar(Demanda d) {
@@ -157,7 +157,7 @@ public class FluxoDemanda {
             // a data do acionamento é a do registro do ticket principal (quando as empresas foram acionadas)
             LocalDate ticket = d.getTicketEm() != null ? d.getTicketEm().toLocalDate() : hoje;
             d.setAcionadaEm(dataAcionamento(ticket, d));
-            registrar(d, TipoHistorico.STATUS_AUTOMATICO, "Status alterado automaticamente: Nova → Em atendimento (tickets registrados e início do agendamento em " + br(inicio) + ").", null);
+            registrar(d, TipoHistorico.STATUS_AUTOMATICO, "Status alterado automaticamente: Pendente → Em atendimento (tickets registrados e início do agendamento em " + br(inicio) + ").", null);
             avisar(d, TipoAviso.ATENDIMENTO);
             mudou = true;
         }

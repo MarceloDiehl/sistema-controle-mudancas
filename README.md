@@ -16,24 +16,27 @@ flowchart LR
     G --> H([Concluída<br/>fica com o Setor])
 ```
 
-- **Nova → Acionada:** à mão, depois de registrar o ticket principal e a Data de Início.
+- **Pendente → Acionada:** à mão, depois de registrar o ticket principal e a Data de Início. Acionada por engano volta
+  para Pendente (à mão, mantendo tickets e datas).
 - **Em Atendimento e Para Validação:** o sistema muda sozinho, pelas datas, sem trocar o responsável.
-- **Concluída:** técnico ou coordenador conclui a partir de Para Validação. Até lá, o coordenador pode cancelar.
+- **Concluída:** técnico ou administrador conclui a partir de Para Validação. Até lá, o administrador pode cancelar.
 - **Histórico:** cada alteração fica registrada com quem fez e quando.
 
 ## Quem faz o quê
 
-| | Sem login | Técnico | Coordenador |
+| | Sem login | Técnico | Administrador |
 |---|:---:|:---:|:---:|
 | Ver a lista, os cards e o histórico | ✓ | ✓ | ✓ |
 | Incluir, editar, acionar e concluir demandas | | ✓ | ✓ |
 | Gerar o texto de acionamento e o relatório em PDF | | ✓ | ✓ |
 | Cancelar, excluir e restaurar da lixeira | | | ✓ |
-| Equipe, pedidos de acesso e Configuração de valores | | | ✓ |
+| Equipe (incluir e excluir pessoas), pedidos de acesso e Configuração de valores | | | ✓ |
 
 Qualquer pessoa vê no que o setor está trabalhando, só para consulta. Para alterar, é preciso clicar em **Entrar**,
 com usuário e senha; a **Nova demanda** só aparece depois disso. Quem não tem conta pede acesso na tela de entrada, e o
-coordenador aprova em **Equipe**.
+administrador aprova em **Equipe**. O administrador é um só (a conta `admin`); toda conta nova é de técnico. Ao excluir
+um técnico, as demandas em aberto passam antes para outra pessoa; quem já aparece no histórico fica só desativado,
+para o nome continuar nos registros.
 
 ## Instalação
 
@@ -43,19 +46,19 @@ Precisa de Java 17 e MySQL 8.
    `ditic_admin` (sem salvar o arquivo) e execute. O script cria as tabelas e carrega os locais, as empresas, os
    serviços e os valores do custo.
 2. **Configuração:** na raiz do projeto, copie `application-local.properties.exemplo` para
-   `application-local.properties` e preencha a senha do banco e a senha inicial do coordenador. Esse arquivo fica
+   `application-local.properties` e preencha a senha do banco e a senha inicial do administrador. Esse arquivo fica
    fora do Git e fora do `.jar`.
 3. **Aplicação:** rode `ControleMudancasApplication` no IntelliJ (ou `mvnw.cmd spring-boot:run`) e abra
    `http://localhost:8088`.
-4. **Primeiro acesso:** entre com `admin` e a senha inicial, crie a sua senha e troque o nome "Coordenador" pelo seu
+4. **Primeiro acesso:** entre com `admin` e a senha inicial, crie a sua senha e troque o nome "Administrador" pelo seu
    em **Equipe**. Depois inclua a equipe: cada pessoa recebe uma senha temporária, válida por 24 horas.
 
 **Para testar com dados:** depois do primeiro acesso, rode `db/dados_ficticios.sql` no Workbench. Ele cria 5 técnicos
 e 28 demandas de exemplo, em todas as situações, com tickets, subtickets e histórico; as datas acompanham o dia em que
-o script roda. Os técnicos de exemplo entram depois que o coordenador usar **Redefinir senha** em Equipe. Não use em
+o script roda. Os técnicos de exemplo entram depois que o administrador usar **Redefinir senha** em Equipe. Não use em
 produção.
 
-Sem nenhum coordenador disponível, inicie a aplicação com `--mudancas.redefinir-senha=<usuário>`: a senha temporária
+Para redefinir a senha do administrador (ou sem acesso a ele), inicie a aplicação com `--mudancas.redefinir-senha=<usuário>`: a senha temporária
 aparece no console.
 
 ### No servidor

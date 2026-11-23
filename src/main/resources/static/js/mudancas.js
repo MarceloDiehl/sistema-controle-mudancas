@@ -174,16 +174,16 @@
   // ------------------------------------------------------------------ constantes da tela
   // paleta das cores da Equipe (a cor escolhida fica no cadastro da pessoa)
   const CORES_EQUIPE = ['#3E7C8A', '#8A6B3D', '#7B6397', '#5A6370', '#4F7A4A', '#A0573C', '#3D5F8F', '#8C4F72'];
-  // a carga compartilhada dos coordenadores aparece como uma pessoa só, "Coordenador"
+  // a carga compartilhada do administrador aparece como uma pessoa só, "Administrador" (por dentro, 'coordenador')
   const COORD = 'coordenador';
-  const COORD_USR = { id: COORD, nome: 'Coordenador', curto: 'Coordenador', ini: 'CO', cor: '#374151', ativo: true };
+  const COORD_USR = { id: COORD, nome: 'Administrador', curto: 'Administrador', ini: 'AD', cor: '#374151', ativo: true };
   const SISTEMA = { id: 'sistema', nome: 'Sistema (automático)', curto: 'Sistema', ini: 'SI', cor: '#9AA3AE' };
   // demanda excluída fica na lixeira por este número de dias (a remoção definitiva é do servidor)
   const DIAS_LIXEIRA = 30;
   // situações em aberto (ainda dão trabalho para alguém)
   const ABERTAS = ['nova', 'acionada', 'atendimento', 'pendente'];
   const SITUACOES = [
-    { id: 'nova', nome: 'Novas', um: 'Nova', cor: 'nova', dica: 'Mostrar só as demandas novas, ainda sem acionamento' },
+    { id: 'nova', nome: 'Pendentes', um: 'Pendente', cor: 'nova', dica: 'Mostrar só as demandas pendentes, ainda sem acionamento' },
     { id: 'acionada', nome: 'Acionadas', um: 'Acionada', cor: 'acio', dica: 'Mostrar só as demandas acionadas' },
     { id: 'atendimento', nome: 'Em Atendimento', um: 'Em atendimento', cor: 'aten' },
     { id: 'pendente', nome: 'Para Validação', um: 'Para validação', cor: 'pend', dica: 'Para validação: o atendimento terminou e aguarda a conclusão' },
@@ -231,7 +231,7 @@
   const pref = lerPreferencias();
   const E = {
     _anim: {}, _k: {},
-    // sessão: id da pessoa, perfil (COORDENADOR | TECNICO) e se os dados já foram carregados
+    // sessão: id da pessoa, perfil (COORDENADOR = administrador | TECNICO) e se os dados já foram carregados
     usuario: null, perfil: null, carregado: false,
     demandas: [], pessoas: [], equipe: [], lixeira: [], solicitacoes: [], precos: null,
     sitAtivas: new Set(Array.isArray(pref.sitAtivas) && (pref.sitAtivas.length === 1 || pref.sitAtivas.length === SITUACOES.length) && pref.sitAtivas.every((v) => SITUACOES.some((x) => x.id === v)) ? pref.sitAtivas : ABERTAS),
@@ -242,13 +242,14 @@
     menu: null, toast: null, destaque: null,
     periodo: null, // filtro de período do agendamento: { de, ate } (AAAA-MM-DD; um dos dois pode ficar vazio)
     statusRascunho: null, // status escolhido no select e ainda não salvo
-    subRasc: {}, // serviço, quantidade e metro de subtickets alterados e ainda não salvos
+    subRasc: {}, // serviço, quantidade, metro e descrição de subtickets alterados e ainda não salvos
+    subDesc: {}, // subtickets com o campo de descrição aberto pelo +
     erros: {}
   };
   function guardarPreferencias() {
     try { localStorage.setItem(CHAVE_PREF, JSON.stringify({ sitAtivas: [...E.sitAtivas], vista: E.vista })); } catch (e) { /* navegador sem armazenamento */ }
   }
-  // pessoas: técnicos (Equipe, recebem demandas) e coordenadores (a carga deles é compartilhada)
+  // pessoas: técnicos (Equipe, recebem demandas) e o administrador (a carga dele é compartilhada)
   function aplicarPessoas(ls) {
     E.pessoas = ls;
     E.equipe = ls.filter((p) => p.perfil === 'TECNICO');
@@ -330,23 +331,23 @@
   const corOk = (c) => (/^#[0-9a-f]{6}$/i.test(String(c)) ? c : '#5A6370');
   function avatar(id, cls) {
     const u = usr(id);
-    return u ? `<span class="avatar ${cls || ''} ${u.ativo === false ? 'inativo' : ''}" style="background:${corOk(u.cor)}" title="${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}">${esc(u.ini)}</span>` : `<span class="avatar vazio ${cls || ''}">?</span>`;
+    return u ? `<span class="avatar ${cls || ''} ${u.ativo === false ? 'inativo' : ''}" style="background:${corOk(u.cor)}" title="${esc(u.nome)}${u.ativo === false ? ' (excluído)' : ''}">${esc(u.ini)}</span>` : `<span class="avatar vazio ${cls || ''}">?</span>`;
   }
   // ------------------------------------------------------------------ responsável e bolinha azul
   // Carga de cada demanda: fica com o responsável em todas as etapas (a mudança automática de status não a move);
   // Concluída fica com o Setor, sem atribuição. O técnico que atendeu vem em d.tecnico.
-  const nomeResp = (id) => (id === COORD ? 'Coordenador' : id ? nomeUsr(id) : 'sem responsável');
-  // "atribuída ao Coordenador" / "atribuída a Ana"
-  const atribuidaA = (id) => (id === COORD ? 'atribuída ao Coordenador' : 'atribuída a ' + nomeResp(id));
+  const nomeResp = (id) => (id === COORD ? 'Administrador' : id ? nomeUsr(id) : 'sem responsável');
+  // "atribuída ao Administrador" / "atribuída a Ana"
+  const atribuidaA = (id) => (id === COORD ? 'atribuída ao Administrador' : 'atribuída a ' + nomeResp(id));
   // aviso = { tipo: 'nova' | 'retornou' | 'atendimento' | 'pendente' | 'status', para, em }; some quando o card é aberto
   function textoAviso(a) {
-    const quem = a.para === COORD ? 'o coordenador' : (usr(a.para) ? usr(a.para).curto : '');
+    const quem = a.para === COORD ? 'o administrador' : (usr(a.para) ? usr(a.para).curto : '');
     if (a.tipo === 'pendente') return 'Para validação · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'status') return 'Status alterado · com ' + quem + ' · ainda não aberta';
     if (a.tipo === 'atendimento') return 'Em atendimento · com ' + quem + ' · ainda não aberta';
     return (a.tipo === 'nova' ? 'Nova para ' : 'Retornou para ') + quem + ' · ainda não aberta';
   }
-  // quem está com a demanda: técnico, Coordenador ou Setor (concluídas)
+  // quem está com a demanda: técnico, Administrador ou Setor (concluídas)
   function avatarCarga(d, cls) {
     if (d.situacao === 'concluida' && !d.responsavel) return `<span class="avatar ${cls || 'sm'} setor" title="Setor${d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : ''}">${svg(cls === 'xs' ? 10 : 12, '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/>', 2)}</span>`;
     return avatar(d.responsavel, cls || 'sm');
@@ -356,7 +357,7 @@
     const nome = d.situacao === 'concluida' && !d.responsavel ? '<span class="resp-nome setor">Setor</span>' : `<span class="resp-nome">${u ? esc(u.curto) : 'Sem responsável'}</span>`;
     return nome + avatarCarga(d);
   }
-  // Nova cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
+  // Pendente cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
   const vencida = (d) => d.situacao === 'nova' && !!d.inicio && d.inicio <= hojeISO();
   const pontoAviso = (d) => {
     const a = d.aviso; const v = vencida(d);
@@ -385,6 +386,8 @@
   // ------------------------------------------------------------------ ícones
   const svg = (w, body, extra) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${extra || 2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
   const I = {
+    menosP: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10"/></svg>',
+    maisP: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>',
     mais: '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z"/><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4"/></svg>',
     busca: svg(15, '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>', 2.2),
     local: svg(14, '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'),
@@ -445,18 +448,18 @@
       ${sel ? `<button type="button" class="filtro-limpa" data-acao="resp-escolher" data-v="" aria-label="Limpar filtro de responsável" title="Limpar filtro">${I.xP}</button>` : ''}
       ${aberto ? `<div class="dropdown-menu show pop-resp" role="listbox" aria-label="Responsável">
         <div class="pop-cab"><span>Responsável</span><span>Demandas</span></div>
-        ${lista.map((x) => linha(x.id, x.nome + (x.ativo ? '' : ' (inativo)'), avatar(x.id, 'sm'))).join('')}
+        ${lista.map((x) => linha(x.id, x.nome + (x.ativo ? '' : ' (excluído)'), avatar(x.id, 'sm'))).join('')}
       </div>` : ''}
     </div>`;
   }
 
-  // Minhas demandas: chave que, com um clique, mostra só o que está com quem entrou (para o coordenador, a carga do Coordenador)
+  // Minhas demandas: chave que, com um clique, mostra só o que está com quem entrou (para o administrador, a carga do Administrador)
   const meuResp = () => (ehGestor() ? COORD : E.usuario);
   function filtroComigo() {
     if (!E.usuario) return '';
     const eu = meuResp(); const on = E.filtroResp === eu;
     return `<div class="filtro filtro-comigo ${on ? 'ativo' : ''}">
-      <button type="button" class="filtro-btn" data-acao="comigo" role="switch" aria-checked="${on}" title="${ehGestor() ? 'Só as demandas com o Coordenador' : 'Só as demandas que estão comigo'}">
+      <button type="button" class="filtro-btn" data-acao="comigo" role="switch" aria-checked="${on}" title="${ehGestor() ? 'Só as demandas com o Administrador' : 'Só as demandas que estão comigo'}">
         <span class="chave" aria-hidden="true"></span><span class="filtro-nome">Minhas Demandas</span>
       </button>
     </div>`;
@@ -635,7 +638,7 @@
         const aba = (id, nome, n, cor, dica) => `<button type="button" role="tab" class="nav-link sit-aba ${n ? '' : 'vazia'}" data-acao="sit-aba" data-v="${id}" aria-selected="${atual === id}" tabindex="${atual === id ? 0 : -1}" ${cor ? `style="--aba-cor:var(--${cor}-dot);--aba-bg:var(--${cor}-bg);--aba-ink:var(--${cor}-ink)"` : ''} title="${dica}">${cor ? '<span class="aba-dot" aria-hidden="true"></span>' : ''}<span class="aba-nome" data-t="${nome}">${nome}</span><span class="badge aba-n">${n}</span></button>`;
         const st = (x) => aba(x.id, x.nome, base.filter((d) => d.situacao === x.id).length, x.cor, x.dica || 'Mostrar só ' + x.nome.toLowerCase());
         const sep = '<span class="aba-sep" aria-hidden="true"></span>';
-        return aba('abertas', 'Em aberto', nAb, '', 'Novas, acionadas, em atendimento e para validação')
+        return aba('abertas', 'Em aberto', nAb, '', 'Pendentes, acionadas, em atendimento e para validação')
           + SITUACOES.filter((x) => ABERTAS.includes(x.id)).map(st).join('')
           + '<span class="aba-sep aba-grupo" aria-hidden="true"></span>' + SITUACOES.filter((x) => !ABERTAS.includes(x.id)).map(st).join('')
           + sep + aba('todas', 'Todas', base.length, '', 'Todas as demandas, em aberto e encerradas');
@@ -746,7 +749,7 @@
         <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${I.agenda}${d.inicio ? esc(agendaComHora(d)) : 'A agendar'}</span>
         <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(d.regiao || 'não identificada')}</span>
-        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === COORD ? 'Coordenador' : u.nome) + (u.id === COORD && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === COORD ? 'Administrador' : u.nome) + (u.id === COORD && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
       </div>
     </div>
     <button type="button" class="btn btn-icone" data-acao="fechar-det" aria-label="Fechar">${I.fechar}</button>
@@ -871,7 +874,7 @@
   }
   function opcoesResp(sel) {
     const atual = usr(sel); const extra = atual && atual.ativo === false ? [atual] : [];
-    return `${ativos().concat(extra).map((u) => `<option value="${esc(u.id)}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (inativo)' : ''}</option>`).join('')}<option value="${COORD}" ${sel === COORD ? 'selected' : ''}>Coordenador</option>`;
+    return `${ativos().concat(extra).map((u) => `<option value="${esc(u.id)}" ${sel === u.id ? 'selected' : ''}>${esc(u.nome)}${u.ativo === false ? ' (excluído)' : ''}</option>`).join('')}<option value="${COORD}" ${sel === COORD ? 'selected' : ''}>Administrador</option>`;
   }
 
 
@@ -909,8 +912,8 @@
       </div>
       ${E.erros.data || E.erros.hora ? `<span class="erro campo-info">${esc(E.erros.data || E.erros.hora)}</span>` : ''}
       <div class="campo campo-info">
-        <span class="rotulo-l"><label class="form-label" for="f-info">Informações adicionais</label><span class="cont" id="f-info-cont">${(d.informacoes || '').length}/100</span></span>
-        <textarea id="f-info" data-rascunho data-cont="100" class="form-control txt txt-info" rows="2" maxlength="100" placeholder="Ex.: Solicitado ao DMP em 01/04">${esc(d.informacoes || '')}</textarea>
+        <span class="rotulo-l"><label class="form-label" for="f-info">Informações adicionais</label><span class="cont" id="f-info-cont">${(d.informacoes || '').length}/250</span></span>
+        <textarea id="f-info" data-rascunho data-cont="250" class="form-control txt txt-info" rows="3" maxlength="250" placeholder="Ex.: Solicitado ao DMP em 01/04">${esc(d.informacoes || '')}</textarea>
       </div>
     </div>`)}
 </fieldset></form>`;
@@ -947,6 +950,17 @@
       ${E.erros.principal ? `<span class="erro">${esc(E.erros.principal)}</span>` : ''}`);
   }
 
+  // descrição opcional do subticket: linha logo abaixo dele, escondida até clicar no + (o - recolhe de novo)
+  function linhaDescSub(s, i, fixos, cols) {
+    if (!E.subDesc[s.numero]) return '';
+    const alt = E.subRasc[s.numero] && 'descricao' in E.subRasc[s.numero];
+    if (fixos) return `<tr class="sub-desc"><td colspan="${cols}"><p class="sub-desc-txt">${esc(s.descricao)}</p></td></tr>`;
+    return `<tr class="sub-desc ${alt ? 'sub-alterado' : ''}"><td colspan="${cols}">
+      <span class="rotulo-l"><label class="form-label" for="sd-${i}">Descrição do subticket ${esc(s.numero)} <em>(opcional)</em></label><span class="cont" id="sd-${i}-cont">${(s.descricao || '').length}/250</span></span>
+      <textarea id="sd-${i}" class="form-control txt" rows="2" maxlength="250" data-cont="250" data-campo-sub="descricao" data-i="${i}" placeholder="Ex.: Sala 1001, 2º andar - retirar após as 14h">${esc(s.descricao || '')}</textarea>
+    </td></tr>`;
+  }
+
   function abaTickets(d) {
     // em qualquer etapa em aberto dá para incluir, alterar e remover tickets; encerrada fica só para consulta
     const ro = !podeEditar(d); const fixos = ro; const trava = fixos ? 'disabled' : '';
@@ -962,9 +976,12 @@
         <td class="td-qtd"><label class="visually-hidden" for="sq-${i}">Quantidade</label><input id="sq-${i}" type="number" min="1" max="999" class="form-control inp-qtd ${s.quantidade ? '' : 'falta'}" value="${esc(s.quantidade || '')}" placeholder="—" data-campo-sub="quantidade" data-i="${i}" ${trava}></td>
         ${temMetro ? `<td class="td-qtd">${usaMetro(s.empresa, s.finalidade) ? `<label class="visually-hidden" for="sm-${i}">Metro linear</label><input id="sm-${i}" type="number" min="1" max="9999" step="1" class="form-control inp-qtd" value="${esc(s.metro || '')}" placeholder="—" data-campo-sub="metro" data-i="${i}" ${trava}>` : ''}</td>` : ''}
         <td class="td-acao"><span class="acoes-sub">
+          ${fixos && !s.descricao ? '' : E.subDesc[s.numero]
+            ? `<button type="button" class="btn btn-icone" data-acao="sub-desc" data-i="${i}" aria-expanded="true" aria-label="Recolher a descrição do subticket ${esc(s.numero)}" title="Recolher descrição">${I.menosP}</button>`
+            : `<button type="button" class="btn btn-icone ${s.descricao ? 'tem-desc' : ''}" data-acao="sub-desc" data-i="${i}" aria-expanded="false" aria-label="${s.descricao ? 'Ver' : 'Incluir'} descrição do subticket ${esc(s.numero)}" title="${s.descricao ? 'Ver descrição' : 'Incluir descrição'}">${I.maisP}</button>`}
           ${fixos ? '' : `<button type="button" class="btn btn-icone perigo-h" data-acao="sub-del" data-i="${i}" aria-label="Remover subticket ${esc(s.numero)}" title="Remover">${I.lixo}</button>`}
         </span></td>
-      </tr>`).join('')}</tbody></table>` : '<p class="vazio-bloco">Nenhum subticket incluído ainda.</p>';
+      </tr>${linhaDescSub(s, i, fixos, temMetro ? 6 : 5)}`).join('')}</tbody></table>` : '<p class="vazio-bloco">Nenhum subticket incluído ainda.</p>';
     return `
 ${blocoTicket(d)}
 ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.length > 1 ? ' subtickets' : ' subticket') : '', `
@@ -1004,7 +1021,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // ------------------------------------------------------------------ outros modais
   function telaModal() {
     if (!E.modal) return '';
-    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, relatorio: modalRelatorio, lixeira: modalLixeira, senha: modalSenha, config: modalConfig }[E.modal];
+    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, lixeira: modalLixeira, senha: modalSenha, config: modalConfig }[E.modal];
     // a confirmação da Configuração abre por cima dela; ao voltar, a Configuração não repete a animação
     const camada = (fn, cls, anim) => `<div class="modal d-block modal-camada ${cls} ${anim ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">${fn ? fn() : ''}</div></div>`;
     const voltou = E.modal === 'config' && E._k && E._k.modal === 'confirmar';
@@ -1013,7 +1030,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
 
   function modalNova() {
     const er = E.erros; const v = E.modalDados || {};
-    const resp = v.responsavel || COORD; // sem escolha, a demanda fica com o coordenador
+    const resp = v.responsavel || ''; // nenhum técnico pré-selecionado; o administrador não recebe demanda nova
     const suc = v.sucesso ? demanda(v.sucesso) : null;
     return `
 <form class="modal-content modal-n" role="dialog" aria-modal="true" aria-labelledby="mn-tit" data-form="nova" novalidate>
@@ -1046,10 +1063,10 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       ${bloco('Atribuição da Demanda', '', `
         <fieldset class="campo resp-campo">
           <legend class="rotulo">Responsável</legend>
-          <div class="grade-resp" role="radiogroup">
+          <div class="grade-resp" role="radiogroup" ${er.resp ? 'aria-invalid="true"' : ''}>
             ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${esc(u.id)}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
-            <label class="tile-resp"><input type="radio" name="n-resp" value="${COORD}" ${resp === COORD ? 'checked' : ''}>${avatar(COORD, 'sm')}<span>Coordenador</span></label>
           </div>
+          ${er.resp ? `<span class="erro">${esc(er.resp)}</span>` : ''}
         </fieldset>`)}
     </div>
     <footer class="modal-footer">
@@ -1071,7 +1088,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <h2 class="suc-tit">Demanda Incluída com Sucesso</h2>
   <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · ' + esc(atribuidaA(u.id)) : ''}</p>
   ${E.modalDados.atencao ? `<p class="suc-nota">${esc(E.modalDados.atencao)}</p>` : ''}
-  ${d.inicio && (d.fim || d.inicio) < hojeISO() ? '<p class="suc-nota">A data já passou: a demanda fica Nova até receber o ticket principal e um subticket, e então vai para Para Validação.</p>' : ''}
+  ${d.inicio && (d.fim || d.inicio) < hojeISO() ? '<p class="suc-nota">A data já passou: a demanda fica Pendente até receber o ticket principal e um subticket, e então vai para Para Validação.</p>' : ''}
   <div class="suc-campo">
     <span class="suc-rot">${d.sei ? 'Expediente SEI' : 'Número da demanda'}</span>
     <div class="suc-valor"><span class="mono">${esc(d.sei || num4(d.id))}</span><button type="button" class="btn btn-outline-secondary btn-sm" data-acao="copiar" data-v="${esc(d.sei || num4(d.id))}">Copiar</button></div>
@@ -1120,7 +1137,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="ml-tit">Entrar no Controle de Mudanças</h2>
-    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e coordenadores entram com o próprio usuário e senha.'}</p>
+    <p>${v.motivo ? esc(v.motivo) : 'Entre com o usuário e senha cadastrados.'}</p>
   </div>
   <div class="campo">
     <label class="form-label" for="l-usr">Usuário da rede</label>
@@ -1132,10 +1149,12 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     ${E.erros.login ? `<span class="erro" role="alert">${esc(E.erros.login)}</span>` : ''}
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Entrar</button>
-  <p class="login-ajuda">Esqueceu a senha? Procure o coordenador: ele gera uma senha temporária em Equipe.<br>Ainda não tem acesso? <button type="button" class="link" data-acao="pedir-acesso">Solicitar acesso</button></p>
+  <p class="login-ajuda"><button type="button" class="link" data-acao="esqueci-senha" aria-expanded="${v.esqueci ? 'true' : 'false'}">Esqueci minha senha</button>
+    ${v.esqueci ? '<span class="login-dica">Procure o administrador: ele gera uma senha temporária em Equipe.</span>' : ''}
+    <br><button type="button" class="link" data-acao="pedir-acesso">Cadastrar novo usuário</button></p>
 </form>`;
   }
-  // pedido de acesso: fica pendente até um coordenador aprovar em Equipe
+  // pedido de acesso: fica pendente até o administrador aprovar em Equipe
   function modalPedido(v) {
     const er = E.erros.pedido;
     if (v.enviado) {
@@ -1144,7 +1163,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.check}</span>
     <h2 id="pa-tit">Pedido Enviado</h2>
-    <p>Um coordenador vai aprovar o acesso em Equipe e entregar a senha temporária. No primeiro acesso, você cria a sua senha.</p>
+    <p>O administrador vai aprovar o acesso em Equipe e entregar a senha temporária. No primeiro acesso, você cria a sua senha.</p>
   </div>
   <button type="button" class="btn btn-primary w-100 btn-bloco" data-acao="pedir-voltar">Voltar para entrar</button>
 </div>`;
@@ -1154,7 +1173,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.usuario}</span>
     <h2 id="pa-tit">Solicitar Acesso</h2>
-    <p>Informe o nome e o usuário da rede. O pedido vai para o coordenador.</p>
+    <p>Informe o nome e o usuário da rede. O pedido vai para o administrador.</p>
   </div>
   <div class="campo">
     <label class="form-label" for="pa-nome">Nome</label>
@@ -1204,8 +1223,9 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): volta à consulta sem login
   async function sairDaSessao() {
+    fecharJanela();
     Object.assign(E, { usuario: null, perfil: null, lixeira: [], solicitacoes: [], precos: null,
-      aberta: null, statusRascunho: null, subRasc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null, filtroResp: '' });
+      aberta: null, statusRascunho: null, subRasc: {}, subDesc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null, filtroResp: '' });
     try { await carregarTudo(); } catch (e) { E.carregado = false; }
   }
   function sessaoEncerrada(msg) { sairDaSessao().then(() => abrirLogin(msg)); }
@@ -1247,20 +1267,20 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   // abre o card na hora e completa com o histórico, que não vem na lista
   async function abrirCard(id) {
-    E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; E.subRasc = {};
+    E.detDesl = null; E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; E.subRasc = {}; E.subDesc = {};
     desenhar();
     try { const d = trocarDemanda(await api('GET', 'mudancas/' + id)); if (E.aberta === d.id) desenhar(); } catch (e) { if (e.status !== 401) { aviso(e.message, true); desenhar(); } }
   }
 
-  // Perfis: técnico e coordenador entram com login. O técnico faz tudo nas demandas; o coordenador também cancela,
+  // Perfis: técnico e administrador entram com login. O técnico faz tudo nas demandas; o administrador também cancela,
   // exclui, restaura da lixeira, aprova os acessos e mantém Equipe e Configuração. O servidor confere cada permissão.
   const ehGestor = () => E.perfil === 'COORDENADOR';
   // Concluída e Cancelada ficam só para consulta (no histórico ainda se registra andamento)
   const podeEditar = (d) => !!d && !!E.usuario && !FINAIS.includes(d.situacao);
   function precisaGestor() {
     if (ehGestor()) return false;
-    if (!E.usuario) { abrirLogin('Esta ação é do coordenador. Entre com o seu usuário.'); return true; }
-    aviso('Somente o coordenador pode fazer isso.', true); desenhar(); return true;
+    if (!E.usuario) { abrirLogin('Esta ação é do administrador. Entre com o seu usuário.'); return true; }
+    aviso('Somente o administrador pode fazer isso.', true); desenhar(); return true;
   }
   function precisaEditar(d) {
     if (podeEditar(d)) return false;
@@ -1284,8 +1304,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // ------------------------------------------------------------------ equipe
   const cores = (nome, sel) => `<span class="cores" role="radiogroup" aria-label="Cor">${CORES_EQUIPE.map((c) => `<label class="cor-op" style="--c:${corOk(c)}" title="${c}"><input type="radio" name="${nome}" value="${c}" ${sel === c ? 'checked' : ''}><span></span></label>`).join('')}</span>`;
   function proximaCor() { const usadas = E.pessoas.filter((u) => u.ativo).map((u) => u.cor); return CORES_EQUIPE.find((c) => !usadas.includes(c)) || CORES_EQUIPE[E.pessoas.length % CORES_EQUIPE.length]; }
-  const textoAcesso = (u) => (u.acesso === 'aguardando' ? 'aguardando o primeiro acesso' : u.acesso === 'desativado' ? 'desativado' : 'último acesso em ' + brHora(u.ultimoAcesso));
-  const opcoesPerfil = (sel) => `<option value="TECNICO" ${sel !== 'COORDENADOR' ? 'selected' : ''}>Técnico</option><option value="COORDENADOR" ${sel === 'COORDENADOR' ? 'selected' : ''}>Coordenador</option>`;
+  const textoAcesso = (u) => (u.acesso === 'aguardando' ? 'aguardando o primeiro acesso' : u.acesso === 'desativado' ? 'excluído (o nome fica no histórico)' : 'último acesso em ' + brHora(u.ultimoAcesso));
 
   function modalEquipe() {
     const v = E.modalDados || {};
@@ -1304,13 +1323,13 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       }
       return `<li class="list-group-item eq-linha ${u.ativo ? '' : 'inativa'}">
         ${avatar(u.id)}
-        <span class="eq-nome"><span class="eq-id"><b>${esc(u.nome)}</b><small class="eq-usr"><span class="mono" title="Usuário para entrar">${esc(u.login)}</span> · ${tec ? 'Técnico' : 'Coordenador'} · ${esc(textoAcesso(u))}</small></span>${u.ativo ? '' : '<span class="badge tag-inativo">Inativo</span>'}</span>
+        <span class="eq-nome"><span class="eq-id"><b>${esc(u.nome)}</b><small class="eq-usr"><span class="mono" title="Usuário para entrar">${esc(u.login)}</span> · ${tec ? 'Técnico' : 'Administrador'} · ${esc(textoAcesso(u))}</small></span>${u.ativo ? '' : '<span class="badge tag-inativo">Excluído</span>'}</span>
         <span class="eq-carga">${tec ? `<b>${ab}</b> em aberto<span class="eq-tot">· ${tot} no total</span>` : 'Carga compartilhada'}</span>
         <span class="eq-acoes">
           ${u.ativo ? `<button type="button" class="btn btn-icone" data-acao="eq-editar" data-v="${esc(u.id)}" aria-label="Editar ${esc(u.nome)}" title="Editar">${svg(15, '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', 1.9)}</button>` : '<span></span>'}
           ${ab ? `<button type="button" class="btn btn-outline-secondary btn-sm" data-acao="eq-transferir" data-v="${esc(u.id)}">${svg(14, '<path d="M4 8h13l-3-3M20 16H7l3 3"/>', 2)}Transferir</button>` : '<span></span>'}
           ${u.ativo && !eu ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-senha" data-v="${esc(u.id)}" title="Gerar senha temporária">Redefinir senha</button>` : '<span></span>'}
-          ${eu ? '<span></span>' : u.ativo ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-desativar" data-v="${esc(u.id)}">Desativar</button>` : `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="eq-reativar" data-v="${esc(u.id)}">Reativar</button>`}
+          ${eu || !tec ? '<span></span>' : u.ativo ? `<button type="button" class="btn btn-sm btn-link eq-desat" data-acao="eq-excluir" data-v="${esc(u.id)}">Excluir</button>` : `<button type="button" class="btn btn-sm btn-outline-secondary" data-acao="eq-reativar" data-v="${esc(u.id)}">Reativar</button>`}
         </span>
       </li>`;
     };
@@ -1318,7 +1337,6 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         <span class="avatar vazio">?</span>
         <span class="eq-nome"><span class="eq-id"><b>${esc(s.nome)}</b><small class="eq-usr"><span class="mono">${esc(s.login)}</span> · pedido em ${esc(brHora(s.pedidaEm))}</small></span></span>
         <span class="sol-acoes">
-          <label class="visually-hidden" for="sol-perfil-${s.id}">Perfil</label><select id="sol-perfil-${s.id}" data-rascunho class="form-select sel-g">${opcoesPerfil('TECNICO')}</select>
           <button type="button" class="btn btn-sm btn-link eq-desat" data-acao="sol-recusar" data-id="${s.id}">Recusar</button>
           <button type="button" class="btn btn-sm btn-primary" data-acao="sol-aprovar" data-id="${s.id}">Aprovar</button>
         </span>
@@ -1326,7 +1344,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const ativas = E.pessoas.filter((u) => u.ativo).length; const inativas = E.pessoas.length - ativas;
     return `
 <div class="modal-content modal-m equipe" role="dialog" aria-modal="true" aria-labelledby="eq-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="eq-tit">Equipe</h2><p>Contas de técnicos e coordenadores.</p></div>
+  <header class="modal-header"><div><h2 class="modal-title" id="eq-tit">Equipe</h2><p>Contas do administrador e dos técnicos.</p></div>
     <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${E.solicitacoes.length ? bloco('Pedidos de Acesso', E.solicitacoes.length + (E.solicitacoes.length === 1 ? ' pendente' : ' pendentes'), `<ul class="list-group list-group-flush eq-lista">${E.solicitacoes.map(pedido).join('')}</ul>`, '', 'sol-bloco') : ''}
@@ -1334,17 +1352,16 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       <form class="eq-add" data-form="equipe-add" novalidate>
         <span class="campo"><label class="form-label" for="eq-nome">Nome</label><input id="eq-nome" data-rascunho class="form-control" maxlength="60" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
         <span class="campo"><label class="form-label" for="eq-login">Usuário da rede</label><input id="eq-login" data-rascunho class="form-control" maxlength="60" autocapitalize="none" spellcheck="false" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
-        <span class="campo"><label class="form-label" for="eq-perfil">Perfil</label><select id="eq-perfil" data-rascunho class="form-select sel-g">${opcoesPerfil('TECNICO')}</select></span>
         <span class="campo"><span class="rotulo">Cor</span>${cores('eq-cor', proximaCor())}</span>
         <button type="submit" class="btn btn-primary btn-lg">${I.mais}Incluir</button>
       </form>
       ${E.erros.eqAdd ? `<span class="erro">${esc(E.erros.eqAdd)}</span>` : ''}`)}
-    ${bloco('Pessoas', `${ativas} ${ativas === 1 ? 'ativa' : 'ativas'}${inativas ? ' · ' + inativas + (inativas === 1 ? ' inativa' : ' inativas') : ''}`, lista.length ? `<ul class="list-group list-group-flush eq-lista">${lista.map(linha).join('')}</ul>` : '<p class="vazio-bloco">Nenhuma pessoa cadastrada.</p>', '', 'tabela-bloco')}
+    ${bloco('Pessoas', `${ativas} ${ativas === 1 ? 'ativa' : 'ativas'}${inativas ? ' · ' + inativas + (inativas === 1 ? ' excluída' : ' excluídas') : ''}`, lista.length ? `<ul class="list-group list-group-flush eq-lista">${lista.map(linha).join('')}</ul>` : '<p class="vazio-bloco">Nenhuma pessoa cadastrada.</p>', '', 'tabela-bloco')}
   </div>
   <footer class="modal-footer">${flash('equipe')}<span class="esp"></span><button type="button" class="btn btn-primary btn-lg" data-acao="fechar-modal">Fechar</button></footer>
 </div>`;
   }
-  // a senha temporária aparece uma única vez, para o coordenador entregar à pessoa; Fechar volta à Equipe
+  // a senha temporária aparece uma única vez, para o administrador entregar à pessoa; Fechar volta à Equipe
   function mostrarSenha(titulo, r) {
     E.modal = 'confirmar';
     E.modalDados = { titulo, texto: 'Senha temporária de ' + r.pessoa.nome + ' (usuário ' + r.pessoa.login + '), válida até ' + brHora(r.expiraEm) + '. Anote e entregue à pessoa: ela não será mostrada de novo. No primeiro acesso, a pessoa cria a senha pessoal.', senha: r.senha, ok: true, soFechar: true, voltarPara: 'equipe' };
@@ -1357,8 +1374,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const destinos = ativos().filter((u) => u.id !== t.de);
     return `
 <form class="modal-content modal-m equipe" role="dialog" aria-modal="true" aria-labelledby="tr-tit" data-form="equipe-transf" novalidate>
-  <header class="modal-header"><div><h2 class="modal-title" id="tr-tit">${t.desativar ? 'Desativar ' + esc(de.curto) : 'Transferir Demandas'}</h2><p>${t.desativar
-    ? esc(de.nome) + ' tem ' + ls.length + (ls.length === 1 ? ' demanda' : ' demandas') + ' em aberto. Escolha quem assume antes de desativar.'
+  <header class="modal-header"><div><h2 class="modal-title" id="tr-tit">${t.desativar ? 'Excluir ' + esc(de.curto) : 'Transferir Demandas'}</h2><p>${t.desativar
+    ? esc(de.nome) + ' tem ' + ls.length + (ls.length === 1 ? ' demanda' : ' demandas') + ' em aberto. Escolha quem assume antes de excluir.'
     : 'Passe as demandas em aberto de ' + esc(de.nome) + ' para outra pessoa da equipe.'}</p></div>
     <button type="button" class="btn btn-icone" data-acao="eq-voltar" aria-label="Voltar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
@@ -1366,7 +1383,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       <span class="campo tr-de"><span class="form-label">De</span><span class="tr-pessoa">${avatar(de.id, 'sm')}<b>${esc(de.nome)}</b></span></span>
       <span class="tr-seta" aria-hidden="true">${svg(18, '<path d="M5 12h14M13 6l6 6-6 6"/>', 2)}</span>
       <span class="campo tr-para"><label class="form-label" for="tr-dest">Para</label>
-        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${esc(u.id)}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="${COORD}" ${t.para === COORD ? 'selected' : ''}>Coordenador · ${abertasDe(COORD).length} em aberto</option></select>
+        <select id="tr-dest" data-rascunho class="form-select sel-g" ${E.erros.transf ? 'aria-invalid="true"' : ''}><option value="">Escolher pessoa…</option>${destinos.map((u) => `<option value="${esc(u.id)}" ${t.para === u.id ? 'selected' : ''}>${esc(u.nome)} · ${abertasDe(u.id).length} em aberto</option>`).join('')}<option value="${COORD}" ${t.para === COORD ? 'selected' : ''}>Administrador · ${abertasDe(COORD).length} em aberto</option></select>
       </span>
     </div>
     ${E.erros.transf ? `<span class="erro">${esc(E.erros.transf)}</span>` : ''}
@@ -1377,11 +1394,11 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         <span class="tr-data">${d.inicio ? esc(agendaTexto(d)) : 'Sem data'}</span>
         <span class="badge tr-sit" data-sit="${esc(d.situacao)}">${esc(sit(d.situacao).um)}</span>
       </label></li>`).join('')}</ul>`, '', 'tabela-bloco')}
-    ${t.desativar ? '<p class="tr-nota">As demandas desmarcadas vão para o Coordenador: ninguém desativado fica com demanda em aberto.</p>' : ''}
+    ${t.desativar ? '<p class="tr-nota">As demandas desmarcadas vão para o Administrador: ninguém excluído fica com demanda em aberto.</p>' : ''}
   </div>
   <footer class="modal-footer">
     <button type="button" class="btn btn-link btn-lg" data-acao="eq-voltar">Voltar</button><span class="esp"></span>
-    <button type="submit" class="btn btn-primary btn-lg" id="tr-ok">${t.desativar ? 'Transferir e desativar' : 'Transferir'}</button>
+    <button type="submit" class="btn btn-primary btn-lg" id="tr-ok">${t.desativar ? 'Transferir e excluir' : 'Transferir'}</button>
   </footer>
 </form>`;
   }
@@ -1395,7 +1412,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const ag = !d.inicio ? 'Agendamento: a definir.'
       : 'Agendamento:\nData de Início: ' + br(d.inicio) + (variosDias(d) ? '\nData para Conclusão: ' + br(d.fim) : '') + '\nHorário: ' + horaSEI(d.hora);
     return 'Ao Serviço de Gestão de Mudanças,\n\n'
-      + 'Em atenção ao Agendamento, informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
+      + 'Em atenção ao "Agendamento", informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
       + ag + '\n\n'
       + (emp.length ? 'Tickets:\n\n' + emp.map(([e, ls]) => e + ': ' + ls.join(' / ')).join('\n') + '\n\n' : '')
       + 'Era o que cumpria informar.';
@@ -1470,14 +1487,42 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const notas = c.verbas.map((v) => notaVerba(v, c));
     return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (c.total ? moeda(c.total) : ''), total: c.total, infra: c.infra, itens, global: !pago, notas, notasSemInfra: c.infra ? [OBS_SEM_INFRA] : [], semPreco: c.semPreco };
   }
+  // Relatório: janela solta (sem esmaecer o fundo), arrastável pelo cabeçalho. Fica fora do #app, então o card de baixo
+  // continua em uso e o redesenho da tela não apaga o que foi editado no relatório
+  const janelaEl = document.createElement('div'); janelaEl.id = 'janela-relat'; document.body.appendChild(janelaEl);
+  function abrirJanela(id, custo) {
+    E.janela = { id, custo }; janelaEl.innerHTML = modalRelatorio();
+    const j = janelaEl.querySelector('.janela'); if (!j) { fecharJanela(); return; }
+    ajustaTextos();
+    const p = E.janelaPos || { x: (window.innerWidth - j.offsetWidth) / 2, y: (window.innerHeight - j.offsetHeight) / 2 };
+    posicionarJanela(j, p.x, p.y);
+  }
+  function fecharJanela() { E.janela = null; janelaEl.innerHTML = ''; }
+  // mantém pelo menos o cabeçalho dentro da tela
+  function posicionarJanela(j, x, y) {
+    const mx = Math.max(0, window.innerWidth - j.offsetWidth); const my = Math.max(0, window.innerHeight - 64);
+    x = Math.min(Math.max(0, x), mx); y = Math.min(Math.max(0, y), my);
+    j.style.left = Math.round(x) + 'px'; j.style.top = Math.round(y) + 'px'; E.janelaPos = { x, y };
+  }
+  let ARRASTO = null;
+  janelaEl.addEventListener('pointerdown', (ev) => {
+    const cab = ev.target.closest('.janela .modal-header'); if (!cab || ev.target.closest('button, a, input, textarea, select') || ev.button !== 0) return;
+    const j = cab.closest('.janela'); const r = j.getBoundingClientRect();
+    ARRASTO = { j, dx: ev.clientX - r.left, dy: ev.clientY - r.top }; cab.setPointerCapture(ev.pointerId); j.classList.add('arrastando'); ev.preventDefault();
+  });
+  janelaEl.addEventListener('pointermove', (ev) => { if (ARRASTO) posicionarJanela(ARRASTO.j, ev.clientX - ARRASTO.dx, ev.clientY - ARRASTO.dy); });
+  const soltar = () => { if (ARRASTO) { ARRASTO.j.classList.remove('arrastando'); ARRASTO = null; } };
+  janelaEl.addEventListener('pointerup', soltar); janelaEl.addEventListener('pointercancel', soltar);
+  window.addEventListener('resize', () => { const j = janelaEl.querySelector('.janela'); if (j && E.janelaPos) posicionarJanela(j, E.janelaPos.x, E.janelaPos.y); });
+
   function modalRelatorio() {
-    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return '';
+    const m = E.janela || {}; const d = demanda(m.id); if (!d || !m.custo) return '';
     const r = montarRelatorio(d, m.custo); const sv = r.servicos;
     const ck = (id, rot, on) => `<label class="check rl-ck"><input type="checkbox" id="${id}" data-rascunho ${on ? 'checked' : ''}><span>${rot}</span></label>`;
     return `
-<div class="modal-content modal-m relat" role="dialog" aria-modal="true" aria-labelledby="rl-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, conferir os dados antes de gerar o relatório.</p></div>
-    <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
+<div class="modal-content modal-m relat janela" role="dialog" aria-modal="false" aria-labelledby="rl-tit">
+  <header class="modal-header" title="Arraste para mover a janela"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, conferir os dados antes de gerar o relatório.</p></div>
+    <button type="button" class="btn btn-icone" data-acao="fechar-janela" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${d.subtickets.length ? '' : `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda não tem subtickets. Marque os serviços, preencha os itens e confira a frase de custo antes de baixar.</span></p>`}
     ${r.semPreco.length ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Sem valor na soma: ${r.semPreco.length > 1 ? 'tickets' : 'ticket'} ${esc(r.semPreco.join(', '))}. Confira a região do local e o serviço, e ajuste o custo antes de baixar.</span></p>` : ''}
@@ -1497,8 +1542,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     ${bloco('Descrição', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
       <div class="campo"><label for="rl-itens" class="visually-hidden">Descrição</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="8">${esc(r.itens.concat(r.notas).join('\n\n'))}</textarea></div>`)}
   </div>
-  <footer class="modal-footer">${flash('relatorio')}<span class="esp"></span>
-    <button type="button" class="btn btn-link btn-lg" data-acao="fechar-modal">Fechar</button>
+  <footer class="modal-footer"><span class="esp">Arraste pelo título para ver o card ao lado.</span>
+    <button type="button" class="btn btn-link btn-lg" data-acao="fechar-janela">Fechar</button>
     <button type="button" class="btn btn-primary btn-lg" data-acao="baixar-relatorio">${I.baixar}Baixar PDF</button>
   </footer>
 </div>`;
@@ -1583,14 +1628,14 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   const paragrafos = (t) => String(t).split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
   // o check tira (ou devolve) a Infraestrutura da soma e troca a observação dela na Descrição, sem perder o resto do que foi editado
   function atualizaInfra(somar) {
-    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return;
+    const m = E.janela || {}; const d = demanda(m.id); if (!d || !m.custo) return;
     const r = montarRelatorio(d, m.custo);
     const custo = document.getElementById('rl-custo'); if (custo) custo.value = moeda(r.total - (somar ? 0 : r.infra));
     const desc = document.getElementById('rl-itens');
     if (desc) desc.value = paragrafos(desc.value).filter((x) => !RE_OBS.test(x)).concat(somar ? r.notas : r.notasSemInfra).join('\n\n');
   }
   async function baixarRelatorio() {
-    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return;
+    const m = E.janela || {}; const d = demanda(m.id); if (!d || !m.custo) return;
     const ln = (id) => val(id).split('\n').map((x) => x.trim()).filter(Boolean);
     const chk = (id) => { const x = document.getElementById(id); return !!(x && x.checked); };
     const base = montarRelatorio(d, m.custo);
@@ -1608,7 +1653,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     aviso('Relatório gerado.'); desenhar();
   }
 
-  // lixeira: só o coordenador
+  // lixeira: só o administrador
   function modalLixeira() {
     if (!ehGestor()) return '';
     const ls = E.lixeira.slice().sort((a, b) => String(b.excluidaEm).localeCompare(String(a.excluidaEm)));
@@ -1654,7 +1699,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // mensagens de confirmação: aparecem dentro da tela em uso, em verde com check
   function ondeFlash() {
     if (E.modal === 'nova') return (E.modalDados && E.modalDados.sucesso) ? 'suc' : 'nova';
-    if (E.modal === 'sobre' || E.modal === 'equipe' || E.modal === 'acionamento' || E.modal === 'relatorio' || E.modal === 'lixeira') return E.modal;
+    if (E.modal === 'sobre' || E.modal === 'equipe' || E.modal === 'acionamento' || E.modal === 'lixeira') return E.modal;
     if (E.aberta) return 'det';
     return 'pagina';
   }
@@ -1690,6 +1735,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (k.startsWith('radio:')) { const r = app.querySelector(`input[name="${k.slice(6)}"][value="${rasc[k]}"]`); if (r) r.checked = true; return; }
       const el = document.getElementById(k); if (el) { if (el.type === 'checkbox') el.checked = rasc[k]; else el.value = rasc[k]; }
     });
+    moverDetalhe();
     trocarFinalidade(); ajustarMetro(); atualizaConfig(); atualizaTransf(); filtrarLocais(); ajustaMenus(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
     E.chaveRasc = chave; E.limparRascunho = false; E.recemTk = false; k.aba = E.aba; E._k = k;
     Object.keys(rol).forEach((q) => { const el = document.querySelector(q); if (el && (q === '.rolagem' ? !E.zerarLista : mesmaTela)) el.scrollTop = rol[q]; });
@@ -1720,7 +1766,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if ((E.sujo && E.aberta && E.aba === 'dados') || (E.statusRascunho && !trocaAba) || temSubRasc()) {
       E.modal = 'confirmar';
       E.modalDados = { titulo: 'Descartar Alterações?', texto: temSubRasc() ? 'Você mudou subtickets desta demanda e ainda não salvou.' : 'Você mudou os detalhes desta demanda e ainda não salvou.', botao: 'Descartar', perigo: true,
-        acao: () => { E.sujo = false; E.subRasc = {}; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
+        acao: () => { E.sujo = false; E.subRasc = {}; E.subDesc = {}; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
       desenhar(); return;
     }
     E.sujo = false; fn();
@@ -1733,6 +1779,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if ('servico' in r) x.finalidade = r.servico || null;
     if ('quantidade' in r) x.quantidade = Number(r.quantidade);
     if ('metro' in r) x.metro = r.metro ? Number(r.metro) : null;
+    if ('descricao' in r) x.descricao = r.descricao;
     if (!usaMetro(x.empresa, x.finalidade)) x.metro = null;
     return x;
   }
@@ -1740,14 +1787,14 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   async function salvarSubtickets(d) {
     for (const [numero, r] of Object.entries(E.subRasc)) {
       if (!d.subtickets.some((x) => x.numero === numero)) continue;
-      for (const campo of ['servico', 'quantidade', 'metro']) {
+      for (const campo of ['servico', 'quantidade', 'metro', 'descricao']) {
         if (!(campo in r)) continue;
         if (campo === 'metro' && 'servico' in r && !usaMetro(d.subtickets.find((x) => x.numero === numero).empresa, r.servico)) continue;
         trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/subtickets/' + numero, { campo, valor: String(r[campo] || '') })).demanda);
       }
       delete E.subRasc[numero];
     }
-    E.subRasc = {}; E.manterRolagem = true;
+    E.subRasc = {}; E.subDesc = {}; E.manterRolagem = true;
     aviso('Subtickets atualizados.'); desenhar();
   }
   function irPara(id) {
@@ -1762,17 +1809,21 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if (msg) aviso(msg, true);
     desenhar(); const el = foco && document.getElementById(foco); if (el) el.focus();
   }
-  // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; depois de acionada, a demanda
-  // não volta para Nova; cancelar fica só em Mais ações (coordenador); Concluída e Cancelada são finais
+  // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; a Acionada pode voltar para
+  // Pendente (acionamento por engano); cancelar fica só em Mais ações (administrador); Concluída e Cancelada são finais
   // TRAVADOS: o status é automático (os dados continuam editáveis)
   const TRAVADOS = ['atendimento', 'pendente'];
   const FINAIS = ['concluida', 'cancelada'];
-  const destinosStatus = (d) => (d.situacao === 'nova' ? ['acionada'] : []);
+  const destinosStatus = (d) => (d.situacao === 'nova' ? ['acionada'] : d.situacao === 'acionada' ? ['nova'] : []);
   // o select só guarda a escolha; a mudança acontece em Salvar alterações
   function escolherStatus(d, novo) { E.statusRascunho = novo === d.situacao ? null : novo; desenhar(); }
   async function salvarStatus(d) {
     const novo = E.statusRascunho;
     if (!destinosStatus(d).includes(novo)) { E.statusRascunho = null; aviso('Esta mudança de status não é mais permitida.', true); desenhar(); return; }
+    if (novo === 'nova') {
+      trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/situacao', { situacao: novo })).demanda);
+      E.statusRascunho = null; aviso('Acionamento desfeito: a demanda voltou para Pendente.'); destacar(d.id); desenhar(); return;
+    }
     if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para marcar como Acionada, registre antes o ticket principal e salve.'); return; }
     // sem data, a automação nunca levaria a demanda adiante
     if (!d.inicio) { irAba(d.id, 'dados', 'f-ini', 'Para marcar como Acionada, informe a Data de Início e salve.'); return; }
@@ -1813,7 +1864,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     E.modalDados = { titulo: 'Concluir Esta Demanda?', texto: 'A demanda passa para Concluída e fica com o setor, sem atribuição. Essa ação não pode ser desfeita e fica registrada no histórico.', botao: 'Concluir demanda', ok: true, acao: () => acao(() => mudarSituacao(d, { situacao: 'concluida' }, 'Demanda ' + num4(d.id) + ' concluída.')) };
     desenhar();
   }
-  // concluir (técnico ou coordenador) ou cancelar com motivo (coordenador): a demanda fica somente leitura
+  // concluir (técnico ou administrador) ou cancelar com motivo (administrador): a demanda fica somente leitura
   async function mudarSituacao(d, corpo, msg) {
     trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/situacao', corpo)).demanda);
     E.statusRascunho = null; E.sujo = false; E.editTk = false; E.limparRascunho = true;
@@ -1825,9 +1876,22 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     nomesEmpresas().forEach((e) => { const ls = d.subtickets.filter((s) => s.empresa === e); p.push(e + ': ' + (ls.length ? ls.map((s) => s.numero).join(' / ') : '-')); });
     return p.join('\t');
   }
+  // a área de transferência moderna só existe em https ou localhost; pelo endereço da rede (http://IP:8088) usa o
+  // caminho antigo, com um campo escondido e o comando de copiar do navegador
+  function copiarTexto(texto) {
+    const antigo = () => new Promise((ok, erro) => {
+      const ta = document.createElement('textarea');
+      ta.value = texto; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+      const foco = document.activeElement; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, texto.length);
+      let feito = false; try { feito = document.execCommand('copy'); } catch (e) { feito = false; }
+      ta.remove(); if (foco && foco.focus) foco.focus();
+      if (feito) ok(); else erro(new Error('cópia recusada'));
+    });
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(texto).catch(antigo);
+    return antigo();
+  }
   function copiar(texto, msg) {
-    const falha = () => { aviso('Não foi possível copiar. Selecione o texto e use Ctrl+C.', true); desenhar(); };
-    try { navigator.clipboard.writeText(texto).then(() => { aviso(msg || 'Copiado.'); desenhar(); }, falha); } catch (e) { falha(); }
+    copiarTexto(texto).then(() => { aviso(msg || 'Copiado.'); desenhar(); }, () => { aviso('Não foi possível copiar. Selecione o texto e use Ctrl+C.', true); desenhar(); });
   }
 
   // ------------------------------------------------------------------ formulários
@@ -1907,7 +1971,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       const cor = (form.querySelector('input[name="eq-cor"]:checked') || {}).value || proximaCor();
       if (!nome) { E.erros.eqAdd = 'Informe o nome.'; desenhar(); return; }
       if (!login) { E.erros.eqAdd = 'Informe o usuário da rede.'; desenhar(); return; }
-      const r = await api('POST', 'equipe', { nome, login, perfil: val('eq-perfil'), cor });
+      const r = await api('POST', 'equipe', { nome, login, cor });
       aplicarPessoas(await api('GET', 'pessoas'));
       E.limparRascunho = true; mostrarSenha('Conta Criada', r); return;
     }
@@ -1929,7 +1993,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       await recarregar();
       if (E.filtroResp === t.de && t.desativar) E.filtroResp = '';
       E.modalDados = {}; E.limparRascunho = true;
-      aviso((r.transferidas ? r.transferidas + (r.transferidas === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (r.paraCoordenador ? '; ' + r.paraCoordenador + (r.paraCoordenador === 1 ? ' foi' : ' foram') + ' para o Coordenador' : '') + (t.desativar ? '; ' + de.curto + ' desativado(a).' : '.'));
+      aviso((r.transferidas ? r.transferidas + (r.transferidas === 1 ? ' demanda transferida' : ' demandas transferidas') : 'Nenhuma demanda transferida') + (r.paraCoordenador ? '; ' + r.paraCoordenador + (r.paraCoordenador === 1 ? ' foi' : ' foram') + ' para o Administrador' : '') + (t.desativar ? '; ' + de.curto + ' excluído(a) da equipe.' : '.'));
       desenhar(); return;
     }
     if (tipo === 'login') {
@@ -1973,7 +2037,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (E.modalDados && E.modalDados.sucesso) return;
       const semSei = document.getElementById('n-semsei').checked;
       const r = form.querySelector('input[name="n-resp"]:checked');
-      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : COORD, inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
+      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : '', inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
       E.modalDados = v;
       if (!semSei && !v.sei) E.erros.sei = 'Informe o número do expediente ou marque “Demanda fora do SEI”.';
       else if (!semSei && !RE_SEI.test(v.sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
@@ -1981,10 +2045,11 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       else if (!localDaLista(v.comarca)) E.erros.local = MSG_LOCAL;
       else v.comarca = localDaLista(v.comarca);
       if (!v.descricao) E.erros.desc = 'Descreva a demanda.';
+      if (!v.responsavel) E.erros.resp = ativos().length ? 'Escolha o técnico responsável.' : 'Cadastre um técnico em Equipe antes de incluir a demanda.';
       const ed = erroDatas(v.inicio, v.fim); if (ed) E.erros.data = ed;
       if (v.hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (v.inicio === null) v.inicio = ''; if (v.fim === null) v.fim = ''; if (v.hora === null) v.hora = val('n-hora');
-      if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) pri.focus(); return; }
+      if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) (pri.matches('[role="radiogroup"]') ? pri.querySelector('input') : pri).focus(); return; }
       const res = await api('POST', 'mudancas', { sei: v.sei, comarca: v.comarca, descricao: v.descricao, responsavel: v.responsavel, inicio: v.inicio, fim: v.fim, hora: v.hora });
       const nova = trocarDemanda(res.demanda);
       if (!E.sitAtivas.has('nova')) E.sitAtivas = new Set(ABERTAS);
@@ -2003,6 +2068,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     acao(() => enviar(f));
   });
 
+  // o +/- da descrição do subticket não tira o foco do campo (senão o redesenho engoliria o clique)
+  document.addEventListener('mousedown', (ev) => { if (ev.target.closest && ev.target.closest('[data-acao=sub-desc]')) ev.preventDefault(); });
   document.addEventListener('click', (ev) => {
     if (CAL && !ev.target.closest('#cal-pop') && !ev.target.closest('.data-btn')) fecharCal();
     const cal = ev.target.closest('#cal-pop [data-acao], .data-btn[data-acao]');
@@ -2021,8 +2088,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     // clicar fora do modal não fecha nada; só recolhe um menu que esteja aberto
     if (a === 'fundo-modal') { if (E.menu) { E.menu = null; desenhar(); } return; }
     if (a !== 'menu-mais' && a !== 'resp-pop' && a !== 'local-pop' && a !== 'periodo-pop' && a !== 'periodo-aplicar' && a !== 'menu-conta' && E.menu) E.menu = null;
-    // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o coordenador
-    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config', 'eq-editar', 'eq-transferir', 'eq-desativar', 'eq-reativar', 'eq-senha', 'sol-aprovar', 'sol-recusar'];
+    // o técnico faz tudo nas demandas (criar, editar, acionar, gerar textos e PDF, concluir); estas ficam com o administrador
+    const SO_GESTOR = ['cancelar', 'excluir', 'equipe', 'lixeira', 'restaurar', 'config', 'eq-editar', 'eq-transferir', 'eq-excluir', 'eq-reativar', 'eq-senha', 'sol-aprovar', 'sol-recusar'];
     const EDITA = ['sub-del', 'tk-alterar'];
     if (SO_GESTOR.includes(a) && precisaGestor()) return;
     if (EDITA.includes(a) && precisaEditar(demanda(E.aberta))) return;
@@ -2031,6 +2098,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'inicio': E.aberta = null; window.scrollTo(0, 0); desenhar(); break;
       case 'menu-conta': E.menu = E.menu === 'conta' ? null : 'conta'; desenhar(); break;
       case 'ver-senha': { const el = document.getElementById('l-sen'); if (el) { el.type = el.type === 'password' ? 'text' : 'password'; alvo.setAttribute('aria-label', el.type === 'password' ? 'Mostrar senha' : 'Ocultar senha'); } break; }
+      case 'esqueci-senha': E.modalDados = Object.assign({}, E.modalDados, { esqueci: !(E.modalDados && E.modalDados.esqueci) }); desenhar(); break;
       case 'pedir-acesso': E.modalDados = { pedir: true }; E.erros = {}; E.limparRascunho = true; desenhar(); focar('pa-nome'); break;
       case 'pedir-voltar': abrirLogin(); break;
       case 'login': abrirLogin(); break;
@@ -2039,11 +2107,19 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'eq-cancelar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-transferir': E.modalDados = { transf: { de: v } }; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'eq-voltar': E.modalDados = {}; E.erros = {}; E.limparRascunho = true; desenhar(); break;
-      case 'eq-desativar': {
+      case 'eq-excluir': {
+        // com demandas em aberto, primeiro escolhe quem assume; a exclusão vem junto com a transferência
         const u = usr(v);
         if (abertasDe(v).length) { E.modalDados = { transf: { de: v, desativar: true } }; E.erros = {}; E.limparRascunho = true; desenhar(); break; }
-        acao(async () => { await api('POST', 'equipe/' + v + '/desativar'); aplicarPessoas(await api('GET', 'pessoas')); aviso(u.curto + ' desativado(a). Não entra mais no sistema nem recebe demandas.'); desenhar(); });
-        break;
+        E.modal = 'confirmar';
+        E.modalDados = { titulo: 'Excluir ' + u.curto + '?', texto: u.nome + ' deixa de entrar no sistema e sai da equipe. Se já participou de alguma demanda, o nome continua no histórico.', botao: 'Excluir', voltarPara: 'equipe',
+          acao: () => acao(async () => {
+            const r = await api('POST', 'equipe/' + v + '/excluir');
+            aplicarPessoas(await api('GET', 'pessoas'));
+            E.modal = 'equipe'; E.modalDados = {};
+            aviso(r.nome + (r.apagada ? ' excluído(a) da equipe.' : ' excluído(a) da equipe. O nome fica no histórico das demandas.')); desenhar();
+          }) };
+        desenhar(); break;
       }
       case 'eq-reativar': { const u = usr(v); acao(async () => { await api('POST', 'equipe/' + v + '/reativar'); aplicarPessoas(await api('GET', 'pessoas')); aviso(u.curto + ' reativado(a).'); desenhar(); }); break; }
       case 'eq-senha': {
@@ -2054,7 +2130,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         desenhar(); break;
       }
       case 'sol-aprovar': acao(async () => {
-        const r = await api('POST', 'acesso/solicitacoes/' + id + '/aprovar', { perfil: val('sol-perfil-' + id), cor: proximaCor() });
+        const r = await api('POST', 'acesso/solicitacoes/' + id + '/aprovar', { cor: proximaCor() });
         aplicarPessoas(await api('GET', 'pessoas')); await carregarCoordenador();
         mostrarSenha('Acesso Aprovado', r);
       }); break;
@@ -2141,20 +2217,31 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       }
       case 'copiar': copiar(v, 'Copiado: ' + v); break;
       // a confirmação fica no próprio botão (a senha não aparece em aviso nenhum)
-      case 'copiar-senha': navigator.clipboard.writeText(v).then(() => { alvo.innerHTML = I.check; alvo.title = 'Senha copiada'; alvo.setAttribute('aria-label', 'Senha copiada'); alvo.classList.add('copiado'); },
+      case 'copiar-senha': copiarTexto(v).then(() => { alvo.innerHTML = I.check; alvo.title = 'Senha copiada'; alvo.setAttribute('aria-label', 'Senha copiada'); alvo.classList.add('copiado'); },
         () => { alvo.title = 'Não foi possível copiar: selecione a senha e use Ctrl+C'; }); break;
       case 'relatorio': if (!d) break; E.menu = null; acao(async () => {
         const custo = await api('GET', 'mudancas/' + d.id + '/custo');
-        E.modal = 'relatorio'; E.modalDados = { id: d.id, custo }; E.limparRascunho = true; desenhar();
+        abrirJanela(d.id, custo); desenhar();
       }); break;
+      case 'fechar-janela': fecharJanela(); break;
       case 'baixar-relatorio': acao(baixarRelatorio); break;
       case 'acionamento': if (!d) break; E.menu = null; E.modal = 'acionamento'; E.modalDados = { id: d.id }; E.limparRascunho = true; desenhar(); break;
       case 'copiar-acionamento': { const t = document.getElementById('ac-texto'); const x = demanda(E.modalDados && E.modalDados.id); if (!t) break; copiar(t.value, 'Texto copiado. É só colar no SEI.');
         if (x) acao(async () => { trocarDemanda((await api('POST', 'mudancas/' + x.id + '/documento', { tipo: 'acionamento' })).demanda); }); break; }
       case 'copiar-tickets': if (d) copiar(textoTickets(d), 'Tickets copiados em texto.'); break;
       case 'salvar-subs': if (d && temSubRasc()) acao(() => salvarSubtickets(d)); break;
-      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break; delete E.subRasc[s.numero];
-        acao(async () => { trocarDemanda((await api('DELETE', 'mudancas/' + d.id + '/subtickets/' + s.numero)).demanda); E.manterRolagem = true; aviso('Subticket removido.'); desenhar(); }); } break;
+      case 'sub-desc': { if (!d) break; const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break;
+        // recolher só esconde: o que foi digitado e não salvo continua no rascunho (E.subRasc)
+        if (E.subDesc[s.numero]) {
+          const ta = document.getElementById('sd-' + alvo.dataset.i); if (ta) ta.dispatchEvent(new Event('change', { bubbles: true }));
+          delete E.subDesc[s.numero]; E.manterRolagem = true; desenhar(); break;
+        }
+        E.subDesc[s.numero] = true; E.manterRolagem = true; desenhar(); if (podeEditar(d)) focar('sd-' + alvo.dataset.i); break; }
+      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break;
+        E.modal = 'confirmar'; E.erros = {};
+        E.modalDados = { titulo: 'Remover Subticket?', texto: 'O subticket ' + s.empresa + ' ' + s.numero + ' será removido desta demanda. A remoção fica registrada no histórico.', botao: 'Remover', perigo: true,
+          acao: () => acao(async () => { delete E.subRasc[s.numero]; delete E.subDesc[s.numero]; trocarDemanda((await api('DELETE', 'mudancas/' + d.id + '/subtickets/' + s.numero)).demanda); E.manterRolagem = true; aviso('Subticket removido.'); desenhar(); }) };
+        desenhar(); } break;
       case 'sem-sei': { const el = document.getElementById('n-sei'); if (el) { el.disabled = alvo.checked; if (alvo.checked) { el.value = ''; } } } break;
     }
   });
@@ -2225,6 +2312,16 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     }
     if (t.closest && t.closest('#form-dados')) marcarSujo();
     if (t.dataset.cont) { const c = document.getElementById(t.id + '-cont'); if (c) c.textContent = t.value.length + '/' + t.dataset.cont; }
+    // descrição do subticket: entra no rascunho a cada letra; só redesenha quando o botão Salvar alterações aparece ou some
+    if (t.dataset.campoSub === 'descricao') {
+      const d = demanda(E.aberta); const sub = d && d.subtickets[Number(t.dataset.i)]; if (!sub || !podeEditar(d)) return;
+      const antes = temSubRasc(); const r = Object.assign({}, E.subRasc[sub.numero]);
+      if (t.value.trim() === (sub.descricao || '')) delete r.descricao; else r.descricao = t.value.trim();
+      if (Object.keys(r).length) E.subRasc[sub.numero] = r; else delete E.subRasc[sub.numero];
+      if (antes !== temSubRasc()) { E.manterRolagem = true; desenhar(); }
+      else { const tr = t.closest('tr'); if (tr) tr.classList.toggle('sub-alterado', 'descricao' in r); }
+      return;
+    }
   });
   document.addEventListener('change', (ev) => {
     const t = ev.target;
@@ -2243,7 +2340,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       const campo = t.dataset.campoSub === 'finalidade' ? 'servico' : t.dataset.campoSub; const valor = t.value.trim();
       if (campo === 'metro' && valor && !(Number.isInteger(Number(valor)) && Number(valor) >= 1 && Number(valor) <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
       if (campo === 'quantidade' && !(parseInt(valor, 10) >= 1 && parseInt(valor, 10) <= 999)) { t.value = sub.quantidade || ''; return; }
-      const salvo = { servico: sub.finalidade || '', quantidade: String(sub.quantidade), metro: sub.metro ? String(sub.metro) : '' }[campo];
+      const salvo = { servico: sub.finalidade || '', quantidade: String(sub.quantidade), metro: sub.metro ? String(sub.metro) : '', descricao: sub.descricao || '' }[campo];
       const r = Object.assign({}, E.subRasc[sub.numero]);
       if (valor === salvo) delete r[campo]; else r[campo] = valor;
       // voltar ao serviço salvo devolve também o metro salvo
@@ -2293,7 +2390,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   function atualizaTransf() {
     const b = document.getElementById('tr-ok'); if (!b || !E.modalDados || !E.modalDados.transf) return;
     const n = document.querySelectorAll('input[name="tr-d"]:checked').length; const des = E.modalDados.transf.desativar;
-    b.textContent = n ? 'Transferir ' + n + (n === 1 ? ' demanda' : ' demandas') + (des ? ' e desativar' : '') : (des ? 'Desativar sem transferir' : 'Transferir');
+    b.textContent = n ? 'Transferir ' + n + (n === 1 ? ' demanda' : ' demandas') + (des ? ' e excluir' : '') : (des ? 'Excluir sem transferir' : 'Transferir');
   }
   // lista de locais
   let CB = { inp: null, itens: [], ativo: -1 };
@@ -2369,6 +2466,29 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }, 60000);
 
   // caixas de texto crescem até mostrar todo o conteúdo (descrição até 250 caracteres sem rolagem)
+  // card arrastável pelo cabeçalho: guarda o deslocamento (E.detDesl) e o reaplica a cada redesenho
+  function moverDetalhe() {
+    const m = document.querySelector('.modal-content.det'); if (!m || !E.detDesl) return;
+    m.style.transform = 'translate(' + E.detDesl.x + 'px, ' + E.detDesl.y + 'px)';
+  }
+  let ARRASTO_DET = null;
+  document.addEventListener('pointerdown', (ev) => {
+    const cab = ev.target.closest && ev.target.closest('.det > .det-cab'); if (!cab || ev.button !== 0) return;
+    if (ev.target.closest('button, a, input, textarea, select, label, .mono')) return;
+    const m = cab.closest('.det'); const d0 = E.detDesl || { x: 0, y: 0 }; const r = m.getBoundingClientRect();
+    ARRASTO_DET = { m, cab, x0: ev.clientX - d0.x, y0: ev.clientY - d0.y, base: { left: r.left - d0.x, top: r.top - d0.y, w: r.width } };
+    cab.setPointerCapture(ev.pointerId); m.classList.add('arrastando'); ev.preventDefault();
+  });
+  document.addEventListener('pointermove', (ev) => {
+    const a = ARRASTO_DET; if (!a) return;
+    // o cabeçalho nunca sai da tela
+    const x = Math.min(Math.max(ev.clientX - a.x0, -a.base.left - a.base.w + 120), window.innerWidth - a.base.left - 120);
+    const y = Math.min(Math.max(ev.clientY - a.y0, -a.base.top), window.innerHeight - a.base.top - 64);
+    E.detDesl = { x: Math.round(x), y: Math.round(y) }; moverDetalhe();
+  });
+  const soltarDet = () => { if (ARRASTO_DET) { ARRASTO_DET.m.classList.remove('arrastando'); ARRASTO_DET = null; } };
+  document.addEventListener('pointerup', soltarDet); document.addEventListener('pointercancel', soltarDet);
+
   function alturaDetalhe() {
     const m = document.querySelector('.modal-content.det'); if (!m) return;
     // altura exata, com fração: offsetHeight arredonda e o cabeçalho, centralizado, pulava ao trocar de aba

@@ -112,7 +112,7 @@ class FluxoDemandaTest {
         assertThat(fluxo.atribuir(d, new Responsavel(Carga.TECNICO, ana), null, "")).isTrue();
         assertThat(d.getAvisoTipo()).isEqualTo(TipoAviso.NOVA);
         assertThat(d.getAvisoPara()).isEqualTo("7");
-        assertThat(d.getHistorico().get(0).getTexto()).isEqualTo("Responsável alterado: Coordenador → Ana Souza.");
+        assertThat(d.getHistorico().get(0).getTexto()).isEqualTo("Responsável alterado: Administrador → Ana Souza.");
 
         fluxo.atribuir(d, Responsavel.COORDENADORES, null, "");
         assertThat(d.getAvisoPara()).isEqualTo(FluxoDemanda.AVISO_COORDENADOR);

@@ -76,9 +76,9 @@ class ApiTest {
     }
 
     @Test
-    void contaInicialSeChamaCoordenador() throws Exception {
+    void contaInicialSeChamaAdministrador() throws Exception {
         String s = body(get("/api/sessao"), admin);
-        assertThat((String) JsonPath.read(s, "$.nome")).isEqualTo("Coordenador");
+        assertThat((String) JsonPath.read(s, "$.nome")).isEqualTo("Administrador");
         assertThat((String) JsonPath.read(s, "$.perfil")).isEqualTo("COORDENADOR");
     }
 
@@ -185,11 +185,62 @@ class ApiTest {
     @Test
     void localPrecisaSerDaLista() throws Exception {
         MockHttpSession tec = novoTecnico();
-        int st = status(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro Centl\",\"descricao\":\"Teste\",\"responsavel\":\"\"}"), tec);
+        String eu = meuId(tec);
+        int st = status(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro Centl\",\"descricao\":\"Teste\",\"responsavel\":\"" + eu + "\"}"), tec);
         assertThat(st).isEqualTo(400);
         // "Foro da Comarca de Canoas" é o mesmo local do catálogo
-        String r = body(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro da Comarca de Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"\"}"), tec);
+        String r = body(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro da Comarca de Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"" + eu + "\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.comarca")).isEqualTo("Canoas");
+    }
+
+    @Test
+    void novaDemandaExigeTecnicoResponsavel() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String corpo = "{\"sei\":\"\",\"comarca\":\"Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"%s\"}";
+        assertThat(status(json(post("/api/mudancas"), corpo.formatted("")), tec)).isEqualTo(400);
+        assertThat(status(json(post("/api/mudancas"), corpo.formatted("coordenador")), admin)).isEqualTo(400);
+        String r = body(json(post("/api/mudancas"), corpo.formatted(meuId(tec))), admin);
+        assertThat((String) JsonPath.read(r, "$.demanda.responsavel")).isEqualTo(meuId(tec));
+    }
+
+    @Test
+    void acionamentoPodeSerDesfeito() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String id = criar(tec, LocalDate.now().plusDays(3).toString(), "Canoas");
+        // Pendente não volta para Pendente
+        assertThat(status(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"nova\"}"), tec)).isEqualTo(409);
+        String tk = ticket();
+        body(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"" + tk + "\"}"), tec);
+        body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"acionada\"}"), tec);
+        String r = body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"nova\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("nova");
+        assertThat((Object) JsonPath.read(r, "$.demanda.acionadaEm")).isNull();
+        assertThat((String) JsonPath.read(r, "$.demanda.ticketPrincipal")).isEqualTo(tk);
+        assertThat((String) JsonPath.read(r, "$.demanda.responsavel")).isEqualTo(meuId(tec));
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).contains("Acionamento desfeito. Status alterado: Acionada → Pendente.");
+        // e pode ser acionada de novo
+        r = body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"acionada\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("acionada");
+    }
+
+    @Test
+    void descricaoDoSubticketEInformacoesCom250() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String id = criar(tec, LocalDate.now().plusDays(3).toString(), "Canoas");
+        String n = ticket();
+        body(json(post("/api/mudancas/" + id + "/subtickets"), "{\"empresa\":\"CDS\",\"numeros\":\"" + n + "\",\"servico\":\"Instalação\",\"quantidade\":1}"), tec);
+        String url = "/api/mudancas/" + id + "/subtickets/" + n;
+        String r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"Sala 1001, 2º andar\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEqualTo("Sala 1001, 2º andar");
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.endsWith("descrição \"Sala 1001, 2º andar\"."));
+        assertThat(status(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "x".repeat(251) + "\"}"), tec)).isEqualTo(400);
+        r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEmpty();
+        // Informações adicionais: até 250 caracteres
+        String dados = "{\"sei\":\"\",\"comarca\":\"Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"" + meuId(tec) + "\",\"inicio\":\""
+                + LocalDate.now().plusDays(3) + "\",\"informacoes\":\"%s\"}";
+        assertThat(status(json(put("/api/mudancas/" + id), dados.formatted("i".repeat(250))), tec)).isEqualTo(200);
+        assertThat(status(json(put("/api/mudancas/" + id), dados.formatted("i".repeat(251))), tec)).isEqualTo(400);
     }
 
     @Test
@@ -206,24 +257,53 @@ class ApiTest {
     }
 
     @Test
-    void desativarTecnicoComDemandasExigeTransferir() throws Exception {
+    void excluirTecnicoComDemandasExigeTransferir() throws Exception {
         String login = "tec" + SEQ.incrementAndGet();
-        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\",\"perfil\":\"TECNICO\",\"cor\":\"#3E7C8A\"}"), admin);
+        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\",\"cor\":\"#3E7C8A\"}"), admin);
         String pid = JsonPath.read(conta, "$.pessoa.id");
         MockHttpSession tec = entrarPrimeiraVez(login, JsonPath.read(conta, "$.senha"));
         String id = criar(tec, LocalDate.now().plusDays(3).toString(), "Canoas", pid);
-        assertThat(status(post("/api/equipe/" + pid + "/desativar").with(csrf()), admin)).isEqualTo(409);
+        assertThat(status(post("/api/equipe/" + pid + "/excluir").with(csrf()), admin)).isEqualTo(409);
         String t = body(json(post("/api/equipe/" + pid + "/transferir"), "{\"para\":\"\",\"demandas\":[],\"desativar\":true}"), admin);
         assertThat((Integer) JsonPath.read(t, "$.paraCoordenador")).isEqualTo(1);
+        // criou a demanda e aparece no histórico: a conta fica (desativada) para o nome continuar no histórico
+        assertThat((Boolean) JsonPath.read(t, "$.apagada")).isFalse();
+        assertThat((List<String>) JsonPath.read(body(get("/api/pessoas"), admin), "$[*].id")).contains(pid);
         assertThat((String) JsonPath.read(body(get("/api/mudancas/" + id), admin), "$.responsavel")).isEqualTo("coordenador");
-        // desativado: a sessão dele cai
+        // excluído: a sessão dele cai
         assertThat(status(get("/api/mudancas"), tec)).isEqualTo(401);
+    }
+
+    @Test
+    void contaSemRegistrosEApagadaDeVez() throws Exception {
+        String login = "tec" + SEQ.incrementAndGet();
+        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\"}"), admin);
+        String pid = JsonPath.read(conta, "$.pessoa.id");
+        String r = body(post("/api/equipe/" + pid + "/excluir").with(csrf()), admin);
+        assertThat((Boolean) JsonPath.read(r, "$.apagada")).isTrue();
+        assertThat((List<String>) JsonPath.read(body(get("/api/pessoas"), admin), "$[*].id")).doesNotContain(pid);
+        // o usuário fica livre para uma conta nova
+        assertThat(status(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\"}"), admin)).isEqualTo(201);
+    }
+
+    @Test
+    void administradorEUmSo() throws Exception {
+        // pedir perfil de coordenador não adianta: toda conta nova é de técnico
+        String login = "tec" + SEQ.incrementAndGet();
+        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\",\"perfil\":\"COORDENADOR\"}"), admin);
+        assertThat((String) JsonPath.read(conta, "$.pessoa.perfil")).isEqualTo("TECNICO");
+        // o administrador não pode ser excluído
+        String adminId = JsonPath.read(body(get("/api/sessao"), admin), "$.id");
+        assertThat(status(post("/api/equipe/" + adminId + "/excluir").with(csrf()), admin)).isEqualTo(409);
+        // e o técnico não exclui ninguém
+        MockHttpSession tec = entrarPrimeiraVez(login, JsonPath.read(conta, "$.senha"));
+        assertThat(status(post("/api/equipe/" + adminId + "/excluir").with(csrf()), tec)).isEqualTo(403);
     }
 
     @Test
     void redefinirSenhaDerrubaASessao() throws Exception {
         String login = "tec" + SEQ.incrementAndGet();
-        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\",\"perfil\":\"TECNICO\"}"), admin);
+        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\"}"), admin);
         MockHttpSession tec = entrarPrimeiraVez(login, JsonPath.read(conta, "$.senha"));
         assertThat(status(get("/api/mudancas"), tec)).isEqualTo(200);
         body(post("/api/equipe/" + JsonPath.read(conta, "$.pessoa.id") + "/redefinir-senha").with(csrf()), admin);
@@ -233,7 +313,7 @@ class ApiTest {
     @Test
     void bloqueiaDepoisDeCincoTentativasErradas() throws Exception {
         String login = "tec" + SEQ.incrementAndGet();
-        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\",\"perfil\":\"TECNICO\"}"), admin);
+        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\"}"), admin);
         for (int i = 0; i < 5; i++) {
             assertThat(mvc.perform(json(post("/api/login"), "{\"usuario\":\"" + login + "\",\"senha\":\"errada\"}")).andReturn().getResponse().getStatus()).isEqualTo(401);
         }
@@ -247,7 +327,7 @@ class ApiTest {
         assertThat(mvc.perform(json(post("/api/acesso/solicitar"), "{\"nome\":\"Nome " + login + "\",\"login\":\"" + login + "\"}")).andReturn().getResponse().getStatus()).isEqualTo(204);
         String ls = body(get("/api/acesso/solicitacoes"), admin);
         Integer sid = ((List<Integer>) JsonPath.read(ls, "$[?(@.login=='" + login + "')].id")).get(0);
-        String conta = body(json(post("/api/acesso/solicitacoes/" + sid + "/aprovar"), "{\"perfil\":\"TECNICO\",\"cor\":\"#8A6B3D\"}"), admin);
+        String conta = body(json(post("/api/acesso/solicitacoes/" + sid + "/aprovar"), "{\"cor\":\"#8A6B3D\"}"), admin);
         assertThat((String) JsonPath.read(conta, "$.pessoa.login")).isEqualTo(login);
         assertThat(entrarPrimeiraVez(login, JsonPath.read(conta, "$.senha"))).isNotNull();
     }
@@ -256,7 +336,7 @@ class ApiTest {
 
     private MockHttpSession novoTecnico() throws Exception {
         String login = "tec" + SEQ.incrementAndGet();
-        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\",\"perfil\":\"TECNICO\"}"), admin);
+        String conta = body(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\"}"), admin);
         return entrarPrimeiraVez(login, JsonPath.read(conta, "$.senha"));
     }
 
@@ -268,8 +348,13 @@ class ApiTest {
         return s;
     }
 
+    /** Cria a demanda com o próprio técnico logado como responsável. */
     private String criar(MockHttpSession s, String inicio, String local) throws Exception {
-        return criar(s, inicio, local, "");
+        return criar(s, inicio, local, meuId(s));
+    }
+
+    private String meuId(MockHttpSession s) throws Exception {
+        return JsonPath.read(body(get("/api/sessao"), s), "$.id");
     }
 
     private String criar(MockHttpSession s, String inicio, String local, String responsavel) throws Exception {

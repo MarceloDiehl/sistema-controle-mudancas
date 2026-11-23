@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/** /api/pessoas é aberta (consulta); /api/equipe e as solicitações, só para o coordenador (SecurityConfig). */
+/** /api/pessoas é aberta (consulta); /api/equipe e as solicitações, só para o administrador (SecurityConfig). */
 @RestController
 @RequestMapping("/api")
 public class EquipeController {
@@ -48,14 +48,14 @@ public class EquipeController {
     @PutMapping("/equipe/{id}")
     public EquipeDtos.Pessoa editar(@PathVariable Long id, @RequestBody EquipeDtos.Edicao req) { return equipe.editar(id, req); }
 
-    @PostMapping("/equipe/{id}/desativar")
-    public EquipeDtos.Pessoa desativar(@PathVariable Long id, @AuthenticationPrincipal UsuarioLogado u) { return equipe.desativar(id, u); }
+    @PostMapping("/equipe/{id}/excluir")
+    public EquipeDtos.Exclusao excluir(@PathVariable Long id, @AuthenticationPrincipal UsuarioLogado u) { return equipe.excluir(id, u); }
 
     @PostMapping("/equipe/{id}/reativar")
     public EquipeDtos.Pessoa reativar(@PathVariable Long id) { return equipe.reativar(id); }
 
     @PostMapping("/equipe/{id}/transferir")
-    public Map<String, Integer> transferir(@PathVariable Long id, @RequestBody EquipeDtos.Transferencia req, @AuthenticationPrincipal UsuarioLogado u) {
+    public Map<String, Object> transferir(@PathVariable Long id, @RequestBody EquipeDtos.Transferencia req, @AuthenticationPrincipal UsuarioLogado u) {
         return equipe.transferir(id, req, u);
     }
 

@@ -19,7 +19,7 @@ public final class DemandaDtos {
 
     public record TicketEm(String data, String usuario) { }
 
-    public record Subticket(String empresa, String numero, String finalidade, int quantidade, Integer metro) { }
+    public record Subticket(String empresa, String numero, String finalidade, int quantidade, Integer metro, String descricao) { }
 
     public record Historico(String data, String usuario, String texto) { }
 

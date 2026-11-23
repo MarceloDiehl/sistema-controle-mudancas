@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 import static br.jus.tjrs.ditic.mudancas.service.Formatos.iso;
 
-/** Equipe e contas. Ninguém é excluído, para não perder o histórico. */
+/** Equipe e contas. Quem já deixou rastro só é desativado ao ser excluído, para não perder o histórico. */
 @Service
 @Transactional
 public class EquipeService {
@@ -57,10 +57,11 @@ public class EquipeService {
         if (pessoas.existsByLogin(p.getLogin())) throw RegraException.conflito("Já existe uma conta com esse usuário.");
         definirNome(p, req.nome());
         p.setCor(cor(req.cor()));
-        p.setPerfil(perfil(req.perfil()));
+        // o administrador é um só (a conta admin): toda conta nova é de técnico
+        p.setPerfil(Perfil.TECNICO);
         String senha = senhaTemporaria(p);
         pessoas.save(p);
-        LOG.info("Conta \"{}\" ({}) criada por \"{}\".", p.getLogin(), p.getPerfil(), u.login());
+        LOG.info("Conta \"{}\" criada por \"{}\".", p.getLogin(), u.login());
         return new EquipeDtos.SenhaTemporaria(dto(p), senha, iso(p.getSenhaTemporariaExpiraEm()));
     }
 
@@ -71,15 +72,34 @@ public class EquipeService {
         return dto(p);
     }
 
-    public EquipeDtos.Pessoa desativar(Long id, UsuarioLogado u) {
+    /**
+     * Exclui a conta de um técnico sem demandas em aberto. Se a pessoa nunca deixou rastro (histórico, demandas,
+     * decisões), o registro é apagado; senão a conta é desativada e o nome continua no histórico.
+     */
+    public EquipeDtos.Exclusao excluir(Long id, UsuarioLogado u) {
         Pessoa p = carregar(id);
-        if (p.getId().equals(u.id())) throw RegraException.conflito("Você não pode desativar a própria conta.");
-        if (p.coordenador() && pessoas.countByPerfilAndAtivoTrue(Perfil.COORDENADOR) <= 1)
-            throw RegraException.conflito("É preciso manter ao menos um coordenador ativo.");
-        if (!abertas(p).isEmpty()) throw RegraException.conflito(p.getNome() + " tem demandas em aberto. Transfira antes de desativar.");
+        podeExcluir(p, u);
+        if (!abertas(p).isEmpty()) throw RegraException.conflito(p.getNome() + " tem demandas em aberto. Transfira antes de excluir.");
+        return concluirExclusao(p, u);
+    }
+
+    private void podeExcluir(Pessoa p, UsuarioLogado u) {
+        if (p.getId().equals(u.id())) throw RegraException.conflito("Você não pode excluir a própria conta.");
+        if (p.coordenador()) throw RegraException.conflito("A conta do administrador não pode ser excluída.");
+    }
+
+    private EquipeDtos.Exclusao concluirExclusao(Pessoa p, UsuarioLogado u) {
+        pessoas.flush();
+        String nome = p.getNome();
+        if (pessoas.contarRegistros(p.getId()) == 0) {
+            pessoas.soltarDasSolicitacoes(p.getId());
+            pessoas.delete(p);
+            LOG.info("Conta \"{}\" apagada por \"{}\".", p.getLogin(), u.login());
+            return new EquipeDtos.Exclusao(nome, true);
+        }
         p.setAtivo(false);
-        LOG.info("Conta \"{}\" desativada por \"{}\".", p.getLogin(), u.login());
-        return dto(p);
+        LOG.info("Conta \"{}\" excluída (desativada, mantida no histórico) por \"{}\".", p.getLogin(), u.login());
+        return new EquipeDtos.Exclusao(nome, false);
     }
 
     public EquipeDtos.Pessoa reativar(Long id) {
@@ -92,16 +112,16 @@ public class EquipeService {
      * Passa as demandas em aberto marcadas para outra pessoa. Ao desativar, as desmarcadas vão para o Coordenador:
      * ninguém desativado fica com demanda em aberto. Devolve quantas foram transferidas e quantas foram ao Coordenador.
      */
-    public Map<String, Integer> transferir(Long id, EquipeDtos.Transferencia req, UsuarioLogado u) {
+    public Map<String, Object> transferir(Long id, EquipeDtos.Transferencia req, UsuarioLogado u) {
         Pessoa de = carregar(id);
         if (de.getPerfil() != Perfil.TECNICO) throw RegraException.invalido("Só os técnicos ficam com demandas.");
+        if (req.desativar()) podeExcluir(de, u);
         List<Long> marcadas = req.demandas() == null ? List.of() : req.demandas();
         boolean semDestino = req.para() == null || req.para().isBlank();
         if (semDestino && (!marcadas.isEmpty() || !req.desativar())) throw RegraException.invalido("Escolha para quem transferir.");
         if (marcadas.isEmpty() && !req.desativar()) throw RegraException.invalido("Marque ao menos uma demanda.");
         Responsavel para = semDestino ? Responsavel.COORDENADORES : fluxo.responsavel(req.para());
         if (para.tecnico() != null && para.tecnico().getId().equals(de.getId())) throw RegraException.invalido("Escolha outra pessoa.");
-        if (req.desativar() && de.getId().equals(u.id())) throw RegraException.conflito("Você não pode desativar a própria conta.");
         Pessoa autor = pessoas.getReferenceById(u.id());
         List<Demanda> abertas = abertas(de);
         int transferidas = 0;
@@ -117,11 +137,11 @@ public class EquipeService {
             for (Demanda d : abertas) {
                 if (marcadas.contains(d.getId())) continue;
                 fluxo.atribuir(d, Responsavel.COORDENADORES, autor, null);
-                fluxo.registrar(d, TipoHistorico.RESPONSAVEL, "Demanda transferida de " + de.getNome() + " para o Coordenador (" + de.getNomeCurto() + " foi desativado(a)).", autor);
+                fluxo.registrar(d, TipoHistorico.RESPONSAVEL, "Demanda transferida de " + de.getNome() + " para o Administrador (" + de.getNomeCurto() + " foi excluído(a) da equipe).", autor);
                 paraCoordenador++;
             }
-            de.setAtivo(false);
-            LOG.info("Conta \"{}\" desativada por \"{}\".", de.getLogin(), u.login());
+            boolean apagada = concluirExclusao(de, u).apagada();
+            return Map.of("transferidas", transferidas, "paraCoordenador", paraCoordenador, "apagada", apagada);
         }
         return Map.of("transferidas", transferidas, "paraCoordenador", paraCoordenador);
     }
@@ -129,7 +149,8 @@ public class EquipeService {
     /** Gera senha temporária (24 horas). A senha anterior deixa de valer e as sessões da pessoa caem. */
     public EquipeDtos.SenhaTemporaria redefinirSenha(Long id, UsuarioLogado u) {
         Pessoa p = carregar(id);
-        if (p.getId().equals(u.id())) throw RegraException.conflito("Peça a outro coordenador para redefinir a sua senha.");
+        if (p.getId().equals(u.id()))
+            throw RegraException.conflito("A senha do administrador é redefinida ao iniciar o sistema com --mudancas.redefinir-senha=" + p.getLogin() + ".");
         String senha = senhaTemporaria(p);
         p.setTentativasFalhas((short) 0);
         p.setBloqueadoAte(null);
@@ -138,8 +159,8 @@ public class EquipeService {
     }
 
     /** Conta nova (Equipe ou solicitação aprovada), com senha temporária. */
-    EquipeDtos.SenhaTemporaria criarConta(String nome, String login, String perfil, String cor, UsuarioLogado u) {
-        return criar(new EquipeDtos.NovaPessoa(nome, login, perfil, cor), u);
+    EquipeDtos.SenhaTemporaria criarConta(String nome, String login, String cor, UsuarioLogado u) {
+        return criar(new EquipeDtos.NovaPessoa(nome, login, cor), u);
     }
 
     public static String login(String txt) {
@@ -193,6 +214,4 @@ public class EquipeService {
     }
 
     private static String cor(String txt) { return txt != null && COR.matcher(txt).matches() ? txt.toUpperCase() : COR_PADRAO; }
-
-    private static Perfil perfil(String txt) { return "COORDENADOR".equals(txt) ? Perfil.COORDENADOR : Perfil.TECNICO; }
 }

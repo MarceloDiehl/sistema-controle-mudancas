@@ -4,9 +4,9 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
 
-/** Situação da demanda. {@code id} é o nome usado pela tela; {@code rotulo}, o texto do histórico. */
+/** Situação da demanda (NOVA aparece como "Pendente": ainda não acionada). {@code id} é o nome usado pela tela; {@code rotulo}, o texto do histórico. */
 public enum Situacao {
-    NOVA("nova", "Nova"),
+    NOVA("nova", "Pendente"),
     ACIONADA("acionada", "Acionada"),
     EM_ATENDIMENTO("atendimento", "Em atendimento"),
     PARA_VALIDACAO("pendente", "Para validação"),

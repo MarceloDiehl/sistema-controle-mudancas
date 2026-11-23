@@ -106,7 +106,9 @@ public class DemandaService {
         d.setSituacao(Situacao.NOVA);
         d.setCriadaEm(fluxo.agora());
         d.setAtualizadaEm(d.getCriadaEm());
+        // a nova demanda vai sempre para um técnico escolhido (o administrador não recebe demanda nova)
         Responsavel resp = fluxo.responsavel(req.responsavel());
+        if (resp.carga() != Carga.TECNICO) throw RegraException.invalido("Escolha o técnico responsável.");
         d.setCarga(resp.carga());
         d.setTecnico(resp.tecnico());
         if (resp.tecnico() != null) d.getPassou().add(resp.tecnico().getId());
@@ -136,7 +138,7 @@ public class DemandaService {
         if (s == Situacao.PARA_VALIDACAO && !fimPeriodo.isBefore(hoje)) throw RegraException.invalido("Em Para Validação, o período já terminou: a Data para Conclusão precisa ser anterior a hoje.");
         LocalTime hora = Formatos.hora(req.hora());
         String descricao = Formatos.obrigatorio(req.descricao(), 250, "Descreva a demanda.", "Descrição");
-        String informacoes = Formatos.texto(req.informacoes(), 100, "Informações adicionais");
+        String informacoes = Formatos.texto(req.informacoes(), 250, "Informações adicionais");
         Responsavel novo = fluxo.responsavel(req.responsavel());
 
         String seiAntes = d.getSei();
@@ -170,10 +172,12 @@ public class DemandaService {
         if (nova == Situacao.ACIONADA) {
             exigirAberta(d);
             acionar(d, autor);
+        } else if (nova == Situacao.NOVA) {
+            desfazerAcionamento(d, autor);
         } else if (nova == Situacao.CONCLUIDA) {
             concluir(d, autor);
         } else if (nova == Situacao.CANCELADA) {
-            if (!u.coordenador()) throw RegraException.proibido("Somente o coordenador pode fazer isso.");
+            if (!u.coordenador()) throw RegraException.proibido("Somente o administrador pode fazer isso.");
             cancelar(d, Formatos.obrigatorio(req.motivo(), 100, "Informe o motivo.", "Motivo"), autor);
         } else {
             throw RegraException.invalido("Esta mudança de status não é permitida.");
@@ -181,14 +185,23 @@ public class DemandaService {
         return new DemandaDtos.Resposta(completo(d), null, null);
     }
 
-    /** Nova → Acionada, com ticket principal e Data de Início. Com o período já em curso, a automação segue adiante. */
+    /** Acionada → Pendente (acionamento feito por engano): mantém ticket, subtickets e datas; apaga só a data do acionamento. */
+    private void desfazerAcionamento(Demanda d, Pessoa autor) {
+        if (d.getSituacao() != Situacao.ACIONADA) throw RegraException.conflito("Só a demanda Acionada pode voltar para Pendente.");
+        d.setSituacao(Situacao.NOVA);
+        d.setAcionadaEm(null);
+        fluxo.registrar(d, TipoHistorico.STATUS, "Acionamento desfeito. Status alterado: Acionada → Pendente.", autor);
+        fluxo.avisar(d, TipoAviso.STATUS);
+    }
+
+    /** Pendente → Acionada, com ticket principal e Data de Início. Com o período já em curso, a automação segue adiante. */
     private void acionar(Demanda d, Pessoa autor) {
         if (d.getSituacao() != Situacao.NOVA) throw RegraException.conflito("Esta mudança de status não é mais permitida.");
         if (d.getTicketPrincipal() == null) throw RegraException.conflito("Para marcar como Acionada, registre antes o ticket principal e salve.");
         if (d.getDataInicio() == null) throw RegraException.conflito("Para marcar como Acionada, informe a Data de Início e salve.");
         d.setSituacao(Situacao.ACIONADA);
         d.setAcionadaEm(FluxoDemanda.dataAcionamento(fluxo.hoje(), d));
-        fluxo.registrar(d, TipoHistorico.STATUS, "Empresas acionadas. Status alterado: Nova → Acionada.", autor);
+        fluxo.registrar(d, TipoHistorico.STATUS, "Empresas acionadas. Status alterado: Pendente → Acionada.", autor);
         fluxo.avisar(d, TipoAviso.STATUS);
         fluxo.automatizar(d);
     }
@@ -307,6 +320,12 @@ public class DemandaService {
                 s.setMetroLinear(m);
                 fluxo.registrar(d, TipoHistorico.SUBTICKET, rotulo + "metro linear " + (m == null ? "não informado" : m + " m") + ".", autor);
             }
+            case "descricao" -> {
+                String t = Formatos.texto(valor, 250, "Descrição do subticket");
+                if (Objects.equals(t, s.getDescricao())) break;
+                s.setDescricao(t);
+                fluxo.registrar(d, TipoHistorico.SUBTICKET, rotulo + (t == null ? "descrição removida." : "descrição \"" + t + "\"."), autor);
+            }
             default -> throw RegraException.invalido("Campo do subticket inválido.");
         }
         return new DemandaDtos.Resposta(completo(d), null, null);
@@ -381,7 +400,7 @@ public class DemandaService {
         d.setExcluidaPor(null);
         d.setMotivoExclusao(null);
         fluxo.registrar(d, TipoHistorico.DADOS, "Demanda restaurada da lixeira.", autor);
-        // quem estava com ela foi desativado enquanto ela estava na lixeira: volta para o Coordenador
+        // quem estava com ela foi desativado enquanto ela estava na lixeira: volta para o Administrador
         if (d.getSituacao().aberta() && d.getCarga() == Carga.TECNICO && !d.getTecnico().isAtivo()) {
             fluxo.atribuir(d, Responsavel.COORDENADORES, autor, "responsável desativado");
         }
