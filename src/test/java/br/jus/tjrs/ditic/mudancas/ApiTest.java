@@ -185,11 +185,62 @@ class ApiTest {
     @Test
     void localPrecisaSerDaLista() throws Exception {
         MockHttpSession tec = novoTecnico();
-        int st = status(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro Centl\",\"descricao\":\"Teste\",\"responsavel\":\"\"}"), tec);
+        String eu = meuId(tec);
+        int st = status(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro Centl\",\"descricao\":\"Teste\",\"responsavel\":\"" + eu + "\"}"), tec);
         assertThat(st).isEqualTo(400);
         // "Foro da Comarca de Canoas" é o mesmo local do catálogo
-        String r = body(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro da Comarca de Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"\"}"), tec);
+        String r = body(json(post("/api/mudancas"), "{\"sei\":\"\",\"comarca\":\"Foro da Comarca de Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"" + eu + "\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.comarca")).isEqualTo("Canoas");
+    }
+
+    @Test
+    void novaDemandaExigeTecnicoResponsavel() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String corpo = "{\"sei\":\"\",\"comarca\":\"Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"%s\"}";
+        assertThat(status(json(post("/api/mudancas"), corpo.formatted("")), tec)).isEqualTo(400);
+        assertThat(status(json(post("/api/mudancas"), corpo.formatted("coordenador")), admin)).isEqualTo(400);
+        String r = body(json(post("/api/mudancas"), corpo.formatted(meuId(tec))), admin);
+        assertThat((String) JsonPath.read(r, "$.demanda.responsavel")).isEqualTo(meuId(tec));
+    }
+
+    @Test
+    void acionamentoPodeSerDesfeito() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String id = criar(tec, LocalDate.now().plusDays(3).toString(), "Canoas");
+        // Pendente não volta para Pendente
+        assertThat(status(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"nova\"}"), tec)).isEqualTo(409);
+        String tk = ticket();
+        body(json(put("/api/mudancas/" + id + "/ticket"), "{\"numero\":\"" + tk + "\"}"), tec);
+        body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"acionada\"}"), tec);
+        String r = body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"nova\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("nova");
+        assertThat((Object) JsonPath.read(r, "$.demanda.acionadaEm")).isNull();
+        assertThat((String) JsonPath.read(r, "$.demanda.ticketPrincipal")).isEqualTo(tk);
+        assertThat((String) JsonPath.read(r, "$.demanda.responsavel")).isEqualTo(meuId(tec));
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).contains("Acionamento desfeito. Status alterado: Acionada → Pendente.");
+        // e pode ser acionada de novo
+        r = body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"acionada\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("acionada");
+    }
+
+    @Test
+    void descricaoDoSubticketEInformacoesCom250() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String id = criar(tec, LocalDate.now().plusDays(3).toString(), "Canoas");
+        String n = ticket();
+        body(json(post("/api/mudancas/" + id + "/subtickets"), "{\"empresa\":\"CDS\",\"numeros\":\"" + n + "\",\"servico\":\"Instalação\",\"quantidade\":1}"), tec);
+        String url = "/api/mudancas/" + id + "/subtickets/" + n;
+        String r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"Sala 1001, 2º andar\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEqualTo("Sala 1001, 2º andar");
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.endsWith("descrição \"Sala 1001, 2º andar\"."));
+        assertThat(status(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "x".repeat(251) + "\"}"), tec)).isEqualTo(400);
+        r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"\"}"), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEmpty();
+        // Informações adicionais: até 250 caracteres
+        String dados = "{\"sei\":\"\",\"comarca\":\"Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"" + meuId(tec) + "\",\"inicio\":\""
+                + LocalDate.now().plusDays(3) + "\",\"informacoes\":\"%s\"}";
+        assertThat(status(json(put("/api/mudancas/" + id), dados.formatted("i".repeat(250))), tec)).isEqualTo(200);
+        assertThat(status(json(put("/api/mudancas/" + id), dados.formatted("i".repeat(251))), tec)).isEqualTo(400);
     }
 
     @Test
@@ -297,8 +348,13 @@ class ApiTest {
         return s;
     }
 
+    /** Cria a demanda com o próprio técnico logado como responsável. */
     private String criar(MockHttpSession s, String inicio, String local) throws Exception {
-        return criar(s, inicio, local, "");
+        return criar(s, inicio, local, meuId(s));
+    }
+
+    private String meuId(MockHttpSession s) throws Exception {
+        return JsonPath.read(body(get("/api/sessao"), s), "$.id");
     }
 
     private String criar(MockHttpSession s, String inicio, String local, String responsavel) throws Exception {

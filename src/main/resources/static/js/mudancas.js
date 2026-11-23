@@ -183,7 +183,7 @@
   // situações em aberto (ainda dão trabalho para alguém)
   const ABERTAS = ['nova', 'acionada', 'atendimento', 'pendente'];
   const SITUACOES = [
-    { id: 'nova', nome: 'Novas', um: 'Nova', cor: 'nova', dica: 'Mostrar só as demandas novas, ainda sem acionamento' },
+    { id: 'nova', nome: 'Pendentes', um: 'Pendente', cor: 'nova', dica: 'Mostrar só as demandas pendentes, ainda sem acionamento' },
     { id: 'acionada', nome: 'Acionadas', um: 'Acionada', cor: 'acio', dica: 'Mostrar só as demandas acionadas' },
     { id: 'atendimento', nome: 'Em Atendimento', um: 'Em atendimento', cor: 'aten' },
     { id: 'pendente', nome: 'Para Validação', um: 'Para validação', cor: 'pend', dica: 'Para validação: o atendimento terminou e aguarda a conclusão' },
@@ -242,7 +242,8 @@
     menu: null, toast: null, destaque: null,
     periodo: null, // filtro de período do agendamento: { de, ate } (AAAA-MM-DD; um dos dois pode ficar vazio)
     statusRascunho: null, // status escolhido no select e ainda não salvo
-    subRasc: {}, // serviço, quantidade e metro de subtickets alterados e ainda não salvos
+    subRasc: {}, // serviço, quantidade, metro e descrição de subtickets alterados e ainda não salvos
+    subDesc: {}, // subtickets com o campo de descrição aberto pelo +
     erros: {}
   };
   function guardarPreferencias() {
@@ -356,7 +357,7 @@
     const nome = d.situacao === 'concluida' && !d.responsavel ? '<span class="resp-nome setor">Setor</span>' : `<span class="resp-nome">${u ? esc(u.curto) : 'Sem responsável'}</span>`;
     return nome + avatarCarga(d);
   }
-  // Nova cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
+  // Pendente cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
   const vencida = (d) => d.situacao === 'nova' && !!d.inicio && d.inicio <= hojeISO();
   const pontoAviso = (d) => {
     const a = d.aviso; const v = vencida(d);
@@ -385,6 +386,8 @@
   // ------------------------------------------------------------------ ícones
   const svg = (w, body, extra) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${extra || 2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
   const I = {
+    menosP: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10"/></svg>',
+    maisP: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>',
     mais: '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z"/><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4"/></svg>',
     busca: svg(15, '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>', 2.2),
     local: svg(14, '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'),
@@ -635,7 +638,7 @@
         const aba = (id, nome, n, cor, dica) => `<button type="button" role="tab" class="nav-link sit-aba ${n ? '' : 'vazia'}" data-acao="sit-aba" data-v="${id}" aria-selected="${atual === id}" tabindex="${atual === id ? 0 : -1}" ${cor ? `style="--aba-cor:var(--${cor}-dot);--aba-bg:var(--${cor}-bg);--aba-ink:var(--${cor}-ink)"` : ''} title="${dica}">${cor ? '<span class="aba-dot" aria-hidden="true"></span>' : ''}<span class="aba-nome" data-t="${nome}">${nome}</span><span class="badge aba-n">${n}</span></button>`;
         const st = (x) => aba(x.id, x.nome, base.filter((d) => d.situacao === x.id).length, x.cor, x.dica || 'Mostrar só ' + x.nome.toLowerCase());
         const sep = '<span class="aba-sep" aria-hidden="true"></span>';
-        return aba('abertas', 'Em aberto', nAb, '', 'Novas, acionadas, em atendimento e para validação')
+        return aba('abertas', 'Em aberto', nAb, '', 'Pendentes, acionadas, em atendimento e para validação')
           + SITUACOES.filter((x) => ABERTAS.includes(x.id)).map(st).join('')
           + '<span class="aba-sep aba-grupo" aria-hidden="true"></span>' + SITUACOES.filter((x) => !ABERTAS.includes(x.id)).map(st).join('')
           + sep + aba('todas', 'Todas', base.length, '', 'Todas as demandas, em aberto e encerradas');
@@ -909,8 +912,8 @@
       </div>
       ${E.erros.data || E.erros.hora ? `<span class="erro campo-info">${esc(E.erros.data || E.erros.hora)}</span>` : ''}
       <div class="campo campo-info">
-        <span class="rotulo-l"><label class="form-label" for="f-info">Informações adicionais</label><span class="cont" id="f-info-cont">${(d.informacoes || '').length}/100</span></span>
-        <textarea id="f-info" data-rascunho data-cont="100" class="form-control txt txt-info" rows="2" maxlength="100" placeholder="Ex.: Solicitado ao DMP em 01/04">${esc(d.informacoes || '')}</textarea>
+        <span class="rotulo-l"><label class="form-label" for="f-info">Informações adicionais</label><span class="cont" id="f-info-cont">${(d.informacoes || '').length}/250</span></span>
+        <textarea id="f-info" data-rascunho data-cont="250" class="form-control txt txt-info" rows="3" maxlength="250" placeholder="Ex.: Solicitado ao DMP em 01/04">${esc(d.informacoes || '')}</textarea>
       </div>
     </div>`)}
 </fieldset></form>`;
@@ -947,6 +950,17 @@
       ${E.erros.principal ? `<span class="erro">${esc(E.erros.principal)}</span>` : ''}`);
   }
 
+  // descrição opcional do subticket: linha logo abaixo dele, escondida até clicar no + (o - recolhe de novo)
+  function linhaDescSub(s, i, fixos, cols) {
+    if (!E.subDesc[s.numero]) return '';
+    const alt = E.subRasc[s.numero] && 'descricao' in E.subRasc[s.numero];
+    if (fixos) return `<tr class="sub-desc"><td colspan="${cols}"><p class="sub-desc-txt">${esc(s.descricao)}</p></td></tr>`;
+    return `<tr class="sub-desc ${alt ? 'sub-alterado' : ''}"><td colspan="${cols}">
+      <span class="rotulo-l"><label class="form-label" for="sd-${i}">Descrição do subticket ${esc(s.numero)} <em>(opcional)</em></label><span class="cont" id="sd-${i}-cont">${(s.descricao || '').length}/250</span></span>
+      <textarea id="sd-${i}" class="form-control txt" rows="2" maxlength="250" data-cont="250" data-campo-sub="descricao" data-i="${i}" placeholder="Ex.: Sala 1001, 2º andar - retirar após as 14h">${esc(s.descricao || '')}</textarea>
+    </td></tr>`;
+  }
+
   function abaTickets(d) {
     // em qualquer etapa em aberto dá para incluir, alterar e remover tickets; encerrada fica só para consulta
     const ro = !podeEditar(d); const fixos = ro; const trava = fixos ? 'disabled' : '';
@@ -962,9 +976,12 @@
         <td class="td-qtd"><label class="visually-hidden" for="sq-${i}">Quantidade</label><input id="sq-${i}" type="number" min="1" max="999" class="form-control inp-qtd ${s.quantidade ? '' : 'falta'}" value="${esc(s.quantidade || '')}" placeholder="—" data-campo-sub="quantidade" data-i="${i}" ${trava}></td>
         ${temMetro ? `<td class="td-qtd">${usaMetro(s.empresa, s.finalidade) ? `<label class="visually-hidden" for="sm-${i}">Metro linear</label><input id="sm-${i}" type="number" min="1" max="9999" step="1" class="form-control inp-qtd" value="${esc(s.metro || '')}" placeholder="—" data-campo-sub="metro" data-i="${i}" ${trava}>` : ''}</td>` : ''}
         <td class="td-acao"><span class="acoes-sub">
+          ${fixos && !s.descricao ? '' : E.subDesc[s.numero]
+            ? `<button type="button" class="btn btn-icone" data-acao="sub-desc" data-i="${i}" aria-expanded="true" aria-label="Recolher a descrição do subticket ${esc(s.numero)}" title="Recolher descrição">${I.menosP}</button>`
+            : `<button type="button" class="btn btn-icone ${s.descricao ? 'tem-desc' : ''}" data-acao="sub-desc" data-i="${i}" aria-expanded="false" aria-label="${s.descricao ? 'Ver' : 'Incluir'} descrição do subticket ${esc(s.numero)}" title="${s.descricao ? 'Ver descrição' : 'Incluir descrição'}">${I.maisP}</button>`}
           ${fixos ? '' : `<button type="button" class="btn btn-icone perigo-h" data-acao="sub-del" data-i="${i}" aria-label="Remover subticket ${esc(s.numero)}" title="Remover">${I.lixo}</button>`}
         </span></td>
-      </tr>`).join('')}</tbody></table>` : '<p class="vazio-bloco">Nenhum subticket incluído ainda.</p>';
+      </tr>${linhaDescSub(s, i, fixos, temMetro ? 6 : 5)}`).join('')}</tbody></table>` : '<p class="vazio-bloco">Nenhum subticket incluído ainda.</p>';
     return `
 ${blocoTicket(d)}
 ${bloco('Subtickets', d.subtickets.length ? d.subtickets.length + (d.subtickets.length > 1 ? ' subtickets' : ' subticket') : '', `
@@ -1004,7 +1021,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // ------------------------------------------------------------------ outros modais
   function telaModal() {
     if (!E.modal) return '';
-    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, relatorio: modalRelatorio, lixeira: modalLixeira, senha: modalSenha, config: modalConfig }[E.modal];
+    const m = { nova: modalNova, sobre: modalSobre, confirmar: modalConfirmar, login: modalLogin, equipe: modalEquipe, acionamento: modalAcionamento, lixeira: modalLixeira, senha: modalSenha, config: modalConfig }[E.modal];
     // a confirmação da Configuração abre por cima dela; ao voltar, a Configuração não repete a animação
     const camada = (fn, cls, anim) => `<div class="modal d-block modal-camada ${cls} ${anim ? 'anim' : ''}" tabindex="-1" data-acao="fundo-modal"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">${fn ? fn() : ''}</div></div>`;
     const voltou = E.modal === 'config' && E._k && E._k.modal === 'confirmar';
@@ -1013,7 +1030,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
 
   function modalNova() {
     const er = E.erros; const v = E.modalDados || {};
-    const resp = v.responsavel || COORD; // sem escolha, a demanda fica com o administrador
+    const resp = v.responsavel || ''; // nenhum técnico pré-selecionado; o administrador não recebe demanda nova
     const suc = v.sucesso ? demanda(v.sucesso) : null;
     return `
 <form class="modal-content modal-n" role="dialog" aria-modal="true" aria-labelledby="mn-tit" data-form="nova" novalidate>
@@ -1046,10 +1063,10 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       ${bloco('Atribuição da Demanda', '', `
         <fieldset class="campo resp-campo">
           <legend class="rotulo">Responsável</legend>
-          <div class="grade-resp" role="radiogroup">
+          <div class="grade-resp" role="radiogroup" ${er.resp ? 'aria-invalid="true"' : ''}>
             ${ativos().map((u) => `<label class="tile-resp"><input type="radio" name="n-resp" value="${esc(u.id)}" ${resp === u.id ? 'checked' : ''}>${avatar(u.id, 'sm')}<span>${esc(u.curto)}</span></label>`).join('')}
-            <label class="tile-resp"><input type="radio" name="n-resp" value="${COORD}" ${resp === COORD ? 'checked' : ''}>${avatar(COORD, 'sm')}<span>Administrador</span></label>
           </div>
+          ${er.resp ? `<span class="erro">${esc(er.resp)}</span>` : ''}
         </fieldset>`)}
     </div>
     <footer class="modal-footer">
@@ -1071,7 +1088,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <h2 class="suc-tit">Demanda Incluída com Sucesso</h2>
   <p class="suc-desc">${esc(predio(d.comarca))}${u ? ' · ' + esc(atribuidaA(u.id)) : ''}</p>
   ${E.modalDados.atencao ? `<p class="suc-nota">${esc(E.modalDados.atencao)}</p>` : ''}
-  ${d.inicio && (d.fim || d.inicio) < hojeISO() ? '<p class="suc-nota">A data já passou: a demanda fica Nova até receber o ticket principal e um subticket, e então vai para Para Validação.</p>' : ''}
+  ${d.inicio && (d.fim || d.inicio) < hojeISO() ? '<p class="suc-nota">A data já passou: a demanda fica Pendente até receber o ticket principal e um subticket, e então vai para Para Validação.</p>' : ''}
   <div class="suc-campo">
     <span class="suc-rot">${d.sei ? 'Expediente SEI' : 'Número da demanda'}</span>
     <div class="suc-valor"><span class="mono">${esc(d.sei || num4(d.id))}</span><button type="button" class="btn btn-outline-secondary btn-sm" data-acao="copiar" data-v="${esc(d.sei || num4(d.id))}">Copiar</button></div>
@@ -1120,7 +1137,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   <div class="login-cab">
     <span class="cadeado">${I.cadeado}</span>
     <h2 id="ml-tit">Entrar no Controle de Mudanças</h2>
-    <p>${v.motivo ? esc(v.motivo) : 'Técnicos e administrador entram com o próprio usuário e senha.'}</p>
+    <p>${v.motivo ? esc(v.motivo) : 'Entre com o usuário e senha cadastrados.'}</p>
   </div>
   <div class="campo">
     <label class="form-label" for="l-usr">Usuário da rede</label>
@@ -1132,7 +1149,9 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     ${E.erros.login ? `<span class="erro" role="alert">${esc(E.erros.login)}</span>` : ''}
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Entrar</button>
-  <p class="login-ajuda">Esqueceu a senha? Procure o administrador: ele gera uma senha temporária em Equipe.<br>Ainda não tem acesso? <button type="button" class="link" data-acao="pedir-acesso">Solicitar acesso</button></p>
+  <p class="login-ajuda"><button type="button" class="link" data-acao="esqueci-senha" aria-expanded="${v.esqueci ? 'true' : 'false'}">Esqueci minha senha</button>
+    ${v.esqueci ? '<span class="login-dica">Procure o administrador: ele gera uma senha temporária em Equipe.</span>' : ''}
+    <br><button type="button" class="link" data-acao="pedir-acesso">Cadastrar novo usuário</button></p>
 </form>`;
   }
   // pedido de acesso: fica pendente até o administrador aprovar em Equipe
@@ -1204,8 +1223,9 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   // a sessão acabou (saiu, expirou, conta desativada ou senha redefinida): volta à consulta sem login
   async function sairDaSessao() {
+    fecharJanela();
     Object.assign(E, { usuario: null, perfil: null, lixeira: [], solicitacoes: [], precos: null,
-      aberta: null, statusRascunho: null, subRasc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null, filtroResp: '' });
+      aberta: null, statusRascunho: null, subRasc: {}, subDesc: {}, sujo: false, cfg: null, modal: null, modalDados: null, menu: null, filtroResp: '' });
     try { await carregarTudo(); } catch (e) { E.carregado = false; }
   }
   function sessaoEncerrada(msg) { sairDaSessao().then(() => abrirLogin(msg)); }
@@ -1247,7 +1267,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   // abre o card na hora e completa com o histórico, que não vem na lista
   async function abrirCard(id) {
-    E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; E.subRasc = {};
+    E.detDesl = null; E.editTk = false; E.aberta = id; E.aba = 'dados'; E.erros = {}; E.sujo = false; E.statusRascunho = null; E.subRasc = {}; E.subDesc = {};
     desenhar();
     try { const d = trocarDemanda(await api('GET', 'mudancas/' + id)); if (E.aberta === d.id) desenhar(); } catch (e) { if (e.status !== 401) { aviso(e.message, true); desenhar(); } }
   }
@@ -1392,7 +1412,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const ag = !d.inicio ? 'Agendamento: a definir.'
       : 'Agendamento:\nData de Início: ' + br(d.inicio) + (variosDias(d) ? '\nData para Conclusão: ' + br(d.fim) : '') + '\nHorário: ' + horaSEI(d.hora);
     return 'Ao Serviço de Gestão de Mudanças,\n\n'
-      + 'Em atenção ao Agendamento, informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
+      + 'Em atenção ao "Agendamento", informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
       + ag + '\n\n'
       + (emp.length ? 'Tickets:\n\n' + emp.map(([e, ls]) => e + ': ' + ls.join(' / ')).join('\n') + '\n\n' : '')
       + 'Era o que cumpria informar.';
@@ -1467,14 +1487,42 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const notas = c.verbas.map((v) => notaVerba(v, c));
     return { lugar, acionamento: dataAcionamento(d), execucao: d.inicio ? agendaTexto(d) : '', servicos: sv, origem: [...new Set(origem)], destino: [...new Set(destino)], custo: !pago ? '-' : (c.total ? moeda(c.total) : ''), total: c.total, infra: c.infra, itens, global: !pago, notas, notasSemInfra: c.infra ? [OBS_SEM_INFRA] : [], semPreco: c.semPreco };
   }
+  // Relatório: janela solta (sem esmaecer o fundo), arrastável pelo cabeçalho. Fica fora do #app, então o card de baixo
+  // continua em uso e o redesenho da tela não apaga o que foi editado no relatório
+  const janelaEl = document.createElement('div'); janelaEl.id = 'janela-relat'; document.body.appendChild(janelaEl);
+  function abrirJanela(id, custo) {
+    E.janela = { id, custo }; janelaEl.innerHTML = modalRelatorio();
+    const j = janelaEl.querySelector('.janela'); if (!j) { fecharJanela(); return; }
+    ajustaTextos();
+    const p = E.janelaPos || { x: (window.innerWidth - j.offsetWidth) / 2, y: (window.innerHeight - j.offsetHeight) / 2 };
+    posicionarJanela(j, p.x, p.y);
+  }
+  function fecharJanela() { E.janela = null; janelaEl.innerHTML = ''; }
+  // mantém pelo menos o cabeçalho dentro da tela
+  function posicionarJanela(j, x, y) {
+    const mx = Math.max(0, window.innerWidth - j.offsetWidth); const my = Math.max(0, window.innerHeight - 64);
+    x = Math.min(Math.max(0, x), mx); y = Math.min(Math.max(0, y), my);
+    j.style.left = Math.round(x) + 'px'; j.style.top = Math.round(y) + 'px'; E.janelaPos = { x, y };
+  }
+  let ARRASTO = null;
+  janelaEl.addEventListener('pointerdown', (ev) => {
+    const cab = ev.target.closest('.janela .modal-header'); if (!cab || ev.target.closest('button, a, input, textarea, select') || ev.button !== 0) return;
+    const j = cab.closest('.janela'); const r = j.getBoundingClientRect();
+    ARRASTO = { j, dx: ev.clientX - r.left, dy: ev.clientY - r.top }; cab.setPointerCapture(ev.pointerId); j.classList.add('arrastando'); ev.preventDefault();
+  });
+  janelaEl.addEventListener('pointermove', (ev) => { if (ARRASTO) posicionarJanela(ARRASTO.j, ev.clientX - ARRASTO.dx, ev.clientY - ARRASTO.dy); });
+  const soltar = () => { if (ARRASTO) { ARRASTO.j.classList.remove('arrastando'); ARRASTO = null; } };
+  janelaEl.addEventListener('pointerup', soltar); janelaEl.addEventListener('pointercancel', soltar);
+  window.addEventListener('resize', () => { const j = janelaEl.querySelector('.janela'); if (j && E.janelaPos) posicionarJanela(j, E.janelaPos.x, E.janelaPos.y); });
+
   function modalRelatorio() {
-    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return '';
+    const m = E.janela || {}; const d = demanda(m.id); if (!d || !m.custo) return '';
     const r = montarRelatorio(d, m.custo); const sv = r.servicos;
     const ck = (id, rot, on) => `<label class="check rl-ck"><input type="checkbox" id="${id}" data-rascunho ${on ? 'checked' : ''}><span>${rot}</span></label>`;
     return `
-<div class="modal-content modal-m relat" role="dialog" aria-modal="true" aria-labelledby="rl-tit">
-  <header class="modal-header"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, conferir os dados antes de gerar o relatório.</p></div>
-    <button type="button" class="btn btn-icone" data-acao="fechar-modal" aria-label="Fechar">${I.fechar}</button></header>
+<div class="modal-content modal-m relat janela" role="dialog" aria-modal="false" aria-labelledby="rl-tit">
+  <header class="modal-header" title="Arraste para mover a janela"><div><h2 class="modal-title" id="rl-tit">Relatório de Execução de Mudança</h2><p>Preenchido automaticamente com os dados da demanda, conferir os dados antes de gerar o relatório.</p></div>
+    <button type="button" class="btn btn-icone" data-acao="fechar-janela" aria-label="Fechar">${I.fechar}</button></header>
   <div class="modal-body corpo-blocos">
     ${d.subtickets.length ? '' : `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Esta demanda não tem subtickets. Marque os serviços, preencha os itens e confira a frase de custo antes de baixar.</span></p>`}
     ${r.semPreco.length ? `<p class="alert alert-warning ac-aviso">${I.alerta}<span>Sem valor na soma: ${r.semPreco.length > 1 ? 'tickets' : 'ticket'} ${esc(r.semPreco.join(', '))}. Confira a região do local e o serviço, e ajuste o custo antes de baixar.</span></p>` : ''}
@@ -1494,8 +1542,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     ${bloco('Descrição', r.itens.length + (r.itens.length === 1 ? ' item' : ' itens'), `
       <div class="campo"><label for="rl-itens" class="visually-hidden">Descrição</label><textarea id="rl-itens" data-rascunho class="form-control txt" rows="8">${esc(r.itens.concat(r.notas).join('\n\n'))}</textarea></div>`)}
   </div>
-  <footer class="modal-footer">${flash('relatorio')}<span class="esp"></span>
-    <button type="button" class="btn btn-link btn-lg" data-acao="fechar-modal">Fechar</button>
+  <footer class="modal-footer"><span class="esp">Arraste pelo título para ver o card ao lado.</span>
+    <button type="button" class="btn btn-link btn-lg" data-acao="fechar-janela">Fechar</button>
     <button type="button" class="btn btn-primary btn-lg" data-acao="baixar-relatorio">${I.baixar}Baixar PDF</button>
   </footer>
 </div>`;
@@ -1580,14 +1628,14 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   const paragrafos = (t) => String(t).split(/\n\s*\n/).map((x) => x.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
   // o check tira (ou devolve) a Infraestrutura da soma e troca a observação dela na Descrição, sem perder o resto do que foi editado
   function atualizaInfra(somar) {
-    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return;
+    const m = E.janela || {}; const d = demanda(m.id); if (!d || !m.custo) return;
     const r = montarRelatorio(d, m.custo);
     const custo = document.getElementById('rl-custo'); if (custo) custo.value = moeda(r.total - (somar ? 0 : r.infra));
     const desc = document.getElementById('rl-itens');
     if (desc) desc.value = paragrafos(desc.value).filter((x) => !RE_OBS.test(x)).concat(somar ? r.notas : r.notasSemInfra).join('\n\n');
   }
   async function baixarRelatorio() {
-    const m = E.modalDados || {}; const d = demanda(m.id); if (!d || !m.custo) return;
+    const m = E.janela || {}; const d = demanda(m.id); if (!d || !m.custo) return;
     const ln = (id) => val(id).split('\n').map((x) => x.trim()).filter(Boolean);
     const chk = (id) => { const x = document.getElementById(id); return !!(x && x.checked); };
     const base = montarRelatorio(d, m.custo);
@@ -1651,7 +1699,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   // mensagens de confirmação: aparecem dentro da tela em uso, em verde com check
   function ondeFlash() {
     if (E.modal === 'nova') return (E.modalDados && E.modalDados.sucesso) ? 'suc' : 'nova';
-    if (E.modal === 'sobre' || E.modal === 'equipe' || E.modal === 'acionamento' || E.modal === 'relatorio' || E.modal === 'lixeira') return E.modal;
+    if (E.modal === 'sobre' || E.modal === 'equipe' || E.modal === 'acionamento' || E.modal === 'lixeira') return E.modal;
     if (E.aberta) return 'det';
     return 'pagina';
   }
@@ -1687,6 +1735,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (k.startsWith('radio:')) { const r = app.querySelector(`input[name="${k.slice(6)}"][value="${rasc[k]}"]`); if (r) r.checked = true; return; }
       const el = document.getElementById(k); if (el) { if (el.type === 'checkbox') el.checked = rasc[k]; else el.value = rasc[k]; }
     });
+    moverDetalhe();
     trocarFinalidade(); ajustarMetro(); atualizaConfig(); atualizaTransf(); filtrarLocais(); ajustaMenus(); ajustaPostits(); ajustaTextos(); if (CAL) desenharCal(); alturaDetalhe(); mostrarAbaAtiva();
     E.chaveRasc = chave; E.limparRascunho = false; E.recemTk = false; k.aba = E.aba; E._k = k;
     Object.keys(rol).forEach((q) => { const el = document.querySelector(q); if (el && (q === '.rolagem' ? !E.zerarLista : mesmaTela)) el.scrollTop = rol[q]; });
@@ -1717,7 +1766,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if ((E.sujo && E.aberta && E.aba === 'dados') || (E.statusRascunho && !trocaAba) || temSubRasc()) {
       E.modal = 'confirmar';
       E.modalDados = { titulo: 'Descartar Alterações?', texto: temSubRasc() ? 'Você mudou subtickets desta demanda e ainda não salvou.' : 'Você mudou os detalhes desta demanda e ainda não salvou.', botao: 'Descartar', perigo: true,
-        acao: () => { E.sujo = false; E.subRasc = {}; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
+        acao: () => { E.sujo = false; E.subRasc = {}; E.subDesc = {}; if (!trocaAba) E.statusRascunho = null; E.limparRascunho = true; fn(); } };
       desenhar(); return;
     }
     E.sujo = false; fn();
@@ -1730,6 +1779,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if ('servico' in r) x.finalidade = r.servico || null;
     if ('quantidade' in r) x.quantidade = Number(r.quantidade);
     if ('metro' in r) x.metro = r.metro ? Number(r.metro) : null;
+    if ('descricao' in r) x.descricao = r.descricao;
     if (!usaMetro(x.empresa, x.finalidade)) x.metro = null;
     return x;
   }
@@ -1737,14 +1787,14 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   async function salvarSubtickets(d) {
     for (const [numero, r] of Object.entries(E.subRasc)) {
       if (!d.subtickets.some((x) => x.numero === numero)) continue;
-      for (const campo of ['servico', 'quantidade', 'metro']) {
+      for (const campo of ['servico', 'quantidade', 'metro', 'descricao']) {
         if (!(campo in r)) continue;
         if (campo === 'metro' && 'servico' in r && !usaMetro(d.subtickets.find((x) => x.numero === numero).empresa, r.servico)) continue;
         trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/subtickets/' + numero, { campo, valor: String(r[campo] || '') })).demanda);
       }
       delete E.subRasc[numero];
     }
-    E.subRasc = {}; E.manterRolagem = true;
+    E.subRasc = {}; E.subDesc = {}; E.manterRolagem = true;
     aviso('Subtickets atualizados.'); desenhar();
   }
   function irPara(id) {
@@ -1759,17 +1809,21 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     if (msg) aviso(msg, true);
     desenhar(); const el = foco && document.getElementById(foco); if (el) el.focus();
   }
-  // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; depois de acionada, a demanda
-  // não volta para Nova; cancelar fica só em Mais ações (administrador); Concluída e Cancelada são finais
+  // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; a Acionada pode voltar para
+  // Pendente (acionamento por engano); cancelar fica só em Mais ações (administrador); Concluída e Cancelada são finais
   // TRAVADOS: o status é automático (os dados continuam editáveis)
   const TRAVADOS = ['atendimento', 'pendente'];
   const FINAIS = ['concluida', 'cancelada'];
-  const destinosStatus = (d) => (d.situacao === 'nova' ? ['acionada'] : []);
+  const destinosStatus = (d) => (d.situacao === 'nova' ? ['acionada'] : d.situacao === 'acionada' ? ['nova'] : []);
   // o select só guarda a escolha; a mudança acontece em Salvar alterações
   function escolherStatus(d, novo) { E.statusRascunho = novo === d.situacao ? null : novo; desenhar(); }
   async function salvarStatus(d) {
     const novo = E.statusRascunho;
     if (!destinosStatus(d).includes(novo)) { E.statusRascunho = null; aviso('Esta mudança de status não é mais permitida.', true); desenhar(); return; }
+    if (novo === 'nova') {
+      trocarDemanda((await api('PATCH', 'mudancas/' + d.id + '/situacao', { situacao: novo })).demanda);
+      E.statusRascunho = null; aviso('Acionamento desfeito: a demanda voltou para Pendente.'); destacar(d.id); desenhar(); return;
+    }
     if (!d.ticketPrincipal) { irAba(d.id, 'tickets', 't-principal', 'Para marcar como Acionada, registre antes o ticket principal e salve.'); return; }
     // sem data, a automação nunca levaria a demanda adiante
     if (!d.inicio) { irAba(d.id, 'dados', 'f-ini', 'Para marcar como Acionada, informe a Data de Início e salve.'); return; }
@@ -1983,7 +2037,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (E.modalDados && E.modalDados.sucesso) return;
       const semSei = document.getElementById('n-semsei').checked;
       const r = form.querySelector('input[name="n-resp"]:checked');
-      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : COORD, inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
+      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : '', inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
       E.modalDados = v;
       if (!semSei && !v.sei) E.erros.sei = 'Informe o número do expediente ou marque “Demanda fora do SEI”.';
       else if (!semSei && !RE_SEI.test(v.sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
@@ -1991,10 +2045,11 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       else if (!localDaLista(v.comarca)) E.erros.local = MSG_LOCAL;
       else v.comarca = localDaLista(v.comarca);
       if (!v.descricao) E.erros.desc = 'Descreva a demanda.';
+      if (!v.responsavel) E.erros.resp = ativos().length ? 'Escolha o técnico responsável.' : 'Cadastre um técnico em Equipe antes de incluir a demanda.';
       const ed = erroDatas(v.inicio, v.fim); if (ed) E.erros.data = ed;
       if (v.hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (v.inicio === null) v.inicio = ''; if (v.fim === null) v.fim = ''; if (v.hora === null) v.hora = val('n-hora');
-      if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) pri.focus(); return; }
+      if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) (pri.matches('[role="radiogroup"]') ? pri.querySelector('input') : pri).focus(); return; }
       const res = await api('POST', 'mudancas', { sei: v.sei, comarca: v.comarca, descricao: v.descricao, responsavel: v.responsavel, inicio: v.inicio, fim: v.fim, hora: v.hora });
       const nova = trocarDemanda(res.demanda);
       if (!E.sitAtivas.has('nova')) E.sitAtivas = new Set(ABERTAS);
@@ -2013,6 +2068,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     acao(() => enviar(f));
   });
 
+  // o +/- da descrição do subticket não tira o foco do campo (senão o redesenho engoliria o clique)
+  document.addEventListener('mousedown', (ev) => { if (ev.target.closest && ev.target.closest('[data-acao=sub-desc]')) ev.preventDefault(); });
   document.addEventListener('click', (ev) => {
     if (CAL && !ev.target.closest('#cal-pop') && !ev.target.closest('.data-btn')) fecharCal();
     const cal = ev.target.closest('#cal-pop [data-acao], .data-btn[data-acao]');
@@ -2041,6 +2098,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'inicio': E.aberta = null; window.scrollTo(0, 0); desenhar(); break;
       case 'menu-conta': E.menu = E.menu === 'conta' ? null : 'conta'; desenhar(); break;
       case 'ver-senha': { const el = document.getElementById('l-sen'); if (el) { el.type = el.type === 'password' ? 'text' : 'password'; alvo.setAttribute('aria-label', el.type === 'password' ? 'Mostrar senha' : 'Ocultar senha'); } break; }
+      case 'esqueci-senha': E.modalDados = Object.assign({}, E.modalDados, { esqueci: !(E.modalDados && E.modalDados.esqueci) }); desenhar(); break;
       case 'pedir-acesso': E.modalDados = { pedir: true }; E.erros = {}; E.limparRascunho = true; desenhar(); focar('pa-nome'); break;
       case 'pedir-voltar': abrirLogin(); break;
       case 'login': abrirLogin(); break;
@@ -2163,16 +2221,27 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         () => { alvo.title = 'Não foi possível copiar: selecione a senha e use Ctrl+C'; }); break;
       case 'relatorio': if (!d) break; E.menu = null; acao(async () => {
         const custo = await api('GET', 'mudancas/' + d.id + '/custo');
-        E.modal = 'relatorio'; E.modalDados = { id: d.id, custo }; E.limparRascunho = true; desenhar();
+        abrirJanela(d.id, custo); desenhar();
       }); break;
+      case 'fechar-janela': fecharJanela(); break;
       case 'baixar-relatorio': acao(baixarRelatorio); break;
       case 'acionamento': if (!d) break; E.menu = null; E.modal = 'acionamento'; E.modalDados = { id: d.id }; E.limparRascunho = true; desenhar(); break;
       case 'copiar-acionamento': { const t = document.getElementById('ac-texto'); const x = demanda(E.modalDados && E.modalDados.id); if (!t) break; copiar(t.value, 'Texto copiado. É só colar no SEI.');
         if (x) acao(async () => { trocarDemanda((await api('POST', 'mudancas/' + x.id + '/documento', { tipo: 'acionamento' })).demanda); }); break; }
       case 'copiar-tickets': if (d) copiar(textoTickets(d), 'Tickets copiados em texto.'); break;
       case 'salvar-subs': if (d && temSubRasc()) acao(() => salvarSubtickets(d)); break;
-      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break; delete E.subRasc[s.numero];
-        acao(async () => { trocarDemanda((await api('DELETE', 'mudancas/' + d.id + '/subtickets/' + s.numero)).demanda); E.manterRolagem = true; aviso('Subticket removido.'); desenhar(); }); } break;
+      case 'sub-desc': { if (!d) break; const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break;
+        // recolher só esconde: o que foi digitado e não salvo continua no rascunho (E.subRasc)
+        if (E.subDesc[s.numero]) {
+          const ta = document.getElementById('sd-' + alvo.dataset.i); if (ta) ta.dispatchEvent(new Event('change', { bubbles: true }));
+          delete E.subDesc[s.numero]; E.manterRolagem = true; desenhar(); break;
+        }
+        E.subDesc[s.numero] = true; E.manterRolagem = true; desenhar(); if (podeEditar(d)) focar('sd-' + alvo.dataset.i); break; }
+      case 'sub-del': if (!d) break; { const s = d.subtickets[Number(alvo.dataset.i)]; if (!s) break;
+        E.modal = 'confirmar'; E.erros = {};
+        E.modalDados = { titulo: 'Remover Subticket?', texto: 'O subticket ' + s.empresa + ' ' + s.numero + ' será removido desta demanda. A remoção fica registrada no histórico.', botao: 'Remover', perigo: true,
+          acao: () => acao(async () => { delete E.subRasc[s.numero]; delete E.subDesc[s.numero]; trocarDemanda((await api('DELETE', 'mudancas/' + d.id + '/subtickets/' + s.numero)).demanda); E.manterRolagem = true; aviso('Subticket removido.'); desenhar(); }) };
+        desenhar(); } break;
       case 'sem-sei': { const el = document.getElementById('n-sei'); if (el) { el.disabled = alvo.checked; if (alvo.checked) { el.value = ''; } } } break;
     }
   });
@@ -2243,6 +2312,16 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     }
     if (t.closest && t.closest('#form-dados')) marcarSujo();
     if (t.dataset.cont) { const c = document.getElementById(t.id + '-cont'); if (c) c.textContent = t.value.length + '/' + t.dataset.cont; }
+    // descrição do subticket: entra no rascunho a cada letra; só redesenha quando o botão Salvar alterações aparece ou some
+    if (t.dataset.campoSub === 'descricao') {
+      const d = demanda(E.aberta); const sub = d && d.subtickets[Number(t.dataset.i)]; if (!sub || !podeEditar(d)) return;
+      const antes = temSubRasc(); const r = Object.assign({}, E.subRasc[sub.numero]);
+      if (t.value.trim() === (sub.descricao || '')) delete r.descricao; else r.descricao = t.value.trim();
+      if (Object.keys(r).length) E.subRasc[sub.numero] = r; else delete E.subRasc[sub.numero];
+      if (antes !== temSubRasc()) { E.manterRolagem = true; desenhar(); }
+      else { const tr = t.closest('tr'); if (tr) tr.classList.toggle('sub-alterado', 'descricao' in r); }
+      return;
+    }
   });
   document.addEventListener('change', (ev) => {
     const t = ev.target;
@@ -2261,7 +2340,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       const campo = t.dataset.campoSub === 'finalidade' ? 'servico' : t.dataset.campoSub; const valor = t.value.trim();
       if (campo === 'metro' && valor && !(Number.isInteger(Number(valor)) && Number(valor) >= 1 && Number(valor) <= 9999)) { t.value = sub.metro || ''; aviso('Informe o metro linear em número inteiro (1 a 9999).', true); desenhar(); return; }
       if (campo === 'quantidade' && !(parseInt(valor, 10) >= 1 && parseInt(valor, 10) <= 999)) { t.value = sub.quantidade || ''; return; }
-      const salvo = { servico: sub.finalidade || '', quantidade: String(sub.quantidade), metro: sub.metro ? String(sub.metro) : '' }[campo];
+      const salvo = { servico: sub.finalidade || '', quantidade: String(sub.quantidade), metro: sub.metro ? String(sub.metro) : '', descricao: sub.descricao || '' }[campo];
       const r = Object.assign({}, E.subRasc[sub.numero]);
       if (valor === salvo) delete r[campo]; else r[campo] = valor;
       // voltar ao serviço salvo devolve também o metro salvo
@@ -2387,6 +2466,29 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }, 60000);
 
   // caixas de texto crescem até mostrar todo o conteúdo (descrição até 250 caracteres sem rolagem)
+  // card arrastável pelo cabeçalho: guarda o deslocamento (E.detDesl) e o reaplica a cada redesenho
+  function moverDetalhe() {
+    const m = document.querySelector('.modal-content.det'); if (!m || !E.detDesl) return;
+    m.style.transform = 'translate(' + E.detDesl.x + 'px, ' + E.detDesl.y + 'px)';
+  }
+  let ARRASTO_DET = null;
+  document.addEventListener('pointerdown', (ev) => {
+    const cab = ev.target.closest && ev.target.closest('.det > .det-cab'); if (!cab || ev.button !== 0) return;
+    if (ev.target.closest('button, a, input, textarea, select, label, .mono')) return;
+    const m = cab.closest('.det'); const d0 = E.detDesl || { x: 0, y: 0 }; const r = m.getBoundingClientRect();
+    ARRASTO_DET = { m, cab, x0: ev.clientX - d0.x, y0: ev.clientY - d0.y, base: { left: r.left - d0.x, top: r.top - d0.y, w: r.width } };
+    cab.setPointerCapture(ev.pointerId); m.classList.add('arrastando'); ev.preventDefault();
+  });
+  document.addEventListener('pointermove', (ev) => {
+    const a = ARRASTO_DET; if (!a) return;
+    // o cabeçalho nunca sai da tela
+    const x = Math.min(Math.max(ev.clientX - a.x0, -a.base.left - a.base.w + 120), window.innerWidth - a.base.left - 120);
+    const y = Math.min(Math.max(ev.clientY - a.y0, -a.base.top), window.innerHeight - a.base.top - 64);
+    E.detDesl = { x: Math.round(x), y: Math.round(y) }; moverDetalhe();
+  });
+  const soltarDet = () => { if (ARRASTO_DET) { ARRASTO_DET.m.classList.remove('arrastando'); ARRASTO_DET = null; } };
+  document.addEventListener('pointerup', soltarDet); document.addEventListener('pointercancel', soltarDet);
+
   function alturaDetalhe() {
     const m = document.querySelector('.modal-content.det'); if (!m) return;
     // altura exata, com fração: offsetHeight arredonda e o cabeçalho, centralizado, pulava ao trocar de aba

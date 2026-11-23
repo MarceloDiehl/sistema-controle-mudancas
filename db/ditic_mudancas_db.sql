@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS demanda (
     ticket_em DATETIME NULL,
     ticket_por_id BIGINT NULL,
     acionada_em DATE NULL,
-    informacoes VARCHAR(100) NULL,
+    informacoes VARCHAR(250) NULL,
     aviso_tipo ENUM('NOVA','RETORNOU','ATENDIMENTO','PARA_VALIDACAO','STATUS') NULL,
     aviso_para VARCHAR(60) NULL,                       -- 'COORDENADOR' ou id do técnico
     aviso_em DATETIME NULL,
@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS subticket (
     servico_id BIGINT NULL,
     quantidade SMALLINT NOT NULL DEFAULT 1,
     metro_linear INT NULL,                             -- só WECOM em Infraestrutura; opcional
+    descricao VARCHAR(250) NULL,                       -- observação opcional do subticket
     CONSTRAINT ck_subticket_numero CHECK (numero REGEXP '^[0-9]{7}$'),
     CONSTRAINT ck_subticket_quantidade CHECK (quantidade BETWEEN 1 AND 999),
     CONSTRAINT ck_subticket_metro CHECK (metro_linear IS NULL OR metro_linear BETWEEN 1 AND 9999),

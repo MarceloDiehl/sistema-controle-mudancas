@@ -16,7 +16,8 @@ flowchart LR
     G --> H([Concluída<br/>fica com o Setor])
 ```
 
-- **Nova → Acionada:** à mão, depois de registrar o ticket principal e a Data de Início.
+- **Pendente → Acionada:** à mão, depois de registrar o ticket principal e a Data de Início. Acionada por engano volta
+  para Pendente (à mão, mantendo tickets e datas).
 - **Em Atendimento e Para Validação:** o sistema muda sozinho, pelas datas, sem trocar o responsável.
 - **Concluída:** técnico ou administrador conclui a partir de Para Validação. Até lá, o administrador pode cancelar.
 - **Histórico:** cada alteração fica registrada com quem fez e quando.

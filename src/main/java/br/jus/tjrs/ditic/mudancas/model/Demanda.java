@@ -103,7 +103,7 @@ public class Demanda {
     @Column(name = "acionada_em")
     private LocalDate acionadaEm;
 
-    @Column(length = 100)
+    @Column(length = 250)
     private String informacoes;
 
     @Enumerated(EnumType.STRING)

@@ -45,6 +45,10 @@ public class Subticket {
     @Column(name = "metro_linear")
     private Integer metroLinear;
 
+    /** Observação opcional do subticket (até 250 caracteres). */
+    @Column(length = 250)
+    private String descricao;
+
     public String nomeServico() { return servico == null ? null : servico.getNome(); }
 
     public boolean usaMetro() { return Servico.usaMetro(empresa.getNome(), nomeServico()); }

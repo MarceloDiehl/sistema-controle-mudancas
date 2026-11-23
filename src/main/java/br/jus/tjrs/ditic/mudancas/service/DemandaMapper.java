@@ -37,7 +37,7 @@ public final class DemandaMapper {
                 d.getTicketPrincipal() == null || d.getTicketEm() == null ? null : new DemandaDtos.TicketEm(iso(d.getTicketEm()), autor(d.getTicketPor())),
                 iso(d.getAcionadaEm()),
                 d.getSubtickets().stream().map(s -> new DemandaDtos.Subticket(s.getEmpresa().getNome(), s.getNumero(), s.nomeServico(),
-                        s.getQuantidade(), s.getMetroLinear())).toList(),
+                        s.getQuantidade(), s.getMetroLinear(), s.getDescricao() == null ? "" : s.getDescricao())).toList(),
                 d.getInformacoes() == null ? "" : d.getInformacoes(),
                 hist, completo ? hist.size() : qtdHistorico,
                 iso(d.getCriadaEm().toLocalDate()), aviso, d.getMotivoCancelamento(),
