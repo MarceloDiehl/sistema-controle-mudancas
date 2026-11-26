@@ -68,7 +68,7 @@ public class FluxoDemanda {
         h.setDataHora(agora());
         h.setAutor(autor);
         h.setTipo(tipo);
-        h.setTexto(texto.length() > 500 ? texto.substring(0, 500) : texto);
+        h.setTexto(texto.length() > 1200 ? texto.substring(0, 1200) : texto);
         d.getHistorico().add(h);
         d.setAtualizadaEm(h.getDataHora());
     }
@@ -139,8 +139,25 @@ public class FluxoDemanda {
     /**
      * Mudança automática de status pelas datas, sem trocar o responsável. Devolve true se a demanda mudou.
      * Acionada → Em atendimento na Data de Início; Pendente (NOVA) também, se já tem ticket principal e subticket.
-     * Acionada ou Em atendimento → Para validação um dia depois da Data para Conclusão. Para validação nunca volta.
+     * Acionada ou Em atendimento → Para validação um dia depois da Data para Conclusão. Sozinha, Para validação
+     * nunca volta: só quando alguém remarca as datas (ver {@link #remarcar}).
      */
+    /**
+     * Datas remarcadas em Em atendimento ou Para validação: a demanda volta à etapa das novas datas
+     * (início depois de hoje → Acionada; período em curso → Em atendimento). O responsável não muda.
+     */
+    public void remarcar(Demanda d, Pessoa autor) {
+        Situacao s = d.getSituacao();
+        if ((s != Situacao.EM_ATENDIMENTO && s != Situacao.PARA_VALIDACAO) || d.getDataInicio() == null) return;
+        LocalDate hoje = hoje();
+        Situacao alvo = d.getDataInicio().isAfter(hoje) ? Situacao.ACIONADA
+                : d.fimDoPeriodo().isBefore(hoje) ? Situacao.PARA_VALIDACAO : Situacao.EM_ATENDIMENTO;
+        if (alvo == s || alvo == Situacao.PARA_VALIDACAO) return;
+        d.setSituacao(alvo);
+        registrar(d, TipoHistorico.STATUS, "Agendamento remarcado. Status alterado: " + s.rotulo() + " → " + alvo.rotulo() + ".", autor);
+        avisar(d, TipoAviso.STATUS);
+    }
+
     public boolean automatizar(Demanda d) {
         if (d.getExcluidaEm() != null || d.getDataInicio() == null) return false;
         LocalDate hoje = hoje();

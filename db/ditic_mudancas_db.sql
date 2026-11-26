@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS demanda (
     ticket_por_id BIGINT NULL,
     acionada_em DATE NULL,
     informacoes VARCHAR(250) NULL,
+    complexidade ENUM('BAIXA','NORMAL','ALTA') NOT NULL DEFAULT 'NORMAL',
     aviso_tipo ENUM('NOVA','RETORNOU','ATENDIMENTO','PARA_VALIDACAO','STATUS') NULL,
     aviso_para VARCHAR(60) NULL,                       -- 'COORDENADOR' ou id do técnico
     aviso_em DATETIME NULL,
@@ -132,7 +133,7 @@ CREATE TABLE IF NOT EXISTS subticket (
     servico_id BIGINT NULL,
     quantidade SMALLINT NOT NULL DEFAULT 1,
     metro_linear INT NULL,                             -- só WECOM em Infraestrutura; opcional
-    descricao VARCHAR(250) NULL,                       -- observação opcional do subticket
+    descricao VARCHAR(1000) NULL,                      -- observação opcional do subticket
     CONSTRAINT ck_subticket_numero CHECK (numero REGEXP '^[0-9]{7}$'),
     CONSTRAINT ck_subticket_quantidade CHECK (quantidade BETWEEN 1 AND 999),
     CONSTRAINT ck_subticket_metro CHECK (metro_linear IS NULL OR metro_linear BETWEEN 1 AND 9999),
@@ -149,7 +150,7 @@ CREATE TABLE IF NOT EXISTS historico (
     autor_id BIGINT NULL,                              -- quem fez a alteração; NULL = o sistema (automático)
     tipo ENUM('CRIACAO','STATUS','STATUS_AUTOMATICO','RESPONSAVEL','AGENDAMENTO','DADOS',
               'TICKET','SUBTICKET','DOCUMENTO','NOTA') NOT NULL,
-    texto VARCHAR(500) NOT NULL,
+    texto VARCHAR(1200) NOT NULL,                      -- cabe a descrição inteira do subticket
     CONSTRAINT fk_historico_demanda FOREIGN KEY (demanda_id) REFERENCES demanda(id) ON DELETE CASCADE,
     CONSTRAINT fk_historico_autor FOREIGN KEY (autor_id) REFERENCES pessoa(id),
     INDEX idx_historico_data_hora (data_hora)

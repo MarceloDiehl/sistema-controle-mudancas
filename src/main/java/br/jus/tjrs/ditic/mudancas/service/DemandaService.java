@@ -2,6 +2,7 @@ package br.jus.tjrs.ditic.mudancas.service;
 
 import br.jus.tjrs.ditic.mudancas.dto.DemandaDtos;
 import br.jus.tjrs.ditic.mudancas.model.Carga;
+import br.jus.tjrs.ditic.mudancas.model.Complexidade;
 import br.jus.tjrs.ditic.mudancas.model.Demanda;
 import br.jus.tjrs.ditic.mudancas.model.DemandaExcluida;
 import br.jus.tjrs.ditic.mudancas.model.Empresa;
@@ -103,6 +104,7 @@ public class DemandaService {
         d.setDataInicio(inicio);
         d.setDataFim(Objects.equals(fim, inicio) ? null : fim);
         d.setHorario(Formatos.hora(req.hora()));
+        d.setComplexidade(complexidade(req.complexidade()));
         d.setSituacao(Situacao.NOVA);
         d.setCriadaEm(fluxo.agora());
         d.setAtualizadaEm(d.getCriadaEm());
@@ -134,12 +136,13 @@ public class DemandaService {
         Situacao s = d.getSituacao();
         if (s != Situacao.NOVA && inicio == null) throw RegraException.invalido("Depois de acionada, a demanda precisa ter Data de Início.");
         if (s == Situacao.ACIONADA && fimPeriodo.isBefore(hoje)) throw RegraException.invalido("Em demanda acionada, o agendamento não pode estar no passado.");
-        if (s == Situacao.EM_ATENDIMENTO && inicio.isAfter(hoje)) throw RegraException.invalido("Em atendimento, a Data de Início não pode ser depois de hoje.");
-        if (s == Situacao.PARA_VALIDACAO && !fimPeriodo.isBefore(hoje)) throw RegraException.invalido("Em Para Validação, o período já terminou: a Data para Conclusão precisa ser anterior a hoje.");
+        // Em atendimento e Para validação aceitam qualquer data: remarcada, a demanda volta à etapa das novas datas
         LocalTime hora = Formatos.hora(req.hora());
         String descricao = Formatos.obrigatorio(req.descricao(), 250, "Descreva a demanda.", "Descrição");
         String informacoes = Formatos.texto(req.informacoes(), 250, "Informações adicionais");
         Responsavel novo = fluxo.responsavel(req.responsavel());
+        // sem o campo (tela antiga), a complexidade fica como está
+        Complexidade complexidade = req.complexidade() == null ? d.getComplexidade() : complexidade(req.complexidade());
 
         String seiAntes = d.getSei();
         boolean dadosMudaram = !Objects.equals(seiAntes, sei) || !Objects.equals(d.getDescricao(), descricao)
@@ -152,15 +155,29 @@ public class DemandaService {
         definirLocal(d, req.comarca());
         d.setDescricao(descricao);
         d.setInformacoes(informacoes);
+        if (complexidade != d.getComplexidade()) {
+            fluxo.registrar(d, TipoHistorico.DADOS, "Complexidade alterada: " + d.getComplexidade().rotulo() + " → " + complexidade.rotulo() + ".", autor);
+            d.setComplexidade(complexidade);
+        }
         d.setDataInicio(inicio);
         d.setDataFim(fimGravado);
         d.setHorario(hora);
-        if (agendaMudou) fluxo.registrar(d, TipoHistorico.AGENDAMENTO, "Agendamento alterado para " + agendaComHora(d) + ".", autor);
-        else if (dadosMudaram) fluxo.registrar(d, TipoHistorico.DADOS, "Dados da demanda atualizados.", autor);
+        if (agendaMudou) {
+            fluxo.registrar(d, TipoHistorico.AGENDAMENTO, "Agendamento alterado para " + agendaComHora(d) + ".", autor);
+            fluxo.remarcar(d, autor);
+        } else if (dadosMudaram) fluxo.registrar(d, TipoHistorico.DADOS, "Dados da demanda atualizados.", autor);
         fluxo.automatizar(d);
         String atencao = sei == null || sei.equals(seiAntes) ? null : demandas.findBySeiAndIdNotOrderById(sei, d.getId()).stream().findFirst()
                 .map(x -> "Atenção: este SEI também está na demanda " + num4(x.getId()) + " (" + x.getLocalTexto() + ").").orElse(null);
         return new DemandaDtos.Resposta(completo(d), atencao, null);
+    }
+
+    /** Baixa, Normal ou Alta; vazio vale Normal. */
+    private static Complexidade complexidade(String id) {
+        if (id == null || id.isBlank()) return Complexidade.NORMAL;
+        Complexidade c = Complexidade.doId(id.trim());
+        if (c == null) throw RegraException.invalido("Complexidade inválida: escolha Baixa, Normal ou Alta.");
+        return c;
     }
 
     // ------------------------------------------------------------------ status
@@ -321,7 +338,7 @@ public class DemandaService {
                 fluxo.registrar(d, TipoHistorico.SUBTICKET, rotulo + "metro linear " + (m == null ? "não informado" : m + " m") + ".", autor);
             }
             case "descricao" -> {
-                String t = Formatos.texto(valor, 250, "Descrição do subticket");
+                String t = Formatos.texto(valor, 1000, "Descrição do subticket");
                 if (Objects.equals(t, s.getDescricao())) break;
                 s.setDescricao(t);
                 fluxo.registrar(d, TipoHistorico.SUBTICKET, rotulo + (t == null ? "descrição removida." : "descrição \"" + t + "\"."), autor);

@@ -15,7 +15,7 @@ public final class DemandaDtos {
                           String situacao, String ticketPrincipal, TicketEm ticketEm, String acionadaEm,
                           List<Subticket> subtickets, String informacoes, List<Historico> historico, int qtdHistorico,
                           String criadaEm, Aviso aviso, String motivoCancelamento,
-                          String excluidaEm, String excluidaPor, String motivoExclusao) { }
+                          String excluidaEm, String excluidaPor, String motivoExclusao, String complexidade) { }
 
     public record TicketEm(String data, String usuario) { }
 
@@ -29,10 +29,10 @@ public final class DemandaDtos {
     public record Resposta(Demanda demanda, String atencao, Integer incluidos) { }
 
     public record Nova(String sei, String comarca, String descricao, String responsavel,
-                       String inicio, String fim, String hora) { }
+                       String inicio, String fim, String hora, String complexidade) { }
 
     public record Dados(String sei, String comarca, String descricao, String responsavel,
-                        String inicio, String fim, String hora, String informacoes) { }
+                        String inicio, String fim, String hora, String informacoes, String complexidade) { }
 
     /** "acionada", "concluida" ou "cancelada" (esta só do coordenador, com motivo). */
     public record MudancaSituacao(String situacao, String motivo) { }

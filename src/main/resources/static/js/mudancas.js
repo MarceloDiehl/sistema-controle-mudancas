@@ -182,6 +182,14 @@
   const DIAS_LIXEIRA = 30;
   // situações em aberto (ainda dão trabalho para alguém)
   const ABERTAS = ['nova', 'acionada', 'atendimento', 'pendente'];
+  // complexidade: Baixa, Normal (padrão) ou Alta; o gráfico tem 3 barras verticais e acende 1, 2 ou 3
+  const COMPLEX = [['baixa', 'Baixa', 1], ['normal', 'Normal', 2], ['alta', 'Alta', 3]];
+  const complexDe = (d) => COMPLEX.find((c) => c[0] === (d && d.complexidade)) || COMPLEX[1];
+  const opcoesCx = (sel) => COMPLEX.map(([v, rot]) => `<option value="${v}" ${v === sel ? 'selected' : ''}>${rot}</option>`).join('');
+  function barrasCx(d, comTexto) {
+    const [v, rot] = complexDe(d);
+    return `<span class="cx" title="Complexidade ${rot}"><span class="cx-barras cx-${v}" role="img" aria-label="Complexidade ${rot}"><i></i><i></i><i></i></span>${comTexto ? `<span class="cx-rot">${rot}</span>` : ''}</span>`;
+  }
   const SITUACOES = [
     { id: 'nova', nome: 'Pendentes', um: 'Pendente', cor: 'nova', dica: 'Mostrar só as demandas pendentes, ainda sem acionamento' },
     { id: 'acionada', nome: 'Acionadas', um: 'Acionada', cor: 'acio', dica: 'Mostrar só as demandas acionadas' },
@@ -557,6 +565,7 @@
       ag: (d) => (d.inicio ? d.inicio + (d.hora || '') : ''),
       tk: (d) => d.ticketPrincipal || '',
       st: (d) => ordemSit[d.situacao],
+      cx: (d) => complexDe(d)[2],
       resp: (d) => normal(usr(d.responsavel) ? usr(d.responsavel).curto : '')
     }[E.ordCol] || ((d) => d.inicio || '');
     const sinal = E.ordDir === 'desc' ? -1 : 1;
@@ -660,7 +669,7 @@
 
   <section class="lista vista-${E.vista}" aria-label="Demandas">
     <div class="l-cab ${E.vista === 'postits' ? 'l-ord' : 'l-grade'}" role="row">${E.vista === 'postits' ? '<span class="ord-rot">Ordenar por</span>' : ''}
-      ${[['sei', 'Expediente', ''], ['dem', 'Local', ''], ['ag', 'Data', ''], ['tk', 'Ticket', 'h-tk'], ['st', 'Status', ''], ['resp', 'Responsável', 'h-resp']].map(([c, t, cls]) => {
+      ${[['sei', 'Expediente', ''], ['dem', 'Local', ''], ['ag', 'Data de Agendamento', ''], ['tk', 'Ticket', 'h-tk'], ['st', 'Status', ''], ['cx', 'Complexidade', 'h-cx'], ['resp', 'Responsável', 'h-resp']].map(([c, t, cls]) => {
         const at = E.ordCol === c;
         const prox = at ? (E.ordDir === 'asc' ? 'decrescente' : 'crescente') : (c === 'ag' ? 'decrescente' : 'crescente');
         return `<span class="h-col ${cls} ${at ? 'ativa' : ''}" role="columnheader" aria-sort="${at ? (E.ordDir === 'asc' ? 'ascending' : 'descending') : 'none'}">
@@ -704,6 +713,7 @@
   <div class="cel c-ag">${d.inicio ? `<span class="ico">${I.agenda}</span><span class="c-data ${vencida(d) ? 'vencida' : ''}">${esc(agendaTexto(d))}</span>` : '<span class="c-data vazia">Sem data</span>'}${prazo(d)}</div>
   <div class="cel c-tk">${d.ticketPrincipal ? `<span class="ico">${I.ticket}</span><span class="tk-num">${esc(d.ticketPrincipal)}</span>` : '<span class="tk-vazio">Sem ticket</span>'}</div>
   <div class="cel c-st"><span class="badge selo">${s.um}</span></div>
+  <div class="cel c-cx">${barrasCx(d, true)}</div>
   <div class="cel c-resp">${cargaHtml(d)}</div>
 </article>`;
   }
@@ -714,7 +724,7 @@
     return `
 <article class="postit ${vencida(d) ? 'nv-venc' : ''} ${E.destaque === d.id ? 'destaque' + (E._anim.destaque ? ' pulsa' : '') : ''}" data-sit="${esc(d.situacao)}" data-acao="abrir" data-id="${d.id}" tabindex="0" role="button" aria-label="Demanda ${esc(d.sei || num4(d.id))}, ${esc(d.comarca)}, ${esc(s.um)}">
   ${pontoAviso(d)}
-  <div class="pi-topo"><span class="pi-sei">${esc(d.sei || 'Fora do SEI')}</span>${avatarCarga(d)}</div>
+  <div class="pi-topo"><span class="pi-sei">${esc(d.sei || 'Fora do SEI')}</span>${barrasCx(d)}${avatarCarga(d)}</div>
   <h3 class="pi-local">${esc(d.comarca || 'Local não informado')}</h3>
   <p class="pi-desc">${esc(d.descricao || 'Sem descrição.')}</p>
   <div class="pi-pe">
@@ -743,21 +753,25 @@
 <section class="modal-content det" data-sit="${esc(d.situacao)}" role="dialog" aria-modal="true" aria-labelledby="det-titulo">
   <header class="modal-header det-cab">
     <div class="det-id">
-      <div class="det-l1"><h2 id="det-titulo">${esc(predio(d.comarca) || 'Local não informado')}</h2>${statusCab(d)}</div>
+      <div class="det-l1"><h2 id="det-titulo">${esc(predio(d.comarca) || 'Local não informado')}</h2></div>
       <div class="det-l2">
         ${d.sei ? `<span class="mono">${esc(d.sei)}</span><button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.sei)}" aria-label="Copiar expediente" title="Copiar número">${I.copiar}</button>` : '<span>Fora do SEI</span>'}
         <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${I.agenda}${d.inicio ? esc(agendaComHora(d)) : 'A agendar'}</span>
-        <span class="sep" aria-hidden="true"></span><span class="l2-it">Região: ${esc(d.regiao || 'não identificada')}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it" title="Região">${esc(d.regiao || 'Região não identificada')}</span>
+        <span class="sep" aria-hidden="true"></span><span class="l2-it">${barrasCx(d, true)}</span>
         <span class="sep" aria-hidden="true"></span><span class="l2-it">${avatarCarga(d, 'xs')}${d.situacao === 'concluida' && !d.responsavel ? 'Setor' + (d.tecnico ? ' · atendida por ' + esc(nomeUsr(d.tecnico)) : '') : u ? esc(u.id === COORD ? 'Administrador' : u.nome) + (u.id === COORD && d.tecnico ? ' · técnico ' + esc(nomeUsr(d.tecnico)) : '') : 'Sem responsável'}</span>
       </div>
     </div>
     <button type="button" class="btn btn-icone" data-acao="fechar-det" aria-label="Fechar">${I.fechar}</button>
   </header>
 
-  <nav class="nav nav-underline abas" role="tablist">
-    ${abas.map(([id, rot, n]) => `<button type="button" role="tab" class="nav-link" id="aba-${id}" aria-selected="${E.aba === id}" data-acao="aba" data-v="${id}">${rot}${n !== '' ? ` <span class="badge qtd">${n}</span>` : ''}</button>`).join('')}
-  </nav>
+  <div class="det-barra">
+    <nav class="nav nav-underline abas" role="tablist">
+      ${abas.map(([id, rot, n]) => `<button type="button" role="tab" class="nav-link" id="aba-${id}" aria-selected="${E.aba === id}" data-acao="aba" data-v="${id}">${rot}${n !== '' ? ` <span class="badge qtd">${n}</span>` : ''}</button>`).join('')}
+    </nav>
+    ${statusBarra(d)}
+  </div>
   <div class="modal-body det-corpo" role="tabpanel" aria-labelledby="aba-${E.aba}">
     ${E.aba === 'dados' ? abaDados(d) : E.aba === 'tickets' ? abaTickets(d) : abaHist(d)}
   </div>
@@ -894,6 +908,10 @@
         ${combo('f-local', d.comarca, er.local)}
         ${er.local ? `<span class="erro">${esc(er.local)}</span>` : ''}
       </div>
+      <div class="campo g-cx">
+        <label class="form-label" for="f-cx">Complexidade</label>
+        <select id="f-cx" data-rascunho class="form-select sel-g">${opcoesCx(complexDe(d)[0])}</select>
+      </div>
     </div>
     <div class="campo">
       <span class="rotulo-l"><label class="form-label" for="f-desc">Descrição</label><span class="cont" id="f-desc-cont">${(d.descricao || '').length}/250</span></span>
@@ -956,8 +974,8 @@
     const alt = E.subRasc[s.numero] && 'descricao' in E.subRasc[s.numero];
     if (fixos) return `<tr class="sub-desc"><td colspan="${cols}"><p class="sub-desc-txt">${esc(s.descricao)}</p></td></tr>`;
     return `<tr class="sub-desc ${alt ? 'sub-alterado' : ''}"><td colspan="${cols}">
-      <span class="rotulo-l"><label class="form-label" for="sd-${i}">Descrição do subticket ${esc(s.numero)} <em>(opcional)</em></label><span class="cont" id="sd-${i}-cont">${(s.descricao || '').length}/250</span></span>
-      <textarea id="sd-${i}" class="form-control txt" rows="2" maxlength="250" data-cont="250" data-campo-sub="descricao" data-i="${i}" placeholder="Ex.: Sala 1001, 2º andar - retirar após as 14h">${esc(s.descricao || '')}</textarea>
+      <span class="rotulo-l"><label class="form-label" for="sd-${i}">Descrição do subticket ${esc(s.numero)} <em>(opcional)</em></label><span class="cont" id="sd-${i}-cont">${(s.descricao || '').length}/1000</span></span>
+      <textarea id="sd-${i}" class="form-control txt txt-sub" rows="2" maxlength="1000" data-cont="1000" data-campo-sub="descricao" data-i="${i}" placeholder="Ex.: Sala 1001, 2º andar - retirar após as 14h">${esc(s.descricao || '')}</textarea>
     </td></tr>`;
   }
 
@@ -1049,6 +1067,10 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
             <label class="form-label" for="n-local">Comarca ou prédio</label>
             ${combo('n-local', v.comarca || '', er.local)}
             ${er.local ? `<span class="erro">${esc(er.local)}</span>` : ''}
+          </div>
+          <div class="campo g-cx">
+            <label class="form-label" for="n-cx">Complexidade</label>
+            <select id="n-cx" data-rascunho class="form-select sel-g">${opcoesCx(v.complexidade || 'normal')}</select>
           </div>
           <div class="campo"><label class="form-label" for="n-ini">Data de Início</label>${campoData('n-ini', v.inicio, er.data)}</div>
           <div class="campo"><label class="form-label" for="n-fim">Data para Conclusão <em>(opcional)</em></label>${campoData('n-fim', v.fim, er.data && v.fim !== '')}</div>
@@ -1177,11 +1199,11 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   </div>
   <div class="campo">
     <label class="form-label" for="pa-nome">Nome</label>
-    <input id="pa-nome" data-rascunho class="form-control" maxlength="60" autocomplete="name" ${er ? 'aria-invalid="true"' : ''}>
+    <input id="pa-nome" data-rascunho class="form-control" maxlength="30" autocomplete="name" ${er ? 'aria-invalid="true"' : ''}>
   </div>
   <div class="campo">
     <label class="form-label" for="pa-usr">Usuário da rede</label>
-    <input id="pa-usr" data-rascunho class="form-control" maxlength="60" autocomplete="username" autocapitalize="none" spellcheck="false" ${er ? 'aria-invalid="true"' : ''}>
+    <input id="pa-usr" data-rascunho class="form-control" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" ${er ? 'aria-invalid="true"' : ''}>
     ${er ? `<span class="erro" role="alert">${esc(er)}</span>` : ''}
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Enviar pedido</button>
@@ -1316,7 +1338,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (v.editar === u.id) {
         return `<li class="list-group-item eq-linha editando"><form class="eq-edit" data-form="equipe-edit" data-id="${esc(u.id)}" novalidate>
           ${avatar(u.id)}
-          <span class="campo"><label class="visually-hidden" for="ed-nome">Nome</label><input id="ed-nome" data-rascunho class="form-control" value="${esc(u.nome)}" maxlength="60" ${E.erros.eqEdit ? 'aria-invalid="true"' : ''}></span>
+          <span class="campo"><label class="visually-hidden" for="ed-nome">Nome</label><input id="ed-nome" data-rascunho class="form-control" value="${esc(u.nome)}" maxlength="${Math.max(30, (u.nome || '').length)}" ${E.erros.eqEdit ? 'aria-invalid="true"' : ''}></span>
           ${cores('ed-cor', u.cor)}
           <span class="eq-acoes"><button type="button" class="btn btn-link" data-acao="eq-cancelar">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></span>
         </form>${E.erros.eqEdit ? `<span class="erro eq-erro">${esc(E.erros.eqEdit)}</span>` : ''}</li>`;
@@ -1350,8 +1372,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     ${E.solicitacoes.length ? bloco('Pedidos de Acesso', E.solicitacoes.length + (E.solicitacoes.length === 1 ? ' pendente' : ' pendentes'), `<ul class="list-group list-group-flush eq-lista">${E.solicitacoes.map(pedido).join('')}</ul>`, '', 'sol-bloco') : ''}
     ${bloco('Incluir Pessoa', '', `
       <form class="eq-add" data-form="equipe-add" novalidate>
-        <span class="campo"><label class="form-label" for="eq-nome">Nome</label><input id="eq-nome" data-rascunho class="form-control" maxlength="60" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
-        <span class="campo"><label class="form-label" for="eq-login">Usuário da rede</label><input id="eq-login" data-rascunho class="form-control" maxlength="60" autocapitalize="none" spellcheck="false" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
+        <span class="campo"><label class="form-label" for="eq-nome">Nome</label><input id="eq-nome" data-rascunho class="form-control" maxlength="30" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
+        <span class="campo"><label class="form-label" for="eq-login">Usuário da rede</label><input id="eq-login" data-rascunho class="form-control" maxlength="20" autocapitalize="none" spellcheck="false" ${E.erros.eqAdd ? 'aria-invalid="true"' : ''}></span>
         <span class="campo"><span class="rotulo">Cor</span>${cores('eq-cor', proximaCor())}</span>
         <button type="submit" class="btn btn-primary btn-lg">${I.mais}Incluir</button>
       </form>
@@ -1412,7 +1434,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const ag = !d.inicio ? 'Agendamento: a definir.'
       : 'Agendamento:\nData de Início: ' + br(d.inicio) + (variosDias(d) ? '\nData para Conclusão: ' + br(d.fim) : '') + '\nHorário: ' + horaSEI(d.hora);
     return 'Ao Serviço de Gestão de Mudanças,\n\n'
-      + 'Em atenção ao "Agendamento", informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
+      + 'Em atenção ao Agendamento (), informo que ' + (varias ? 'as empresas contratadas da DITIC já foram acionadas' : 'a empresa contratada da DITIC já foi acionada') + ' para o atendimento da demanda:\n\n'
       + ag + '\n\n'
       + (emp.length ? 'Tickets:\n\n' + emp.map(([e, ls]) => e + ': ' + ls.join(' / ')).join('\n') + '\n\n' : '')
       + 'Era o que cumpria informar.';
@@ -1811,8 +1833,6 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   // Em atendimento e Para validação nunca são escolhidos à mão, mudam sozinhos pela data; a Acionada pode voltar para
   // Pendente (acionamento por engano); cancelar fica só em Mais ações (administrador); Concluída e Cancelada são finais
-  // TRAVADOS: o status é automático (os dados continuam editáveis)
-  const TRAVADOS = ['atendimento', 'pendente'];
   const FINAIS = ['concluida', 'cancelada'];
   const destinosStatus = (d) => (d.situacao === 'nova' ? ['acionada'] : d.situacao === 'acionada' ? ['nova'] : []);
   // o select só guarda a escolha; a mudança acontece em Salvar alterações
@@ -1836,26 +1856,30 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }
   function somarDias(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
   const diaSeguinte = (iso) => somarDias(iso, 1);
-  function statusCab(d) {
-    if (TRAVADOS.includes(d.situacao)) {
-      const quando = d.situacao === 'atendimento' && d.inicio ? 'Vai para validação em ' + br(diaSeguinte(d.fim || d.inicio)).slice(0, 5)
-        : d.situacao === 'pendente' ? 'Aguardando a conclusão' : '';
-      return `<span class="badge st-fixo" title="Status automático: não pode ser alterado à mão">${I.cadeadoP}<span>${sit(d.situacao).um}</span></span>${quando ? `<span class="st-nota">${quando}</span>` : ''}`;
+  // trilha do fluxo, à direita das abas: etapas feitas preenchidas, a atual com o nome e o próximo passo manual como
+  // botão (só vale em Salvar alterações); nas automáticas, quando vai mudar
+  const ETAPAS = ['nova', 'acionada', 'atendimento', 'pendente', 'concluida'];
+  function statusBarra(d) {
+    const s = sit(d.situacao); const idx = ETAPAS.indexOf(d.situacao); const alvo = E.statusRascunho;
+    const pontos = idx < 0 ? '' : `<span class="st-pontos" aria-hidden="true">${ETAPAS.map((e, i) => (i ? `<span class="st-linha ${i <= idx ? 'feita' : ''}"></span>` : '')
+      + `<span class="st-ponto ${i < idx ? 'feito' : i === idx ? 'atual' : ''} ${alvo === e ? 'alvo' : ''}" title="${esc(sit(e).um)}"></span>`).join('')}</span>`;
+    let nota = '';
+    if (d.situacao === 'atendimento' && d.inicio) nota = 'vai para validação em ' + br(diaSeguinte(d.fim || d.inicio)).slice(0, 5);
+    else if (d.situacao === 'pendente') nota = 'aguardando a conclusão';
+    else if (FINAIS.includes(d.situacao)) nota = 'encerrada';
+    else if (!E.usuario) nota = 'somente consulta';
+    let acao = '';
+    const destino = E.usuario && !FINAIS.includes(d.situacao) ? destinosStatus(d)[0] : null;
+    if (destino && alvo) {
+      acao = `<span class="st-alvo">→ ${esc(sit(alvo).um)} ao salvar</span><button type="button" class="btn btn-icone btn-mini" data-acao="status-desfazer" aria-label="Desfazer a mudança de status" title="Desfazer">${I.xP}</button>`;
+    } else if (destino) {
+      acao = `<button type="button" class="btn st-acao" data-acao="status-escolher" data-v="${destino}" title="Vale ao clicar em Salvar alterações">${destino === 'acionada' ? 'Marcar como Acionada' : 'Voltar para Pendente'}</button>`;
     }
-    if (!E.usuario && !FINAIS.includes(d.situacao)) {
-      return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Entre para alterar">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span><span class="st-nota">Somente consulta · entre para alterar</span>`;
-    }
-    if (FINAIS.includes(d.situacao)) {
-      return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Status final: não pode ser alterado">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span><span class="st-nota">Demanda encerrada · somente consulta</span>`;
-    }
-    const destinos = destinosStatus(d);
-    if (!destinos.length) {
-      return `<span class="badge st-fixo" data-sit="${esc(d.situacao)}" title="Status automático: avança sozinho pela data">${I.cadeadoP}<span>${esc(sit(d.situacao).um)}</span></span>`;
-    }
-    const ops = [d.situacao].concat(destinos);
-    const marcado = ops.includes(E.statusRascunho) ? E.statusRascunho : d.situacao;
-    return `<span class="st-sel-wrap"><label for="d-status" class="visually-hidden">Status</label><select id="d-status" class="st-sel" data-status="${d.id}" title="Escolha o status e clique em Salvar alterações">${SITUACOES.filter((x) => ops.includes(x.id)).map((x) => `<option value="${x.id}" ${x.id === marcado ? 'selected' : ''}>${x.um}</option>`).join('')}</select></span>`;
+    return `<div class="st-trilha" data-sit="${esc(d.situacao)}" role="group" aria-label="Status: ${esc(s.um)}${idx >= 0 ? ', etapa ' + (idx + 1) + ' de ' + ETAPAS.length : ''}">
+      ${pontos}<span class="st-nome">${d.situacao === 'cancelada' ? I.cadeadoP : ''}${esc(s.um)}</span>${nota ? `<span class="st-nota">${esc(nota)}</span>` : ''}${acao}
+    </div>`;
   }
+
   // botão Concluir demanda (só em Para validação, para qualquer pessoa), com confirmação
   function pedirConclusao(d) {
     if (d.situacao !== 'pendente') return;
@@ -1913,17 +1937,17 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       else if (d.situacao !== 'nova' && !ini) E.erros.data = 'Depois de acionada, a demanda precisa ter Data de Início.';
       // acionada não vai para o passado (cairia direto em Para validação)
       else if (d.situacao === 'acionada' && (fim || ini) < hojeISO()) E.erros.data = 'Em demanda acionada, o agendamento não pode estar no passado.';
-      // Em atendimento já começou: o início não passa para depois de hoje (o status não volta para Acionada)
-      else if (d.situacao === 'atendimento' && ini > hojeISO()) E.erros.data = 'Em atendimento, a Data de Início não pode ser depois de hoje.';
-      // Para Validação: o período já terminou; as datas podem ser corrigidas, mas continuam antes de hoje
-      else if (d.situacao === 'pendente' && (fim || ini) >= hojeISO()) E.erros.data = 'Em Para Validação, o período já terminou: a Data para Conclusão precisa ser anterior a hoje.';
+      // Em Atendimento e Para Validação aceitam datas novas: remarcada, a demanda volta para Acionada ou Em Atendimento
       if (hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (Object.keys(E.erros).length) { desenhar(); return; }
-      const r = await api('PUT', 'mudancas/' + d.id, { sei, comarca: local, descricao: val('f-desc'), responsavel: val('f-resp'), inicio: ini, fim, hora, informacoes: val('f-info') });
+      const r = await api('PUT', 'mudancas/' + d.id, { sei, comarca: local, descricao: val('f-desc'), responsavel: val('f-resp'), inicio: ini, fim, hora, informacoes: val('f-info'), complexidade: val('f-cx') });
+      const antes = d.situacao;
       const x = trocarDemanda(r.demanda);
       E.limparRascunho = true; E.sujo = false;
       if (E.statusRascunho) { await salvarStatus(x); return; }
-      aviso('Alterações salvas.' + (r.atencao ? ' ' + r.atencao : ''), !!r.atencao); desenhar(); return;
+      const remarcada = x.situacao !== antes && ['acionada', 'atendimento'].includes(x.situacao)
+        ? ' Agendamento remarcado: a demanda voltou para ' + sit(x.situacao).nome + '.' : '';
+      aviso('Alterações salvas.' + remarcada + (r.atencao ? ' ' + r.atencao : ''), !!r.atencao); desenhar(); return;
     }
     if (tipo === 'principal' && d) {
       const bruto = val('t-principal'); const n = bruto.replace(/\D/g, '');
@@ -2037,7 +2061,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (E.modalDados && E.modalDados.sucesso) return;
       const semSei = document.getElementById('n-semsei').checked;
       const r = form.querySelector('input[name="n-resp"]:checked');
-      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : '', inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
+      const v = { sei: semSei ? '' : val('n-sei'), semSei, comarca: cidade(val('n-local')), descricao: val('n-desc'), responsavel: r ? r.value : '', complexidade: val('n-cx'), inicio: dataISO('n-ini'), fim: dataISO('n-fim'), hora: horaVal('n-hora') };
       E.modalDados = v;
       if (!semSei && !v.sei) E.erros.sei = 'Informe o número do expediente ou marque “Demanda fora do SEI”.';
       else if (!semSei && !RE_SEI.test(v.sei)) E.erros.sei = 'Número incompleto. O formato é 8.AAAA.NNNN/NNNNNN-D.';
@@ -2050,7 +2074,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       if (v.hora === null) E.erros.hora = 'Hora inválida. Use hh:mm, de 00:00 a 23:59.';
       if (v.inicio === null) v.inicio = ''; if (v.fim === null) v.fim = ''; if (v.hora === null) v.hora = val('n-hora');
       if (Object.keys(E.erros).length) { E.limparRascunho = true; desenhar(); const pri = form.querySelector('[aria-invalid="true"]'); if (pri) (pri.matches('[role="radiogroup"]') ? pri.querySelector('input') : pri).focus(); return; }
-      const res = await api('POST', 'mudancas', { sei: v.sei, comarca: v.comarca, descricao: v.descricao, responsavel: v.responsavel, inicio: v.inicio, fim: v.fim, hora: v.hora });
+      const res = await api('POST', 'mudancas', { sei: v.sei, comarca: v.comarca, descricao: v.descricao, responsavel: v.responsavel, complexidade: v.complexidade, inicio: v.inicio, fim: v.fim, hora: v.hora });
       const nova = trocarDemanda(res.demanda);
       if (!E.sitAtivas.has('nova')) E.sitAtivas = new Set(ABERTAS);
       irPara(nova.id); destacar(nova.id);
@@ -2177,6 +2201,8 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
       case 'tk-alterar': E.editTk = true; E.erros = {}; desenhar(); { const el = document.getElementById('t-principal'); if (el) { el.focus(); el.select(); } } break;
       case 'tk-cancelar': E.editTk = false; E.erros = {}; E.limparRascunho = true; desenhar(); break;
       case 'abrir': abrirCard(id); break;
+      case 'status-escolher': if (!d) break; if (!podeEditar(d)) { precisaEditar(d); break; } escolherStatus(d, v); break;
+      case 'status-desfazer': if (d) escolherStatus(d, d.situacao); break;
       case 'salvar-status': if (d && E.statusRascunho) acao(() => salvarStatus(d)); break;
       case 'fechar-det': guardar(() => { E.aberta = null; E.erros = {}; desenhar(); }); break;
       case 'aba': if (v === E.aba) break; guardar(() => { E.aba = v; E.erros = {}; E.editTk = false; desenhar(); }, true); break;
@@ -2472,9 +2498,17 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     m.style.transform = 'translate(' + E.detDesl.x + 'px, ' + E.detDesl.y + 'px)';
   }
   let ARRASTO_DET = null;
+  // só do nome da comarca para cima (a linha de baixo, com SEI, ticket e datas, fica livre para copiar e clicar)
+  function areaArrasto(cab, ev) {
+    if (ev.target.closest('button, a, input, textarea, select, label')) return false;
+    const l1 = cab.querySelector('.det-l1'); return !!l1 && ev.clientY <= l1.getBoundingClientRect().bottom;
+  }
+  document.addEventListener('pointermove', (ev) => {
+    if (ARRASTO_DET) return;
+    const cab = ev.target.closest && ev.target.closest('.det > .det-cab'); if (cab) cab.classList.toggle('pode-arrastar', areaArrasto(cab, ev));
+  });
   document.addEventListener('pointerdown', (ev) => {
-    const cab = ev.target.closest && ev.target.closest('.det > .det-cab'); if (!cab || ev.button !== 0) return;
-    if (ev.target.closest('button, a, input, textarea, select, label, .mono')) return;
+    const cab = ev.target.closest && ev.target.closest('.det > .det-cab'); if (!cab || ev.button !== 0 || !areaArrasto(cab, ev)) return;
     const m = cab.closest('.det'); const d0 = E.detDesl || { x: 0, y: 0 }; const r = m.getBoundingClientRect();
     ARRASTO_DET = { m, cab, x0: ev.clientX - d0.x, y0: ev.clientY - d0.y, base: { left: r.left - d0.x, top: r.top - d0.y, w: r.width } };
     cab.setPointerCapture(ev.pointerId); m.classList.add('arrastando'); ev.preventDefault();

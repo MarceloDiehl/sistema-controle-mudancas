@@ -132,8 +132,15 @@ class ApiTest {
         String r = body(json(post("/api/mudancas/" + id + "/subtickets"), "{\"empresa\":\"CDS\",\"numeros\":\"" + ticket() + "\",\"servico\":\"Mudança de Local\",\"quantidade\":2}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("pendente");
         assertThat((String) JsonPath.read(r, "$.demanda.acionadaEm")).isEqualTo(LocalDate.now().minusDays(10).toString());
-        // Para Validação: a Data para Conclusão continua antes de hoje
-        assertThat(status(json(put("/api/mudancas/" + id), dados(LocalDate.now().toString(), "Pelotas")), tec)).isEqualTo(400);
+        // Para Validação remarcada para o futuro volta para Acionada; para hoje, Em atendimento
+        r = body(json(put("/api/mudancas/" + id), dados(LocalDate.now().plusDays(3).toString(), "Pelotas")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("acionada");
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.equals("Agendamento remarcado. Status alterado: Para validação → Acionada."));
+        r = body(json(put("/api/mudancas/" + id), dados(LocalDate.now().toString(), "Pelotas")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("atendimento");
+        // e, com o período de novo no passado, volta sozinha para Para Validação
+        r = body(json(put("/api/mudancas/" + id), dados(LocalDate.now().minusDays(2).toString(), "Pelotas")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("pendente");
         r = body(json(patch("/api/mudancas/" + id + "/situacao"), "{\"situacao\":\"concluida\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.situacao")).isEqualTo("concluida");
         assertThat((Object) JsonPath.read(r, "$.demanda.responsavel")).isNull();
@@ -233,7 +240,10 @@ class ApiTest {
         String r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"Sala 1001, 2º andar\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEqualTo("Sala 1001, 2º andar");
         assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.endsWith("descrição \"Sala 1001, 2º andar\"."));
-        assertThat(status(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "x".repeat(251) + "\"}"), tec)).isEqualTo(400);
+        assertThat(status(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "x".repeat(1001) + "\"}"), tec)).isEqualTo(400);
+        // até 1000 caracteres, e o histórico guarda a descrição inteira
+        r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "y".repeat(1000) + "\"}"), tec);
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.contains("y".repeat(1000) + "\"."));
         r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEmpty();
         // Informações adicionais: até 250 caracteres
@@ -241,6 +251,26 @@ class ApiTest {
                 + LocalDate.now().plusDays(3) + "\",\"informacoes\":\"%s\"}";
         assertThat(status(json(put("/api/mudancas/" + id), dados.formatted("i".repeat(250))), tec)).isEqualTo(200);
         assertThat(status(json(put("/api/mudancas/" + id), dados.formatted("i".repeat(251))), tec)).isEqualTo(400);
+    }
+
+    @Test
+    void complexidadePadraoNormalEAlteravel() throws Exception {
+        MockHttpSession tec = novoTecnico();
+        String eu = meuId(tec);
+        String corpo = "{\"sei\":\"\",\"comarca\":\"Canoas\",\"descricao\":\"Teste\",\"responsavel\":\"" + eu + "\"%s}";
+        // sem escolher: Normal
+        String r = body(json(post("/api/mudancas"), corpo.formatted("")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.complexidade")).isEqualTo("normal");
+        assertThat(status(json(post("/api/mudancas"), corpo.formatted(",\"complexidade\":\"altissima\"")), tec)).isEqualTo(400);
+        r = body(json(post("/api/mudancas"), corpo.formatted(",\"complexidade\":\"alta\"")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.complexidade")).isEqualTo("alta");
+        String id = String.valueOf((Integer) JsonPath.read(r, "$.demanda.id"));
+        // salvar sem o campo (tela antiga) não mexe; com o campo, troca e vai ao histórico
+        r = body(json(put("/api/mudancas/" + id), corpo.formatted("")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.complexidade")).isEqualTo("alta");
+        r = body(json(put("/api/mudancas/" + id), corpo.formatted(",\"complexidade\":\"baixa\"")), tec);
+        assertThat((String) JsonPath.read(r, "$.demanda.complexidade")).isEqualTo("baixa");
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).contains("Complexidade alterada: Alta → Baixa.");
     }
 
     @Test
@@ -284,6 +314,16 @@ class ApiTest {
         assertThat((List<String>) JsonPath.read(body(get("/api/pessoas"), admin), "$[*].id")).doesNotContain(pid);
         // o usuário fica livre para uma conta nova
         assertThat(status(json(post("/api/equipe"), "{\"nome\":\"Pessoa " + login + "\",\"login\":\"" + login + "\"}"), admin)).isEqualTo(201);
+    }
+
+    @Test
+    void nomeAte30EUsuarioAte20Caracteres() throws Exception {
+        String nome = "{\"nome\":\"%s\",\"login\":\"%s\"}";
+        assertThat(status(json(post("/api/equipe"), nome.formatted("N".repeat(31), "tec" + SEQ.incrementAndGet())), admin)).isEqualTo(400);
+        assertThat(status(json(post("/api/equipe"), nome.formatted("Pessoa " + SEQ.incrementAndGet(), "u".repeat(21))), admin)).isEqualTo(400);
+        String login = "u".repeat(16) + (1000 + SEQ.incrementAndGet() % 9000);
+        String conta = body(json(post("/api/equipe"), nome.formatted("N".repeat(24) + (100000 + SEQ.get()), login)), admin);
+        assertThat((String) JsonPath.read(conta, "$.pessoa.login")).hasSize(20);
     }
 
     @Test
