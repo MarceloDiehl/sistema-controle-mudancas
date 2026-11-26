@@ -967,12 +967,12 @@
       ${E.erros.principal ? `<span class="erro">${esc(E.erros.principal)}</span>` : ''}`);
   }
 
-  // descrição opcional do subticket: linha logo abaixo dele, escondida até clicar no + (o - recolhe de novo)
+  // descrição opcional do subticket: linha logo abaixo dele, escondida até clicar no + à esquerda (o - recolhe de novo)
   function linhaDescSub(s, i, fixos, cols) {
     if (!E.subDesc[s.numero]) return '';
     const alt = E.subRasc[s.numero] && 'descricao' in E.subRasc[s.numero];
-    if (fixos) return `<tr class="sub-desc"><td colspan="${cols}"><p class="sub-desc-txt">${esc(s.descricao)}</p></td></tr>`;
-    return `<tr class="sub-desc ${alt ? 'sub-alterado' : ''}"><td colspan="${cols}">
+    if (fixos) return `<tr class="sub-desc"><td class="td-exp"></td><td colspan="${cols}"><p class="sub-desc-txt">${esc(s.descricao)}</p></td></tr>`;
+    return `<tr class="sub-desc ${alt ? 'sub-alterado' : ''}"><td class="td-exp"></td><td colspan="${cols}">
       <span class="rotulo-l"><label class="form-label" for="sd-${i}">Descrição do subticket ${esc(s.numero)} <em>(opcional)</em></label><span class="cont" id="sd-${i}-cont">${(s.descricao || '').length}/1000</span></span>
       <textarea id="sd-${i}" class="form-control txt txt-sub" rows="2" maxlength="1000" data-cont="1000" data-campo-sub="descricao" data-i="${i}">${esc(s.descricao || '')}</textarea>
     </td></tr>`;
@@ -985,17 +985,17 @@
     const subs = d.subtickets.map(comRascunho);
     const temMetro = subs.some((s) => usaMetro(s.empresa, s.finalidade));
     const tabela = d.subtickets.length ? `<table class="table tabela">
-      <thead><tr><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th>${temMetro ? '<th class="th-qtd">Metro</th>' : ''}<th><span class="visually-hidden">Ações</span></th></tr></thead>
+      <thead><tr><th class="th-exp"><span class="visually-hidden">Descrição</span></th><th>Empresa</th><th>Ticket</th><th>Serviço</th><th class="th-qtd">Qtd.</th>${temMetro ? '<th class="th-qtd">Metro</th>' : ''}<th><span class="visually-hidden">Ações</span></th></tr></thead>
       <tbody>${subs.map((s, i) => `<tr class="${E.subRasc[s.numero] ? 'sub-alterado' : ''}">
+        <td class="td-exp">${fixos && !s.descricao ? '' : E.subDesc[s.numero]
+          ? `<button type="button" class="btn btn-icone" data-acao="sub-desc" data-i="${i}" aria-expanded="true" aria-label="Recolher a descrição do subticket ${esc(s.numero)}" title="Recolher descrição">${I.menosP}</button>`
+          : `<button type="button" class="btn btn-icone ${s.descricao ? 'tem-desc' : ''}" data-acao="sub-desc" data-i="${i}" aria-expanded="false" aria-label="${s.descricao ? 'Ver' : 'Incluir'} descrição do subticket ${esc(s.numero)}" title="${s.descricao ? 'Ver descrição' : 'Incluir descrição'}">${I.maisP}</button>`}</td>
         <td><span class="badge emp-tag">${esc(s.empresa)}</span></td>
         <td class="mono">${esc(s.numero)}</td>
         <td><label class="visually-hidden" for="sf-${i}">Serviço</label><select id="sf-${i}" class="form-select sel-tab ${s.finalidade ? '' : 'falta'}" data-campo-sub="finalidade" data-i="${i}" ${trava}>${opcoesServ(s.empresa, s.finalidade)}${s.finalidade && !servicosDe(s.empresa).includes(s.finalidade) ? `<option selected>${esc(s.finalidade)}</option>` : ''}</select></td>
         <td class="td-qtd"><label class="visually-hidden" for="sq-${i}">Quantidade</label><input id="sq-${i}" type="number" min="1" max="999" class="form-control inp-qtd ${s.quantidade ? '' : 'falta'}" value="${esc(s.quantidade || '')}" placeholder="—" data-campo-sub="quantidade" data-i="${i}" ${trava}></td>
         ${temMetro ? `<td class="td-qtd">${usaMetro(s.empresa, s.finalidade) ? `<label class="visually-hidden" for="sm-${i}">Metro linear</label><input id="sm-${i}" type="number" min="1" max="9999" step="1" class="form-control inp-qtd" value="${esc(s.metro || '')}" placeholder="—" data-campo-sub="metro" data-i="${i}" ${trava}>` : ''}</td>` : ''}
         <td class="td-acao"><span class="acoes-sub">
-          ${fixos && !s.descricao ? '' : E.subDesc[s.numero]
-            ? `<button type="button" class="btn btn-icone" data-acao="sub-desc" data-i="${i}" aria-expanded="true" aria-label="Recolher a descrição do subticket ${esc(s.numero)}" title="Recolher descrição">${I.menosP}</button>`
-            : `<button type="button" class="btn btn-icone ${s.descricao ? 'tem-desc' : ''}" data-acao="sub-desc" data-i="${i}" aria-expanded="false" aria-label="${s.descricao ? 'Ver' : 'Incluir'} descrição do subticket ${esc(s.numero)}" title="${s.descricao ? 'Ver descrição' : 'Incluir descrição'}">${I.maisP}</button>`}
           ${fixos ? '' : `<button type="button" class="btn btn-icone perigo-h" data-acao="sub-del" data-i="${i}" aria-label="Remover subticket ${esc(s.numero)}" title="Remover">${I.lixo}</button>`}
         </span></td>
       </tr>${linhaDescSub(s, i, fixos, temMetro ? 6 : 5)}`).join('')}</tbody></table>` : '<p class="vazio-bloco">Nenhum subticket incluído ainda.</p>';
@@ -1862,8 +1862,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     const pontos = idx < 0 ? '' : `<span class="st-pontos" aria-hidden="true">${ETAPAS.map((e, i) => (i ? `<span class="st-linha ${i <= idx ? 'feita' : ''}"></span>` : '')
       + `<span class="st-ponto ${i < idx ? 'feito' : i === idx ? 'atual' : ''} ${alvo === e ? 'alvo' : ''}" title="${esc(sit(e).um)}"></span>`).join('')}</span>`;
     let nota = '';
-    if (d.situacao === 'pendente') nota = 'aguardando a conclusão';
-    else if (FINAIS.includes(d.situacao)) nota = 'encerrada';
+    if (FINAIS.includes(d.situacao)) nota = 'encerrada';
     else if (!E.usuario) nota = 'somente consulta';
     let acao = '';
     const destino = E.usuario && !FINAIS.includes(d.situacao) ? destinosStatus(d)[0] : null;

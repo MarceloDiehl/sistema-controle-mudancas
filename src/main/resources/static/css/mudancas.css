@@ -1395,11 +1395,6 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 @media (max-width: 1280px) { .c-ag .prazo { display: inline; } }
 @media (min-width: 900px) and (max-width: 1100px) { .l-grade { grid-template-columns: minmax(180px, 1.05fr) minmax(0, 1fr) minmax(0, 1.6fr) minmax(128px, .95fr) minmax(0, .75fr); } }
 
-/* ---------------------------------------------------------------- Nova com a Data de Início alcançada e sem acionamento */
-.linha-dem.nv-venc { box-shadow: 0 0 0 1px var(--danger-line), 0 1px 3px rgba(16, 24, 40, .08); }
-.linha-dem.nv-venc:hover { box-shadow: 0 0 0 1px var(--danger-line), 0 8px 20px rgba(15, 23, 35, .10), 0 1px 3px rgba(15, 23, 35, .06); }
-.postit.nv-venc { filter: drop-shadow(0 0 1px #E0675E) drop-shadow(0 0 .5px #E0675E) drop-shadow(0 6px 8px rgba(16,24,40,.10)); }
-
 /* ---------------------------------------------------------------- usuário de cada pessoa na Equipe */
 .eq-usr { font-size: 11.5px; color: var(--muted); font-weight: 400; }
 
@@ -1808,3 +1803,30 @@ textarea.txt.txt-sub { max-height: 220px; overflow-y: auto; }
 .postit .pi-topo .nv-ponto, .postit .pi-topo .nv-ponto.par.venc { position: static; flex: none; width: 8px; height: 8px; margin: 0 -2px 0 2px; box-shadow: 0 0 0 3px rgba(47, 127, 234, .16); }
 .postit .pi-topo .nv-ponto.venc { box-shadow: 0 0 0 3px rgba(180, 35, 24, .16); }
 .postit .pi-topo .cx { margin-left: auto; }
+
+/* X de fechar alinhado com a linha do título (título de 26 px de altura, botão de 32 px) */
+.modal-header, .det-cab { align-items: flex-start; }
+.modal-header > .btn-icone, .det-cab > .btn-icone { flex: none; margin-top: -3px; }
+/* rodapé dos modais mais baixo que antes (69 px): 56 px, com botões de 36 px e 10 px de folga */
+@media (min-width: 701px) {
+  .modal-footer, .det-pe { min-height: 56px; padding-top: 0; padding-bottom: 0; }
+  .modal-footer .btn, .det-pe .btn { height: 36px; padding-top: 0; padding-bottom: 0; display: inline-flex; align-items: center; }
+  .modal-footer .btn-lg, .det-pe .btn-lg { font-size: 14px; padding-left: 16px; padding-right: 16px; }
+}
+@media (max-height: 820px) and (min-width: 701px) {
+  .modal-footer, .det-pe { min-height: 50px; }
+  .modal-footer .btn, .det-pe .btn { height: 34px; }
+}
+/* lista em barras: um pouco mais de espaço entre a faixa lateral, a bolinha de aviso e o número do SEI
+   (o cabeçalho da lista acompanha, para as colunas continuarem alinhadas) */
+@media (min-width: 900px) {
+  .linha-dem { padding-left: 28px; }
+  .l-cab { padding-left: 38px; }
+  .linha-dem .nv-ponto { left: 12px; }
+}
+/* barra do topo com 64 px (era 56): os controles de 36 px ficam com 14 px de respiro (a marca tem 38 px) em cima e embaixo, na mesma
+   grade de 8 px do resto da tela. No celular continua com 56 px */
+@media (min-width: 701px) { .topo-in { min-height: 64px; padding-top: 13px; padding-bottom: 13px; } }
+/* subtickets: o + (ou -) que abre a descrição fica na primeira coluna, à esquerda da Empresa */
+.tabela .th-exp, .tabela .td-exp { width: 44px; padding-right: 0; }
+.tabela .td-exp .btn-icone { margin-left: -6px; }

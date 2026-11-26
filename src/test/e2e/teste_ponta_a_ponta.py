@@ -111,7 +111,7 @@ with sync_playwright() as p:
     chk(ordem == ['campo-busca', 'filtro-local', 'filtro-resp', 'filtro-periodo', 'filtro-comigo', 'vistas'], f'abaixo das abas: pesquisa, Local, Responsável, Período, Minhas demandas e visualização {ordem}')
     alt = pg.evaluate("['#busca', '.filtro-local', '.filtro-resp', '.filtro-comigo', '.filtro-periodo', '.filtros .vistas'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [Math.round(r.top), Math.round(r.height)]; })")
     chk(len(set(map(tuple, alt))) == 1, f'pesquisa, seletores e visualização na mesma linha e altura {alt}')
-    chk(pg.evaluate("document.querySelector('.topo').getBoundingClientRect().height") < 60, 'navbar baixo')
+    chk(64 <= pg.evaluate("document.querySelector('.topo-in').getBoundingClientRect().height") <= 66, 'barra do topo com 64 px')
     hs = pg.evaluate("['.sit-abas', '#busca', '.l-cab', '.l-pe'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().height))")
     chk(len(set(hs)) == 1, f'abas, filtros, linha de ordenação e paginação com a mesma altura {hs}')
     cab = [e.inner_text().strip() for e in pg.query_selector_all('.l-cab .h-txt')]
@@ -178,6 +178,7 @@ with sync_playwright() as p:
     clk(pg, '[data-acao=salvar-subs]'); x = dem(pg, d1)
     chk(x['subtickets'][0]['descricao'] == 'Sala 1001, 2º andar' and x['historico'][-1]['texto'].endswith('descrição incluída.') and pg.query_selector('#sd-0') is None, 'descrição do subticket gravada, no histórico e recolhida depois de salvar')
     chk(pg.query_selector('[data-acao=sub-desc][data-i="0"].tem-desc') is not None, 'subticket com descrição mostra o + destacado')
+    chk(pg.query_selector('.tabela tbody tr:first-child > td:first-child [data-acao=sub-desc]') is not None, 'o + da descrição fica na primeira coluna, à esquerda da Empresa')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.input_value('#sd-0') == 'Sala 1001, 2º andar', 'o + mostra a descrição salva')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.query_selector('#sd-0') is None, 'o - recolhe a descrição')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.get_attribute('#sd-0', 'maxlength') == '1000' and '/1000' in texto(pg, '#sd-0-cont') and not pg.get_attribute('#sd-0', 'placeholder'), 'descrição do subticket com até 1000 caracteres e sem texto de exemplo')
@@ -240,7 +241,9 @@ with sync_playwright() as p:
     d3 = nova_demanda(pg, '8.2026.9745/000103-1', 'Torres', em_dias(-1), resp=ana)
     chk('A data já passou' in texto(pg, '.sucesso'), 'demanda antiga: a confirmação avisa que a data já passou')
     clk(pg, '[data-acao=fechar-modal]'); clk(pg, '[data-acao=sit-aba][data-v=nova]')
-    chk(pg.query_selector(f'.linha-dem.nv-venc[data-id="{d3}"] .nv-ponto.venc') is not None, 'Pendente vencida ganha bolinha e contorno vermelhos')
+    sombra = lambda sel: pg.evaluate(f"(() => {{ const e = document.querySelector({sel!r}); return e && getComputedStyle(e).boxShadow; }})()")
+    chk(pg.query_selector(f'.linha-dem.nv-venc[data-id="{d3}"] .nv-ponto.venc') is not None and pg.query_selector(f'.linha-dem[data-id="{d3}"] .c-data.vencida') is not None
+        and 'rgb(240, 180, 174)' not in (sombra(f'.linha-dem[data-id="{d3}"]') or ''), 'Pendente vencida ganha bolinha e data vermelhas, sem contorno vermelho')
     clk(pg, '[data-acao=vista][data-v=postits]')
     dentro = pg.evaluate(f"""(() => {{ const p = document.querySelector('.postit[data-id="{d3}"]'); const b = p && p.querySelector('.pi-topo .nv-ponto.venc'); if (!b) return false;
       const a = p.getBoundingClientRect(), r = b.getBoundingClientRect(), s = p.querySelector('.pi-sei').getBoundingClientRect();
@@ -299,6 +302,7 @@ with sync_playwright() as p:
     abre(pg, d4); ticket(pg, '1840000')
     sub(pg, 'CDS', '1840001', 'Mudança de Local', 2)
     chk(dem(pg, d4)['situacao'] == 'pendente', 'demanda antiga com ticket e subticket vai direto para Para Validação')
+    chk('aguardando' not in texto(pg, '.st-trilha'), 'Para Validação sem a frase "aguardando a conclusão" ao lado do status')
     sub(pg, 'WECOM', '1840002', 'Infraestrutura', 3)
     sub(pg, 'WECOM', '1840003', 'Infraestrutura', 1, metro=2)
     sub(pg, 'Selbetti', '1840004', 'Desinstalação', 1)
