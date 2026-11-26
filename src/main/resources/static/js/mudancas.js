@@ -931,7 +931,7 @@
       ${E.erros.data || E.erros.hora ? `<span class="erro campo-info">${esc(E.erros.data || E.erros.hora)}</span>` : ''}
       <div class="campo campo-info">
         <span class="rotulo-l"><label class="form-label" for="f-info">Informações adicionais</label><span class="cont" id="f-info-cont">${(d.informacoes || '').length}/250</span></span>
-        <textarea id="f-info" data-rascunho data-cont="250" class="form-control txt txt-info" rows="3" maxlength="250" placeholder="Ex.: Solicitado ao DMP em 01/04">${esc(d.informacoes || '')}</textarea>
+        <textarea id="f-info" data-rascunho data-cont="250" class="form-control txt txt-info" rows="3" maxlength="250">${esc(d.informacoes || '')}</textarea>
       </div>
     </div>`)}
 </fieldset></form>`;
@@ -1079,7 +1079,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
         ${er.data || er.hora ? `<span class="erro">${esc(er.data || er.hora)}</span>` : '<p class="dica-datas">Sem a data para conclusão, o atendimento é de um dia só. Datas e horário podem ser definidos depois. Data já passada registra uma demanda antiga.</p>'}
         <div class="campo">
           <span class="rotulo-l"><label class="form-label" for="n-desc">Descrição</label><span class="cont" id="n-desc-cont">${(v.descricao || '').length}/250</span></span>
-          <textarea id="n-desc" data-rascunho data-cont="250" class="form-control txt txt-desc" rows="4" maxlength="250" placeholder="Ex.: Adequação de leiaute da sala 1001 - Cartório da 5ª Vara Cível" ${er.desc ? 'aria-invalid="true"' : ''}>${esc(v.descricao || '')}</textarea>
+          <textarea id="n-desc" data-rascunho data-cont="250" class="form-control txt txt-desc" rows="4" maxlength="250" ${er.desc ? 'aria-invalid="true"' : ''}>${esc(v.descricao || '')}</textarea>
           ${er.desc ? `<span class="erro">${esc(er.desc)}</span>` : ''}
         </div>`)}
       ${bloco('Atribuição da Demanda', '', `
@@ -1855,17 +1855,15 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     destacar(d.id); desenhar();
   }
   function somarDias(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
-  const diaSeguinte = (iso) => somarDias(iso, 1);
   // trilha do fluxo, à direita das abas: etapas feitas preenchidas, a atual com o nome e o próximo passo manual como
-  // botão (só vale em Salvar alterações); nas automáticas, quando vai mudar
+  // botão (só vale em Salvar alterações)
   const ETAPAS = ['nova', 'acionada', 'atendimento', 'pendente', 'concluida'];
   function statusBarra(d) {
     const s = sit(d.situacao); const idx = ETAPAS.indexOf(d.situacao); const alvo = E.statusRascunho;
     const pontos = idx < 0 ? '' : `<span class="st-pontos" aria-hidden="true">${ETAPAS.map((e, i) => (i ? `<span class="st-linha ${i <= idx ? 'feita' : ''}"></span>` : '')
       + `<span class="st-ponto ${i < idx ? 'feito' : i === idx ? 'atual' : ''} ${alvo === e ? 'alvo' : ''}" title="${esc(sit(e).um)}"></span>`).join('')}</span>`;
     let nota = '';
-    if (d.situacao === 'atendimento' && d.inicio) nota = 'vai para validação em ' + br(diaSeguinte(d.fim || d.inicio)).slice(0, 5);
-    else if (d.situacao === 'pendente') nota = 'aguardando a conclusão';
+    if (d.situacao === 'pendente') nota = 'aguardando a conclusão';
     else if (FINAIS.includes(d.situacao)) nota = 'encerrada';
     else if (!E.usuario) nota = 'somente consulta';
     let acao = '';

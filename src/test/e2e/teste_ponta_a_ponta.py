@@ -217,6 +217,7 @@ with sync_playwright() as p:
     pg.select_option('#f-cx', 'alta'); espera(pg); clk(pg, '#btn-salvar'); x = dem(pg, d1)
     chk(x['complexidade'] == 'alta' and x['historico'][-1]['texto'] == 'Complexidade alterada: Normal → Alta.' and pg.query_selector('.det-l2 .cx-barras.cx-alta') is not None, 'Complexidade alterada em Detalhes, com registro no histórico')
     chk(pg.get_attribute('#f-info', 'maxlength') == '250' and '/250' in texto(pg, '#f-info-cont'), 'Informações adicionais com até 250 caracteres')
+    chk(not pg.get_attribute('#f-info', 'placeholder') and not pg.get_attribute('#f-desc', 'placeholder'), 'Descrição e Informações adicionais sem texto de exemplo')
     clk(pg, '[data-acao=aba][data-v=dados]'); pg.fill('#f-hora', '13:00'); clk(pg, '#btn-salvar')
     clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=acionamento]')
     esperado = ('Ao Serviço de Gestão de Mudanças,\n\nEm atenção ao Agendamento (), informo que a empresa contratada da DITIC já foi acionada para o atendimento da demanda:\n\n'
@@ -231,7 +232,7 @@ with sync_playwright() as p:
     d2 = nova_demanda(pg, '8.2026.9745/000102-1', 'Pelotas', HOJE.isoformat(), resp=bruno); clk(pg, '[data-acao=fechar-modal]')
     abre(pg, d2); ticket(pg, '1832000'); aciona(pg)
     chk(dem(pg, d2)['situacao'] == 'atendimento' and 'Em Atendimento' in flash(pg), 'demanda para hoje: acionada e já Em atendimento')
-    chk(pg.query_selector('[data-acao=status-escolher]') is None and 'vai para validação' in texto(pg, '.st-trilha'), 'Em atendimento é automática: sem botão, com a data da próxima etapa')
+    chk(pg.query_selector('[data-acao=status-escolher]') is None and 'vai para validação' not in texto(pg, '.st-trilha'), 'Em atendimento é automática: sem botão e sem a frase da próxima etapa')
     clk(pg, '[data-acao=aba][data-v=hist]'); chk('automaticamente' in texto(pg, '.linha-tempo') and 'Sistema (automático)' in texto(pg, '.linha-tempo'), 'histórico mostra a mudança automática')
     fecha(pg)
 
