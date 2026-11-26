@@ -1803,3 +1803,8 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 }
 /* descrição do subticket (até 1000 caracteres): cresce até 220 px e depois rola */
 textarea.txt.txt-sub { max-height: 220px; overflow-y: auto; }
+
+/* post-it: as bolinhas de aviso (azul: novidade; vermelha: início chegou sem acionar) ficam dentro, antes do SEI */
+.postit .pi-topo .nv-ponto, .postit .pi-topo .nv-ponto.par.venc { position: static; flex: none; width: 8px; height: 8px; margin: 0 -2px 0 2px; box-shadow: 0 0 0 3px rgba(47, 127, 234, .16); }
+.postit .pi-topo .nv-ponto.venc { box-shadow: 0 0 0 3px rgba(180, 35, 24, .16); }
+.postit .pi-topo .cx { margin-left: auto; }

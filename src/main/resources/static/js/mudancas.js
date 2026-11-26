@@ -723,8 +723,7 @@
     const s = sit(d.situacao); const u = usr(d.responsavel);
     return `
 <article class="postit ${vencida(d) ? 'nv-venc' : ''} ${E.destaque === d.id ? 'destaque' + (E._anim.destaque ? ' pulsa' : '') : ''}" data-sit="${esc(d.situacao)}" data-acao="abrir" data-id="${d.id}" tabindex="0" role="button" aria-label="Demanda ${esc(d.sei || num4(d.id))}, ${esc(d.comarca)}, ${esc(s.um)}">
-  ${pontoAviso(d)}
-  <div class="pi-topo"><span class="pi-sei">${esc(d.sei || 'Fora do SEI')}</span>${barrasCx(d)}${avatarCarga(d)}</div>
+  <div class="pi-topo">${pontoAviso(d)}<span class="pi-sei">${esc(d.sei || 'Fora do SEI')}</span>${barrasCx(d)}${avatarCarga(d)}</div>
   <h3 class="pi-local">${esc(d.comarca || 'Local não informado')}</h3>
   <p class="pi-desc">${esc(d.descricao || 'Sem descrição.')}</p>
   <div class="pi-pe">
@@ -975,7 +974,7 @@
     if (fixos) return `<tr class="sub-desc"><td colspan="${cols}"><p class="sub-desc-txt">${esc(s.descricao)}</p></td></tr>`;
     return `<tr class="sub-desc ${alt ? 'sub-alterado' : ''}"><td colspan="${cols}">
       <span class="rotulo-l"><label class="form-label" for="sd-${i}">Descrição do subticket ${esc(s.numero)} <em>(opcional)</em></label><span class="cont" id="sd-${i}-cont">${(s.descricao || '').length}/1000</span></span>
-      <textarea id="sd-${i}" class="form-control txt txt-sub" rows="2" maxlength="1000" data-cont="1000" data-campo-sub="descricao" data-i="${i}" placeholder="Ex.: Sala 1001, 2º andar - retirar após as 14h">${esc(s.descricao || '')}</textarea>
+      <textarea id="sd-${i}" class="form-control txt txt-sub" rows="2" maxlength="1000" data-cont="1000" data-campo-sub="descricao" data-i="${i}">${esc(s.descricao || '')}</textarea>
     </td></tr>`;
   }
 

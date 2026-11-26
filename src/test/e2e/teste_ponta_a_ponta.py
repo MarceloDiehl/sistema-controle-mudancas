@@ -176,11 +176,11 @@ with sync_playwright() as p:
     chk(pg.input_value('#sd-0') == 'Sala 1001, 2º andar', 'a digitação continua no campo depois que o botão aparece')
     chk(dem(pg, d1)['subtickets'][0]['descricao'] == '' and pg.query_selector('[data-acao=salvar-subs]') is not None, 'a descrição do subticket fica pendente até salvar')
     clk(pg, '[data-acao=salvar-subs]'); x = dem(pg, d1)
-    chk(x['subtickets'][0]['descricao'] == 'Sala 1001, 2º andar' and 'descrição' in x['historico'][-1]['texto'] and pg.query_selector('#sd-0') is None, 'descrição do subticket gravada, no histórico e recolhida depois de salvar')
+    chk(x['subtickets'][0]['descricao'] == 'Sala 1001, 2º andar' and x['historico'][-1]['texto'].endswith('descrição incluída.') and pg.query_selector('#sd-0') is None, 'descrição do subticket gravada, no histórico e recolhida depois de salvar')
     chk(pg.query_selector('[data-acao=sub-desc][data-i="0"].tem-desc') is not None, 'subticket com descrição mostra o + destacado')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.input_value('#sd-0') == 'Sala 1001, 2º andar', 'o + mostra a descrição salva')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.query_selector('#sd-0') is None, 'o - recolhe a descrição')
-    clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.get_attribute('#sd-0', 'maxlength') == '1000' and '/1000' in texto(pg, '#sd-0-cont'), 'descrição do subticket com até 1000 caracteres')
+    clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.get_attribute('#sd-0', 'maxlength') == '1000' and '/1000' in texto(pg, '#sd-0-cont') and not pg.get_attribute('#sd-0', 'placeholder'), 'descrição do subticket com até 1000 caracteres e sem texto de exemplo')
     clk(pg, '[data-acao=sub-desc][data-i="0"]')
     # remover subticket pede confirmação
     sub(pg, 'CDS', '1831399', 'Instalação'); n_sub = len(dem(pg, d1)['subtickets'])
@@ -241,6 +241,11 @@ with sync_playwright() as p:
     chk('A data já passou' in texto(pg, '.sucesso'), 'demanda antiga: a confirmação avisa que a data já passou')
     clk(pg, '[data-acao=fechar-modal]'); clk(pg, '[data-acao=sit-aba][data-v=nova]')
     chk(pg.query_selector(f'.linha-dem.nv-venc[data-id="{d3}"] .nv-ponto.venc') is not None, 'Pendente vencida ganha bolinha e contorno vermelhos')
+    clk(pg, '[data-acao=vista][data-v=postits]')
+    dentro = pg.evaluate(f"""(() => {{ const p = document.querySelector('.postit[data-id="{d3}"]'); const b = p && p.querySelector('.pi-topo .nv-ponto.venc'); if (!b) return false;
+      const a = p.getBoundingClientRect(), r = b.getBoundingClientRect(), s = p.querySelector('.pi-sei').getBoundingClientRect();
+      return r.left >= a.left && r.top >= a.top && r.right <= a.left + 40 && r.right <= s.left; }})()""")
+    chk(dentro, 'no post-it, a bolinha fica dentro, no canto esquerdo, antes do SEI'); clk(pg, '[data-acao=vista][data-v=linhas]')
 
     # a hora fica só dentro do card
     clk(pg, '[data-acao=sit-aba][data-v=todas]')

@@ -239,11 +239,12 @@ class ApiTest {
         String url = "/api/mudancas/" + id + "/subtickets/" + n;
         String r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"Sala 1001, 2º andar\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEqualTo("Sala 1001, 2º andar");
-        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.endsWith("descrição \"Sala 1001, 2º andar\"."));
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.endsWith("descrição incluída.")).noneMatch(t -> t.contains("Sala 1001"));
         assertThat(status(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "x".repeat(1001) + "\"}"), tec)).isEqualTo(400);
-        // até 1000 caracteres, e o histórico guarda a descrição inteira
+        // até 1000 caracteres; o histórico só diz que a descrição mudou
         r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"" + "y".repeat(1000) + "\"}"), tec);
-        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.contains("y".repeat(1000) + "\"."));
+        assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).hasSize(1000);
+        assertThat((List<String>) JsonPath.read(r, "$.demanda.historico[*].texto")).anyMatch(t -> t.endsWith("descrição alterada."));
         r = body(json(patch(url), "{\"campo\":\"descricao\",\"valor\":\"\"}"), tec);
         assertThat((String) JsonPath.read(r, "$.demanda.subtickets[0].descricao")).isEmpty();
         // Informações adicionais: até 250 caracteres

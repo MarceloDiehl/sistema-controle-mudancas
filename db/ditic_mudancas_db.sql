@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS historico (
     autor_id BIGINT NULL,                              -- quem fez a alteração; NULL = o sistema (automático)
     tipo ENUM('CRIACAO','STATUS','STATUS_AUTOMATICO','RESPONSAVEL','AGENDAMENTO','DADOS',
               'TICKET','SUBTICKET','DOCUMENTO','NOTA') NOT NULL,
-    texto VARCHAR(1200) NOT NULL,                      -- cabe a descrição inteira do subticket
+    texto VARCHAR(500) NOT NULL,
     CONSTRAINT fk_historico_demanda FOREIGN KEY (demanda_id) REFERENCES demanda(id) ON DELETE CASCADE,
     CONSTRAINT fk_historico_autor FOREIGN KEY (autor_id) REFERENCES pessoa(id),
     INDEX idx_historico_data_hora (data_hora)

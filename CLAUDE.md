@@ -34,7 +34,8 @@ uso e o fluxo.
 - Sistema em produção com dados reais: nenhuma mudança na estrutura do banco (tabelas, colunas, ENUMs) sem combinar.
   Mudança combinada vai também num script `db/atualizacao_*.sql`, rodado no banco em uso antes de trocar o .jar.
 - Tickets: principal e subtickets com 7 dígitos. Subticket é único entre todas as demandas (repetido bloqueia)
-  e tem descrição opcional (1000 caracteres; só no card e no histórico). Informações adicionais: 250 caracteres.
+  e tem descrição opcional (1000 caracteres; só no card; o histórico registra só que foi incluída, alterada
+  ou removida). Informações adicionais: 250 caracteres.
   Ticket principal ou SEI repetido só avisam. Local só da lista do catálogo.
 - Custo do relatório: CDS = quantidade × preço da região; WECOM Realocação e Instalação = quantidade × valor;
   Infraestrutura = metro linear × valor do metro (a quantidade não multiplica) ou, sem metro, uma verba de 15 m por

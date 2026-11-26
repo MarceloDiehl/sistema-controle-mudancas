@@ -340,8 +340,10 @@ public class DemandaService {
             case "descricao" -> {
                 String t = Formatos.texto(valor, 1000, "Descrição do subticket");
                 if (Objects.equals(t, s.getDescricao())) break;
+                // o histórico só registra que houve descrição; o texto fica no card
+                String acao = t == null ? "descrição removida." : s.getDescricao() == null ? "descrição incluída." : "descrição alterada.";
                 s.setDescricao(t);
-                fluxo.registrar(d, TipoHistorico.SUBTICKET, rotulo + (t == null ? "descrição removida." : "descrição \"" + t + "\"."), autor);
+                fluxo.registrar(d, TipoHistorico.SUBTICKET, rotulo + acao, autor);
             }
             default -> throw RegraException.invalido("Campo do subticket inválido.");
         }

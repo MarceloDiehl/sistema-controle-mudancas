@@ -68,7 +68,7 @@ public class FluxoDemanda {
         h.setDataHora(agora());
         h.setAutor(autor);
         h.setTipo(tipo);
-        h.setTexto(texto.length() > 1200 ? texto.substring(0, 1200) : texto);
+        h.setTexto(texto.length() > 500 ? texto.substring(0, 500) : texto);
         d.getHistorico().add(h);
         d.setAtualizadaEm(h.getDataHora());
     }
