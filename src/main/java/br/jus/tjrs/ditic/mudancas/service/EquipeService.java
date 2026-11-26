@@ -28,7 +28,7 @@ import static br.jus.tjrs.ditic.mudancas.service.Formatos.iso;
 public class EquipeService {
 
     private static final Logger LOG = LoggerFactory.getLogger(EquipeService.class);
-    private static final Pattern LOGIN = Pattern.compile("^[a-z0-9][a-z0-9._-]{1,59}$");
+    private static final Pattern LOGIN = Pattern.compile("^[a-z0-9][a-z0-9._-]{1,19}$");
     private static final Pattern COR = Pattern.compile("^#[0-9A-Fa-f]{6}$");
     private static final String COR_PADRAO = "#5A6370";
     private static final int HORAS_SENHA_TEMPORARIA = 24;
@@ -166,12 +166,12 @@ public class EquipeService {
     public static String login(String txt) {
         String l = txt == null ? "" : txt.trim().toLowerCase();
         if (!LOGIN.matcher(l).matches())
-            throw RegraException.invalido("Usuário: de 2 a 60 caracteres, só letras minúsculas sem acento, números, ponto, hífen e sublinhado.");
+            throw RegraException.invalido("Usuário: de 2 a 20 caracteres, só letras minúsculas sem acento, números, ponto, hífen e sublinhado.");
         return l;
     }
 
     public static String nome(String txt) {
-        return Formatos.obrigatorio(txt, 60, "Informe o nome.", "Nome");
+        return Formatos.obrigatorio(txt, 30, "Informe o nome.", "Nome");
     }
 
     public static EquipeDtos.Pessoa dto(Pessoa p) {
@@ -181,6 +181,8 @@ public class EquipeService {
     }
 
     private void definirNome(Pessoa p, String txt) {
+        // nome já gravado (de antes do limite de 30) continua valendo enquanto não for trocado
+        if (p.getNome() != null && txt != null && txt.trim().equals(p.getNome())) return;
         String nome = nome(txt);
         boolean repetido = pessoas.findAll().stream()
                 .anyMatch(x -> !x.getId().equals(p.getId()) && Formatos.normal(x.getNome()).equals(Formatos.normal(nome)));

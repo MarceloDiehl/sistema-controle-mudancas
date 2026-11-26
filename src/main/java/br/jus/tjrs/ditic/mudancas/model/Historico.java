@@ -42,6 +42,6 @@ public class Historico {
     @Column(nullable = false)
     private TipoHistorico tipo;
 
-    @Column(nullable = false, length = 500)
+    @Column(nullable = false, length = 1200)
     private String texto;
 }

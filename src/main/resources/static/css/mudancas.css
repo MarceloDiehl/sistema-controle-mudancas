@@ -1708,3 +1708,98 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .det > .det-cab :is(button, a, input, select, label) { cursor: pointer; }
 .det.arrastando { transition: none; user-select: none; }
 .det.arrastando > .det-cab { cursor: grabbing; }
+/* uma linguagem só para os modais: o card usa as mesmas medidas de cabeçalho e rodapé da Nova Demanda e do Relatório */
+.det-cab { padding: 18px 20px 18px 24px; }
+.det-l1 h2 { color: var(--accent); }
+/* rodapé: 14 px em cima e embaixo, 24 px à direita como nos outros; à esquerda 16 px porque o "Mais ações" já tem
+   folga própria e assim o ícone fica alinhado ao conteúdo */
+.det-pe { padding: 14px 24px 14px 16px; }
+/* arrastar o card: só do nome da comarca para cima (o cursor muda pela tela, ver moverCursorDet) */
+.det > .det-cab { cursor: auto; }
+.det > .det-cab.pode-arrastar { cursor: move; }
+/* cabeçalho do card com a mesma altura (85 px) e o mesmo título (18 px) da Nova Demanda e do Relatório: linha do
+   nome (26 px, a altura do status) + 2 px + linha de dados (20 px), como título + subtítulo dos outros modais */
+.det-l1 h2 { font-size: 18px; line-height: 26px; letter-spacing: -.01em; }
+.det-id { gap: 2px; }
+.det-l2 { line-height: 20px; }
+.det-l2 .mini-copia { width: 20px; height: 20px; }
+.det-l2 .mini-copia, .det-l2 .l2-tk + .mini-copia { margin-left: -10px; }
+/* barra do card: abas à esquerda e a trilha do fluxo à direita (o status saiu do lado do título) */
+.det-barra { flex: none; display: flex; align-items: stretch; gap: 16px; padding: 4px 20px 0; border-bottom: 1px solid #ECEEF1; }
+.det-barra .abas { flex: 1 1 auto; min-width: 0; padding: 0; border-bottom: 0; }
+.st-trilha { flex: none; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.st-pontos { display: inline-flex; align-items: center; }
+.st-ponto { flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #C3CAD2; background: var(--surface); box-sizing: border-box; }
+.st-ponto.feito { background: var(--c-dot); border-color: var(--c-dot); }
+.st-ponto.atual { width: 10px; height: 10px; background: var(--c-dot); border-color: var(--c-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-dot) 22%, transparent); }
+.st-ponto.alvo { border: 1.5px dashed var(--ink-2); background: var(--surface); box-shadow: none; }
+.st-linha { width: 12px; height: 1.5px; background: #D5DAE0; }
+.st-linha.feita { background: var(--c-dot); }
+.st-nome { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.st-nome svg { width: 13px; height: 13px; opacity: .7; }
+.st-trilha .st-nota { font-size: 12px; color: var(--muted); }
+.st-acao { height: 28px; padding: 0 12px; border: 1px solid var(--line-inp); border-radius: var(--r); background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.st-acao:hover { border-color: #A9B1BB; background: #F4F6F8; color: var(--ink); }
+.st-alvo { font-size: 12.5px; font-weight: 600; color: var(--acio-ink, var(--ink-2)); white-space: nowrap; }
+.st-trilha .btn-mini { width: 24px; height: 24px; margin-left: -6px; }
+@media (max-width: 899px) { .st-pontos, .st-trilha .st-nota { display: none; } }
+@media (max-width: 700px) { .det-barra { padding-left: 12px; padding-right: 12px; gap: 8px; } .st-acao { padding: 0 8px; } }
+/* ---------------------------------------------------------------- complexidade (Baixa / Normal / Alta) */
+/* gráfico de 3 barras verticais em degraus: acende 1, 2 ou 3; a cor sobe de cinza para âmbar e vermelho */
+.cx { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cx-barras { --cx-cor: #8A94A0; display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
+.cx-barras i { width: 3px; border-radius: 1px; background: #D5DAE0; }
+.cx-barras i:nth-child(1) { height: 5px; } .cx-barras i:nth-child(2) { height: 8.5px; } .cx-barras i:nth-child(3) { height: 12px; }
+.cx-barras.cx-baixa i:nth-child(-n+1), .cx-barras.cx-normal i:nth-child(-n+2), .cx-barras.cx-alta i { background: var(--cx-cor); }
+.cx-barras.cx-normal { --cx-cor: #C28A12; }
+.cx-barras.cx-alta { --cx-cor: #C2412D; }
+.cx-rot { font-size: 13px; color: inherit; }
+/* lista: coluna Complexidade antes de Responsável */
+@media (min-width: 1281px) { .l-grade { grid-template-columns: minmax(190px, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) minmax(0, .8fr) minmax(0, .85fr) 112px minmax(0, .85fr); } }
+@media (min-width: 1101px) and (max-width: 1280px) { .l-grade { grid-template-columns: minmax(185px, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, .85fr) minmax(0, .9fr) 104px minmax(0, .8fr); } }
+@media (min-width: 900px) and (max-width: 1100px) {
+  .l-grade { grid-template-columns: minmax(170px, 1.05fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(120px, .95fr) 40px minmax(0, .75fr); }
+  .c-cx .cx-rot { display: none; }
+  .l-cab .h-cx .h-txt { font-size: 0; } .l-cab .h-cx .h-txt::after { content: "Cx."; font-size: 12px; }
+}
+.c-cx { color: var(--ink-2); font-size: 13px; }
+@media (max-width: 899px) {
+  .linha-dem.l-grade { grid-template-areas: "sei st" "dem cx" "ag tk" "resp resp"; }
+  .c-cx { grid-area: cx; justify-content: flex-end; }
+}
+/* post-it: as barras ficam no topo, antes do avatar */
+.pi-topo .cx { margin-left: auto; }
+/* Complexidade na linha do SEI e da Comarca ou prédio (os dois ficam um pouco mais estreitos) */
+/* Nova Demanda (6 colunas): SEI 2, Comarca 3, Complexidade 1; na linha de baixo, as datas e a hora com 2 cada */
+.grade-ini > :nth-child(1) { grid-column: span 2; }
+.grade-ini > :nth-child(2) { grid-column: span 3; }
+.grade-ini > .g-cx { grid-column: span 1; }
+@media (max-width: 700px) {
+  .grade-ini > :nth-child(1), .grade-ini > :nth-child(2) { grid-column: 1 / -1; }
+  .grade-ini > .g-cx { grid-column: auto; }
+}
+/* card: as colunas acompanham a linha do Atendimento (Responsável | Início | Conclusão | Hora):
+   SEI sobre o Responsável, Comarca sobre as duas datas e Complexidade sobre a Hora */
+.linha-sei { grid-template-columns: minmax(0, 1fr) 200px 200px 120px; }
+.linha-sei > :nth-child(2) { grid-column: 2 / 4; }
+@media (max-width: 960px) { .linha-sei { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px; } .linha-sei > :nth-child(2) { grid-column: auto; } }
+@media (max-width: 700px) { .linha-sei { grid-template-columns: minmax(0, 1fr) 120px; } .linha-sei > :nth-child(1) { grid-column: 1 / -1; } }
+@media (max-width: 480px) { .linha-sei { grid-template-columns: minmax(0, 1fr); } }
+.det-l2 .cx { color: var(--muted); }
+/* filtros: Responsável e Período um pouco mais largos; a pesquisa cede o espaço. Até 1280 px ficam como estavam,
+   porque com login (Minhas Demandas) a pesquisa já fica estreita ali */
+@media (min-width: 1281px) {
+  .filtros .filtro-resp { flex-basis: 240px !important; }
+  .filtros .filtro-periodo { flex-basis: 230px !important; }
+}
+
+/* card, Nova Demanda e Equipe com a mesma medida (1140 × 800). O cabeçalho do card (SEI, ticket, período com início e fim,
+   região, complexidade e responsável) cabe numa linha; o que passar da altura rola por dentro */
+.det, .modal-n, .modal-content.equipe { max-width: 1140px; }
+.det-l2 { column-gap: 12px; }
+.det-l2 .mini-copia, .det-l2 .l2-tk + .mini-copia { margin-left: -8px; }
+@media (min-width: 701px) {
+  .det, .modal-content.modal-n, .modal-content.equipe { height: min(800px, 100%); min-height: 0; }
+}
+/* descrição do subticket (até 1000 caracteres): cresce até 220 px e depois rola */
+textarea.txt.txt-sub { max-height: 220px; overflow-y: auto; }

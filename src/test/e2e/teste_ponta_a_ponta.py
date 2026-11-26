@@ -65,7 +65,7 @@ def sub(pg, emp, nums, serv, qtd=1, metro=None):
     if metro: pg.fill('#n-metro', str(metro))
     enviar(pg, 'form[data-form=sub]')
 def aciona(pg):
-    clk(pg, '[data-acao=aba][data-v=dados]'); pg.select_option('#d-status', 'acionada'); espera(pg)
+    clk(pg, '[data-acao=aba][data-v=dados]'); clk(pg, '[data-acao=status-escolher][data-v=acionada]')
     clk(pg, '#btn-salvar')
 def pessoa(pg, login): return next(p for p in api(pg, 'pessoas') if p['login'] == login)
 def inclui_pessoa(pg, nome, login):
@@ -114,11 +114,14 @@ with sync_playwright() as p:
     chk(pg.evaluate("document.querySelector('.topo').getBoundingClientRect().height") < 60, 'navbar baixo')
     hs = pg.evaluate("['.sit-abas', '#busca', '.l-cab', '.l-pe'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().height))")
     chk(len(set(hs)) == 1, f'abas, filtros, linha de ordenação e paginação com a mesma altura {hs}')
+    cab = [e.inner_text().strip() for e in pg.query_selector_all('.l-cab .h-txt')]
+    chk(cab == ['Expediente', 'Local', 'Data de Agendamento', 'Ticket', 'Status', 'Complexidade', 'Responsável'], f'cabeçalho da lista com Data de Agendamento e Complexidade {cab}')
     clk(pg, '[data-acao=sobre]'); chk(texto(pg, '.sobre-ver') == 'Versão do Sistema: 1.0.0 · Novembro/2026', 'informações do sistema'); clk(pg, '[data-acao=fechar-modal]')
 
     # ------------------------------------------------------------------ equipe e contas
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=equipe]')
     chk(pg.query_selector('#eq-perfil') is None and 'Coordenador' not in texto(pg, '.modal-content.equipe'), 'Equipe sem escolha de perfil e sem o nome Coordenador')
+    chk(pg.get_attribute('#eq-nome', 'maxlength') == '30' and pg.get_attribute('#eq-login', 'maxlength') == '20', 'nome com até 30 letras e usuário com até 20')
     senha_ana = inclui_pessoa(pg, 'Ana Souza', 'ana.souza')
     chk(pessoa(pg, 'ana.souza')['perfil'] == 'TECNICO', 'conta nova é sempre de técnico')
     chk(re.fullmatch(r'[A-Za-z2-9]{10}', senha_ana or '') is not None, 'incluir pessoa mostra a senha temporária uma vez')
@@ -139,6 +142,7 @@ with sync_playwright() as p:
     chk('na lista' in texto(pg, '.modal-n .erro') and not api(pg, 'mudancas'), 'local que não está na lista não é aceito')
     clk(pg, '.modal-n [data-acao=fechar-modal]')
     clk(pg, '[data-acao=nova]')
+    chk(pg.input_value('#n-cx') == 'normal' and [o.inner_text() for o in pg.query_selector_all('#n-cx option')] == ['Baixa', 'Normal', 'Alta'], 'Nova demanda: Complexidade Baixa, Normal ou Alta, com Normal escolhida')
     chk(pg.query_selector('input[name=n-resp][value=coordenador]') is None and pg.query_selector('input[name=n-resp]:checked') is None, 'Nova demanda: sem Administrador e nenhum técnico pré-selecionado')
     pg.fill('#n-sei', '8.2026.9745/000100-1'); pg.fill('#n-local', 'Canoas'); pg.keyboard.press('Escape'); pg.fill('#n-desc', 'Teste'); enviar(pg, 'form[data-form=nova]')
     chk('técnico responsável' in texto(pg, '.modal-n .erro') and not api(pg, 'mudancas'), 'sem técnico escolhido a demanda não é incluída')
@@ -176,6 +180,8 @@ with sync_playwright() as p:
     chk(pg.query_selector('[data-acao=sub-desc][data-i="0"].tem-desc') is not None, 'subticket com descrição mostra o + destacado')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.input_value('#sd-0') == 'Sala 1001, 2º andar', 'o + mostra a descrição salva')
     clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.query_selector('#sd-0') is None, 'o - recolhe a descrição')
+    clk(pg, '[data-acao=sub-desc][data-i="0"]'); chk(pg.get_attribute('#sd-0', 'maxlength') == '1000' and '/1000' in texto(pg, '#sd-0-cont'), 'descrição do subticket com até 1000 caracteres')
+    clk(pg, '[data-acao=sub-desc][data-i="0"]')
     # remover subticket pede confirmação
     sub(pg, 'CDS', '1831399', 'Instalação'); n_sub = len(dem(pg, d1)['subtickets'])
     clk(pg, f'[data-acao=sub-del][data-i="{n_sub - 1}"]')
@@ -188,32 +194,44 @@ with sync_playwright() as p:
     q0 = posd(); h = pg.locator('#det-titulo').bounding_box()
     pg.mouse.move(h['x'] + 10, h['y'] + 5); pg.mouse.down(); pg.mouse.move(h['x'] - 90, h['y'] + 35, steps=5); pg.mouse.up(); q1 = posd()
     chk(q1 == [q0[0] - 100, q0[1] + 30], f'arrastar o cabeçalho move o card {q0} → {q1}')
+    l2 = pg.locator('.det-l2 .l2-it').last.bounding_box()
+    pg.mouse.move(l2['x'] + 5, l2['y'] + 5); pg.mouse.down(); pg.mouse.move(l2['x'] - 95, l2['y'] + 45, steps=5); pg.mouse.up()
+    chk(posd() == q1, 'abaixo do nome da comarca (SEI, ticket, datas) o card não se arrasta')
     clk(pg, '[data-acao=aba][data-v=hist]'); chk(posd() == q1, 'o card fica onde foi deixado ao trocar de aba'); clk(pg, '[data-acao=aba][data-v=tickets]')
-    clk(pg, '[data-acao=aba][data-v=dados]'); pg.select_option('#d-status', 'acionada'); espera(pg)
+    clk(pg, '[data-acao=aba][data-v=dados]'); clk(pg, '[data-acao=status-escolher][data-v=acionada]')
     chk(dem(pg, d1)['situacao'] == 'nova' and pg.is_enabled('#btn-salvar'), 'trocar o select não muda o status antes de salvar')
     clk(pg, '#btn-salvar'); x = dem(pg, d1)
     chk(x['situacao'] == 'acionada' and x['acionadaEm'] == HOJE.isoformat() and x['responsavel'] == ana, 'Acionada ao salvar, com a data do acionamento e o mesmo responsável')
     # acionamento por engano: volta para Pendente e pode ser acionada de novo
-    clk(pg, '[data-acao=aba][data-v=dados]'); pg.select_option('#d-status', 'nova'); espera(pg); clk(pg, '#btn-salvar'); x = dem(pg, d1)
+    chk(pg.query_selector('.det-l1 .st-sel, .det-l1 .st-fixo') is None and 'etapa 2 de 5' in (pg.get_attribute('.st-trilha', 'aria-label') or '') and len(pg.query_selector_all('.st-trilha .st-ponto.feito')) == 1, 'o status saiu do título e a trilha mostra a etapa Acionada')
+    clk(pg, '[data-acao=aba][data-v=dados]'); clk(pg, '[data-acao=status-escolher][data-v=nova]')
+    chk('Pendente ao salvar' in texto(pg, '.st-trilha') and pg.query_selector('.st-ponto.alvo') is not None, 'escolher Voltar para Pendente só marca a mudança, até salvar')
+    clk(pg, '[data-acao=status-desfazer]'); chk(pg.query_selector('.st-ponto.alvo') is None and pg.query_selector('[data-acao=status-escolher][data-v=nova]') is not None, 'o x desfaz a escolha de status')
+    clk(pg, '[data-acao=status-escolher][data-v=nova]'); clk(pg, '#btn-salvar'); x = dem(pg, d1)
     chk(x['situacao'] == 'nova' and x['acionadaEm'] is None and x['ticketPrincipal'] == '1831574' and 'Pendente' in flash(pg), 'Acionada volta para Pendente, com o ticket mantido')
-    chk(pg.evaluate("[...document.querySelectorAll('#d-status option')].map(o => o.textContent).join('|')") == 'Pendente|Acionada', 'o status aparece como Pendente')
-    pg.select_option('#d-status', 'acionada'); espera(pg); clk(pg, '#btn-salvar')
+    chk('Pendente' in texto(pg, '.st-trilha .st-nome') and 'Marcar como Acionada' in texto(pg, '.st-trilha'), 'o status aparece como Pendente, com o próximo passo')
+    clk(pg, '[data-acao=status-escolher][data-v=acionada]'); clk(pg, '#btn-salvar')
     chk(dem(pg, d1)['situacao'] == 'acionada', 'e é acionada de novo')
+    # complexidade: no cabeçalho do card, editável em Detalhes e no histórico
+    chk('Normal' in texto(pg, '.det-l2') and pg.query_selector('.det-l2 .cx-barras.cx-normal') is not None and 'Região' not in texto(pg, '.det-l2'), 'cabeçalho do card mostra as barras de complexidade (Normal)')
+    pg.select_option('#f-cx', 'alta'); espera(pg); clk(pg, '#btn-salvar'); x = dem(pg, d1)
+    chk(x['complexidade'] == 'alta' and x['historico'][-1]['texto'] == 'Complexidade alterada: Normal → Alta.' and pg.query_selector('.det-l2 .cx-barras.cx-alta') is not None, 'Complexidade alterada em Detalhes, com registro no histórico')
     chk(pg.get_attribute('#f-info', 'maxlength') == '250' and '/250' in texto(pg, '#f-info-cont'), 'Informações adicionais com até 250 caracteres')
     clk(pg, '[data-acao=aba][data-v=dados]'); pg.fill('#f-hora', '13:00'); clk(pg, '#btn-salvar')
     clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=acionamento]')
-    esperado = ('Ao Serviço de Gestão de Mudanças,\n\nEm atenção ao "Agendamento", informo que a empresa contratada da DITIC já foi acionada para o atendimento da demanda:\n\n'
+    esperado = ('Ao Serviço de Gestão de Mudanças,\n\nEm atenção ao Agendamento (), informo que a empresa contratada da DITIC já foi acionada para o atendimento da demanda:\n\n'
                 f'Agendamento:\nData de Início: {br(em_dias(5))}\nHorário: 13hs\n\nTickets:\n\nCDS: 1831360 / 1831390\n\nEra o que cumpria informar.')
     chk(pg.input_value('#ac-texto') == esperado, 'informação de acionamento com Agendamento e Tickets em blocos')
     clk(pg, '.acion [data-acao=fechar-modal]')
     fecha(pg); clk(pg, '[data-acao=sit-aba][data-v=acionada]')
+    chk(pg.query_selector(f'.linha-dem[data-id="{d1}"] .c-cx .cx-barras.cx-alta') is not None and 'Alta' in texto(pg, f'.linha-dem[data-id="{d1}"] .c-cx'), 'a lista mostra a complexidade na coluna própria')
     chk('05 dias' in texto(pg, f'[data-acao=abrir][data-id="{d1}"]'), 'Acionada mostra a contagem de dias até o início')
 
     # para hoje: acionar leva direto a Em atendimento
     d2 = nova_demanda(pg, '8.2026.9745/000102-1', 'Pelotas', HOJE.isoformat(), resp=bruno); clk(pg, '[data-acao=fechar-modal]')
     abre(pg, d2); ticket(pg, '1832000'); aciona(pg)
     chk(dem(pg, d2)['situacao'] == 'atendimento' and 'Em Atendimento' in flash(pg), 'demanda para hoje: acionada e já Em atendimento')
-    chk(pg.query_selector('.st-fixo') is not None and pg.query_selector('#d-status') is None, 'Em atendimento tem o status travado')
+    chk(pg.query_selector('[data-acao=status-escolher]') is None and 'vai para validação' in texto(pg, '.st-trilha'), 'Em atendimento é automática: sem botão, com a data da próxima etapa')
     clk(pg, '[data-acao=aba][data-v=hist]'); chk('automaticamente' in texto(pg, '.linha-tempo') and 'Sistema (automático)' in texto(pg, '.linha-tempo'), 'histórico mostra a mudança automática')
     fecha(pg)
 
@@ -254,6 +272,21 @@ with sync_playwright() as p:
     chk(pg.query_selector('.filtro-comigo.ativo') is not None and all('Administrador' in e.inner_text() for e in pg.query_selector_all('.linha-dem')), 'Minhas demandas (administrador): só as demandas com o Administrador')
     clk(pg, '[data-acao=comigo]'); chk(pg.query_selector('.filtro-comigo.ativo') is None and len(linhas()) == 3, 'um segundo clique desliga Minhas demandas')
     clk(pg, '[data-acao=sit-aba][data-v=abertas]')
+
+    # ------------------------------------------------------------------ Para Validação remarcada volta para Acionada
+    d5 = nova_demanda(pg, '8.2026.9745/000105-1', 'Canoas', em_dias(-6), resp=ana, fim=em_dias(-5)); clk(pg, '[data-acao=fechar-modal]')
+    abre(pg, d5); ticket(pg, '1850000'); sub(pg, 'CDS', '1850001', 'Mudança de Local')
+    chk(dem(pg, d5)['situacao'] == 'pendente', 'demanda com o período passado está em Para Validação')
+    clk(pg, '[data-acao=aba][data-v=dados]'); data(pg, '#f-ini', em_dias(4)); data(pg, '#f-fim', em_dias(5)); clk(pg, '#btn-salvar')
+    chk(dem(pg, d5)['situacao'] == 'acionada' and 'voltou para Acionada' in flash(pg), 'Para Validação remarcada para o futuro volta para Acionada, com aviso')
+    data(pg, '#f-ini', em_dias(0)); clk(pg, '#btn-salvar')
+    chk(dem(pg, d5)['situacao'] == 'atendimento', 'remarcada para hoje, fica Em Atendimento')
+    l2 = pg.evaluate("(() => { const l = document.querySelector('.det-l2'); const t = [...l.children].map(c => c.getBoundingClientRect()); return [Math.round(document.querySelector('.modal-content.det').getBoundingClientRect().width), Math.max(...t.map(r => r.bottom)) - Math.min(...t.map(r => r.top))]; })()")
+    chk(l2[0] == 1140 and l2[1] < 30, f'card com 1140 px e cabeçalho com início e fim numa linha só {l2}')
+    medida = lambda sel: pg.evaluate(f"(() => {{ const r = document.querySelector({sel!r}).getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }})()")
+    m_card = medida('.modal-content.det'); fecha(pg)
+    clk(pg, '[data-acao=nova]'); m_nova = medida('.modal-content.modal-n'); clk(pg, '[data-acao=fechar-modal]')
+    chk(m_card == m_nova == [1140, 800], f'Nova Demanda com a mesma medida do card {m_card} {m_nova}')
 
     # ------------------------------------------------------------------ demanda antiga: tickets → Para Validação → relatório → concluir
     d4 = nova_demanda(pg, '8.2026.9745/000104-1', 'Canoas', em_dias(-10), resp=ana, fim=em_dias(-9)); clk(pg, '[data-acao=fechar-modal]')
@@ -328,7 +361,7 @@ with sync_playwright() as p:
     sai(pg); chk(pg.query_selector('form[data-form=login]') is None and pg.query_selector('[data-acao=login]') is not None and pg.query_selector('[data-acao=nova]') is None and 'saiu' in flash(pg), 'sair volta à consulta, sem a Nova demanda')
     # consulta sem login: o card abre, mas nada se altera
     abre(pg, d1)
-    chk('Somente consulta' in texto(pg, '.det-id') and pg.query_selector('#d-status') is None and pg.is_disabled('#f-desc'), 'sem login, o card abre só para consulta')
+    chk('somente consulta' in texto(pg, '.st-trilha') and pg.query_selector('[data-acao=status-escolher]') is None and pg.is_disabled('#f-desc'), 'sem login, o card abre só para consulta')
     clk(pg, '[data-acao=aba][data-v=hist]'); chk(pg.query_selector('form[data-form=nota]') is None and 'Empresas acionadas' in texto(pg, '.linha-tempo'), 'sem login, o histórico aparece, sem registrar andamento')
     clk(pg, '[data-acao=menu-mais]'); chk(pg.query_selector('[data-acao=acionamento]') is None and pg.query_selector('[data-acao=copiar-tickets]') is not None, 'sem login, Mais ações só copia os tickets'); clk(pg, '[data-acao=menu-mais]')
     clk(pg, '[data-acao=aba][data-v=tickets]'); chk(pg.query_selector('form[data-form=principal]') is None and pg.query_selector('form[data-form=sub]') is None, 'sem login, os tickets não se alteram')

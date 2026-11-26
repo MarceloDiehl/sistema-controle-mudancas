@@ -7,6 +7,7 @@ import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import org.hibernate.annotations.ColumnDefault;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -105,6 +106,12 @@ public class Demanda {
 
     @Column(length = 250)
     private String informacoes;
+
+    /** Baixa, Normal ou Alta; as demandas anteriores a este campo ficaram Normal. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @ColumnDefault("'NORMAL'")
+    private Complexidade complexidade = Complexidade.NORMAL;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "aviso_tipo")

@@ -41,7 +41,7 @@ public final class DemandaMapper {
                 d.getInformacoes() == null ? "" : d.getInformacoes(),
                 hist, completo ? hist.size() : qtdHistorico,
                 iso(d.getCriadaEm().toLocalDate()), aviso, d.getMotivoCancelamento(),
-                iso(d.getExcluidaEm()), id(d.getExcluidaPor()), d.getMotivoExclusao());
+                iso(d.getExcluidaEm()), id(d.getExcluidaPor()), d.getMotivoExclusao(), d.getComplexidade().id());
     }
 
     private static String id(Pessoa p) { return p == null ? null : String.valueOf(p.getId()); }

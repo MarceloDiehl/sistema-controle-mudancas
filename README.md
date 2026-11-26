@@ -18,7 +18,8 @@ flowchart LR
 
 - **Pendente → Acionada:** à mão, depois de registrar o ticket principal e a Data de Início. Acionada por engano volta
   para Pendente (à mão, mantendo tickets e datas).
-- **Em Atendimento e Para Validação:** o sistema muda sozinho, pelas datas, sem trocar o responsável.
+- **Em Atendimento e Para Validação:** o sistema muda sozinho, pelas datas, sem trocar o responsável. Se as datas
+  forem remarcadas, a demanda volta para Acionada (início no futuro) ou Em Atendimento (período em curso).
 - **Concluída:** técnico ou administrador conclui a partir de Para Validação. Até lá, o administrador pode cancelar.
 - **Histórico:** cada alteração fica registrada com quem fez e quando.
 
@@ -80,6 +81,10 @@ aparece no console.
 
 Não rode `db/dados_ficticios.sql` no servidor.
 
+**Atualizar a versão:** rode o `backup.bat`; rode no Workbench, como root, os scripts `db/atualizacao_*.sql` que o banco
+ainda não recebeu (cada um diz no topo a ordem e o que muda); feche a janela do `iniciar.bat`, troque o `.jar` e abra o
+`iniciar.bat` de novo. Os scripts só acrescentam colunas ou aumentam campos: nenhum dado é apagado.
+
 **Backup:** dois cliques no `backup.bat` geram, na pasta dele, `backup_ditic_mudancas_AAAA-MM-DD_HHMM.sql`, com as
 tabelas e todos os dados (pode rodar com o sistema no ar). Para restaurar, abra o arquivo no Workbench, como root, e
 execute: ele recria o banco com os dados do backup. Guarde as cópias fora da máquina; os backups ficam fora do Git.
@@ -97,7 +102,7 @@ python src/test/e2e/teste_ponta_a_ponta.py     # teste das telas (Playwright), e
 
 | Pasta | Conteúdo |
 |---|---|
-| `db/` | script do banco |
+| `db/` | script do banco e scripts de atualização do banco em uso (`atualizacao_*.sql`) |
 | `src/main/java/` | aplicação Spring Boot: regras em `service/`, API em `controller/` |
 | `src/main/resources/static/` | telas (HTML, CSS e JavaScript, com Bootstrap local) |
 | `src/test/` | testes JUnit e o teste das telas |
