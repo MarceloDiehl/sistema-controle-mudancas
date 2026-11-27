@@ -204,13 +204,14 @@ with sync_playwright() as p:
     clk(pg, '#btn-salvar'); x = dem(pg, d1)
     chk(x['situacao'] == 'acionada' and x['acionadaEm'] == HOJE.isoformat() and x['responsavel'] == ana, 'Acionada ao salvar, com a data do acionamento e o mesmo responsável')
     # acionamento por engano: volta para Pendente e pode ser acionada de novo
-    chk(pg.query_selector('.det-l1 .st-sel, .det-l1 .st-fixo') is None and 'etapa 2 de 5' in (pg.get_attribute('.st-trilha', 'aria-label') or '') and len(pg.query_selector_all('.st-trilha .st-ponto.feito')) == 1, 'o status saiu do título e a trilha mostra a etapa Acionada')
+    chk(texto(pg, '.det-l1 .det-selo') == 'Acionada' and pg.query_selector('.st-ponto') is None and pg.query_selector('.st-trilha .st-acao:not(.st-acionar):not(.st-concluir)[data-v=nova]') is not None,
+        'Acionada: selo ao lado do título, sem as bolinhas da trilha, e o botão branco Voltar para Pendente')
     clk(pg, '[data-acao=aba][data-v=dados]'); clk(pg, '[data-acao=status-escolher][data-v=nova]')
-    chk('Pendente ao salvar' in texto(pg, '.st-trilha') and pg.query_selector('.st-ponto.alvo') is not None, 'escolher Voltar para Pendente só marca a mudança, até salvar')
-    clk(pg, '[data-acao=status-desfazer]'); chk(pg.query_selector('.st-ponto.alvo') is None and pg.query_selector('[data-acao=status-escolher][data-v=nova]') is not None, 'o x desfaz a escolha de status')
+    chk('Pendente ao salvar' in texto(pg, '.st-trilha') , 'escolher Voltar para Pendente só marca a mudança, até salvar')
+    clk(pg, '[data-acao=status-desfazer]'); chk(pg.query_selector('.st-alvo') is None and pg.query_selector('[data-acao=status-escolher][data-v=nova]') is not None, 'o x desfaz a escolha de status')
     clk(pg, '[data-acao=status-escolher][data-v=nova]'); clk(pg, '#btn-salvar'); x = dem(pg, d1)
     chk(x['situacao'] == 'nova' and x['acionadaEm'] is None and x['ticketPrincipal'] == '1831574' and 'Pendente' in flash(pg), 'Acionada volta para Pendente, com o ticket mantido')
-    chk('Pendente' in texto(pg, '.st-trilha .st-nome') and 'Marcar como Acionada' in texto(pg, '.st-trilha'), 'o status aparece como Pendente, com o próximo passo')
+    chk(texto(pg, '.det-l1 .det-selo') == 'Pendente' and 'Marcar como Acionada' in texto(pg, '.st-trilha .st-acao.st-acionar'), 'Pendente: selo ao lado do título e o botão amarelo Marcar como Acionada')
     clk(pg, '[data-acao=status-escolher][data-v=acionada]'); clk(pg, '#btn-salvar')
     chk(dem(pg, d1)['situacao'] == 'acionada', 'e é acionada de novo')
     # complexidade: no cabeçalho do card, editável em Detalhes e no histórico
@@ -233,22 +234,19 @@ with sync_playwright() as p:
     d2 = nova_demanda(pg, '8.2026.9745/000102-1', 'Pelotas', HOJE.isoformat(), resp=bruno); clk(pg, '[data-acao=fechar-modal]')
     abre(pg, d2); ticket(pg, '1832000'); aciona(pg)
     chk(dem(pg, d2)['situacao'] == 'atendimento' and 'Em Atendimento' in flash(pg), 'demanda para hoje: acionada e já Em atendimento')
-    chk(pg.query_selector('[data-acao=status-escolher]') is None and 'vai para validação' not in texto(pg, '.st-trilha'), 'Em atendimento é automática: sem botão e sem a frase da próxima etapa')
+    chk(pg.query_selector('.st-trilha .st-acao') is None and texto(pg, '.det-l1 .det-selo') == 'Em atendimento' and 'vai para validação' not in texto(pg, '.st-trilha'), 'Em atendimento é automática: sem botão e sem a frase da próxima etapa')
     clk(pg, '[data-acao=aba][data-v=hist]'); chk('automaticamente' in texto(pg, '.linha-tempo') and 'Sistema (automático)' in texto(pg, '.linha-tempo'), 'histórico mostra a mudança automática')
     fecha(pg)
 
-    # Nova cuja data chegou, sem tickets: bolinha e contorno vermelhos
+    # Nova cuja data chegou, sem tickets: data vermelha para todos; as bolinhas, só para quem está com ela (a Ana)
     d3 = nova_demanda(pg, '8.2026.9745/000103-1', 'Torres', em_dias(-1), resp=ana)
     chk('A data já passou' in texto(pg, '.sucesso'), 'demanda antiga: a confirmação avisa que a data já passou')
     clk(pg, '[data-acao=fechar-modal]'); clk(pg, '[data-acao=sit-aba][data-v=nova]')
     sombra = lambda sel: pg.evaluate(f"(() => {{ const e = document.querySelector({sel!r}); return e && getComputedStyle(e).boxShadow; }})()")
-    chk(pg.query_selector(f'.linha-dem.nv-venc[data-id="{d3}"] .nv-ponto.venc') is not None and pg.query_selector(f'.linha-dem[data-id="{d3}"] .c-data.vencida') is not None
-        and 'rgb(240, 180, 174)' not in (sombra(f'.linha-dem[data-id="{d3}"]') or ''), 'Pendente vencida ganha bolinha e data vermelhas, sem contorno vermelho')
-    clk(pg, '[data-acao=vista][data-v=postits]')
-    dentro = pg.evaluate(f"""(() => {{ const p = document.querySelector('.postit[data-id="{d3}"]'); const b = p && p.querySelector('.pi-topo .nv-ponto.venc'); if (!b) return false;
-      const a = p.getBoundingClientRect(), r = b.getBoundingClientRect(), s = p.querySelector('.pi-sei').getBoundingClientRect();
-      return r.left >= a.left && r.top >= a.top && r.right <= a.left + 40 && r.right <= s.left; }})()""")
-    chk(dentro, 'no post-it, a bolinha fica dentro, no canto esquerdo, antes do SEI'); clk(pg, '[data-acao=vista][data-v=linhas]')
+    chk(pg.query_selector(f'.linha-dem[data-id="{d3}"] .c-data.vencida') is not None and pg.query_selector(f'.linha-dem[data-id="{d3}"] .nv-ponto') is None
+        and 'rgb(240, 180, 174)' not in (sombra(f'.linha-dem[data-id="{d3}"]') or ''), 'Pendente vencida de outro técnico: data vermelha, sem bolinhas e sem contorno')
+    abre(pg, d3); fecha(pg)
+    chk(dem(pg, d3)['aviso'] is not None, 'o administrador abrir o card de outro técnico não apaga o aviso dele')
 
     # a hora fica só dentro do card
     clk(pg, '[data-acao=sit-aba][data-v=todas]')
@@ -302,7 +300,8 @@ with sync_playwright() as p:
     abre(pg, d4); ticket(pg, '1840000')
     sub(pg, 'CDS', '1840001', 'Mudança de Local', 2)
     chk(dem(pg, d4)['situacao'] == 'pendente', 'demanda antiga com ticket e subticket vai direto para Para Validação')
-    chk('aguardando' not in texto(pg, '.st-trilha'), 'Para Validação sem a frase "aguardando a conclusão" ao lado do status')
+    chk('Concluir demanda' in texto(pg, '.st-trilha .st-acao.st-concluir') and pg.query_selector('.det-pe [data-acao=concluir-dem]') is None and 'aguardando' not in texto(pg, '.st-trilha'),
+        'Para Validação: o botão verde Concluir demanda fica à direita das abas, não no rodapé')
     sub(pg, 'WECOM', '1840002', 'Infraestrutura', 3)
     sub(pg, 'WECOM', '1840003', 'Infraestrutura', 1, metro=2)
     sub(pg, 'Selbetti', '1840004', 'Desinstalação', 1)
@@ -362,24 +361,42 @@ with sync_playwright() as p:
     clk(pg, '.confirma [data-acao=confirmar]'); chk('motivo' in texto(pg, '.confirma .erro').lower(), 'cancelar exige motivo')
     pg.fill('#mc-motivo', 'Pedido retirado'); clk(pg, '.confirma [data-acao=confirmar]')
     chk(dem(pg, d3)['situacao'] == 'cancelada', 'coordenador cancela com motivo')
+    chk(pg.query_selector('.st-trilha .st-acao') is None and 'Cancelada' in texto(pg, '.det-l1 .det-selo'), 'Cancelada: só o selo, sem botão de etapa')
     clk(pg, '[data-acao=menu-mais]'); clk(pg, '[data-acao=excluir]'); pg.fill('#mc-motivo', 'Duplicada'); clk(pg, '.confirma [data-acao=confirmar]')
     chk(d3 not in ids(pg) and any(l['id'] == d3 for l in api(pg, 'lixeira')), 'excluída vai para a lixeira')
     clk(pg, '[data-acao=menu-conta]'); clk(pg, '[data-acao=lixeira]'); chk('Duplicada' in texto(pg, '.lixeira') and 'restam 30 dias' in texto(pg, '.lixeira'), 'lixeira mostra o motivo e os dias restantes')
     clk(pg, f'[data-acao=restaurar][data-id="{d3}"]'); chk(d3 in ids(pg), 'restaurar devolve a demanda'); clk(pg, '[data-acao=fechar-modal]')
+    # demanda vencida para a Ana: as bolinhas dela são conferidas quando ela entrar
+    d6 = nova_demanda(pg, '8.2026.9745/000106-1', 'Torres', em_dias(-1), resp=ana); clk(pg, '[data-acao=fechar-modal]')
 
     # ------------------------------------------------------------------ o técnico entra com a senha temporária
     sai(pg); chk(pg.query_selector('form[data-form=login]') is None and pg.query_selector('[data-acao=login]') is not None and pg.query_selector('[data-acao=nova]') is None and 'saiu' in flash(pg), 'sair volta à consulta, sem a Nova demanda')
     # consulta sem login: o card abre, mas nada se altera
     abre(pg, d1)
-    chk('somente consulta' in texto(pg, '.st-trilha') and pg.query_selector('[data-acao=status-escolher]') is None and pg.is_disabled('#f-desc'), 'sem login, o card abre só para consulta')
+    chk(texto(pg, '.st-trilha').strip() == '' and pg.query_selector('.st-trilha .st-acao') is None and pg.is_disabled('#f-desc'), 'sem login, o card abre só para consulta')
     clk(pg, '[data-acao=aba][data-v=hist]'); chk(pg.query_selector('form[data-form=nota]') is None and 'Empresas acionadas' in texto(pg, '.linha-tempo'), 'sem login, o histórico aparece, sem registrar andamento')
     clk(pg, '[data-acao=menu-mais]'); chk(pg.query_selector('[data-acao=acionamento]') is None and pg.query_selector('[data-acao=copiar-tickets]') is not None, 'sem login, Mais ações só copia os tickets'); clk(pg, '[data-acao=menu-mais]')
     clk(pg, '[data-acao=aba][data-v=tickets]'); chk(pg.query_selector('form[data-form=principal]') is None and pg.query_selector('form[data-form=sub]') is None, 'sem login, os tickets não se alteram')
     fecha(pg)
     chk(all(p.get('login') is None for p in api(pg, 'pessoas')), 'sem login, a lista de pessoas não mostra o usuário de ninguém')
+    clk(pg, '[data-acao=sit-aba][data-v=todas]')
+    chk(len(pg.query_selector_all('.linha-dem')) > 0 and pg.query_selector('.nv-ponto') is None, 'sem login, nenhuma bolinha aparece')
     entra(pg, 'ana.souza', senha_ana); chk(pg.query_selector('form[data-form=senha]') is not None, 'senha temporária exige criar a senha pessoal')
     cria_senha(pg, 'senha-da-ana-1')
     chk('Ana Souza' in texto(pg, '.topo'), 'técnico entra depois de criar a senha')
+    # as bolinhas da Ana: azul (novidade dela, ainda não aberta) e vermelha (a Data de Início chegou), dentro do post-it
+    clk(pg, '[data-acao=sit-aba][data-v=todas]')
+    chk(pg.query_selector(f'.linha-dem[data-id="{d6}"] .nv-ponto.venc') is not None and pg.query_selector(f'.linha-dem[data-id="{d6}"] .nv-ponto:not(.venc)') is not None,
+        'o técnico vê as bolinhas azul e vermelha nas próprias demandas')
+    chk(all(e.query_selector('.nv-ponto') is None for e in pg.query_selector_all('.linha-dem') if e.get_attribute('data-id') != str(d6) and dem(pg, int(e.get_attribute('data-id')))['responsavel'] != ana),
+        'nas demandas dos colegas o técnico não vê bolinhas')
+    clk(pg, '[data-acao=vista][data-v=postits]')
+    dentro = pg.evaluate(f"""(() => {{ const p = document.querySelector('.postit[data-id="{d6}"]'); const b = p && p.querySelector('.pi-topo .nv-ponto.venc'); if (!b) return false;
+      const a = p.getBoundingClientRect(), r = b.getBoundingClientRect(), s = p.querySelector('.pi-sei').getBoundingClientRect();
+      return r.left >= a.left && r.top >= a.top && r.right <= a.left + 40 && r.right <= s.left; }})()""")
+    chk(dentro, 'no post-it, a bolinha fica dentro, no canto esquerdo, antes do SEI'); clk(pg, '[data-acao=vista][data-v=linhas]')
+    abre(pg, d6); fecha(pg)
+    chk(dem(pg, d6)['aviso'] is None and pg.query_selector(f'.linha-dem[data-id="{d6}"] .nv-ponto:not(.venc)') is None, 'o técnico abre o card: a bolinha azul some')
     clk(pg, '[data-acao=menu-conta]'); chk(not any(pg.query_selector(f'[data-acao={a}]') for a in ('equipe', 'lixeira', 'config')), 'menu do técnico sem Equipe, Lixeira e Configuração'); clk(pg, '[data-acao=menu-conta]')
     abre(pg, d2); clk(pg, '[data-acao=menu-mais]')
     chk(pg.query_selector('[data-acao=cancelar]') is None and pg.query_selector('[data-acao=excluir]') is None, 'técnico não tem Cancelar nem Excluir'); clk(pg, '[data-acao=menu-mais]')

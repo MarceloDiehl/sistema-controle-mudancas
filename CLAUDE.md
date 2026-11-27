@@ -31,6 +31,11 @@ uso e o fluxo.
   compartilhada); a demanda nova vai sempre para um técnico escolhido (sem pré-seleção e sem o Administrador); só a Concluída fica com o Setor. Administrador é um só (a conta `admin`; por dentro, perfil e carga
   continuam `COORDENADOR`); toda conta nova é de técnico. Nome com até 30 caracteres; usuário da rede com até 20. Na tela não aparece mais "Coordenador".
   Excluir técnico: transfere as abertas; sem nenhum registro, apaga; com registro, só desativa (o histórico fica).
+  Bolinhas de aviso (azul: novidade não aberta; vermelha: início chegou sem acionar) só com login e só nas demandas
+  de quem entrou; o aviso só some quando o próprio destinatário abre o card. Sessão cai após 1 hora sem uso.
+- Card: selo do status ao lado do nome do foro; à direita das abas, só o botão da etapa (Pendente: "Marcar como
+  Acionada", amarelo; Acionada: "Voltar para Pendente", branco; Para Validação: "Concluir demanda", verde). Em
+  Atendimento, Concluída e Cancelada ficam sem botão.
 - Sistema em produção com dados reais: nenhuma mudança na estrutura do banco (tabelas, colunas, ENUMs) sem combinar.
   Mudança combinada vai também num script `db/atualizacao_*.sql`, rodado no banco em uso antes de trocar o .jar.
 - Tickets: principal e subtickets com 7 dígitos. Subticket é único entre todas as demandas (repetido bloqueia)

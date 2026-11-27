@@ -87,7 +87,7 @@ public class DemandaController {
 
     @PostMapping("/mudancas/{id}/visto")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void visto(@PathVariable Long id) { servico.marcarVisto(id); }
+    public void visto(@PathVariable Long id, @AuthenticationPrincipal UsuarioLogado u) { servico.marcarVisto(id, u); }
 
     @GetMapping("/mudancas/{id}/custo")
     public DemandaDtos.Custo custo(@PathVariable Long id) { return precos.custo(id); }

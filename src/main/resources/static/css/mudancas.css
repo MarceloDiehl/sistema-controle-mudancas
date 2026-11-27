@@ -1719,25 +1719,26 @@ button.mv-dem:hover { border-color: var(--accent); color: var(--accent); }
 .det-l2 { line-height: 20px; }
 .det-l2 .mini-copia { width: 20px; height: 20px; }
 .det-l2 .mini-copia, .det-l2 .l2-tk + .mini-copia { margin-left: -10px; }
-/* barra do card: abas à esquerda e a trilha do fluxo à direita (o status saiu do lado do título) */
+/* barra do card: abas à esquerda e o botão da etapa à direita (o status fica no selo ao lado do título) */
 .det-barra { flex: none; display: flex; align-items: stretch; gap: 16px; padding: 4px 20px 0; border-bottom: 1px solid #ECEEF1; }
 .det-barra .abas { flex: 1 1 auto; min-width: 0; padding: 0; border-bottom: 0; }
 .st-trilha { flex: none; display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.st-pontos { display: inline-flex; align-items: center; }
-.st-ponto { flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #C3CAD2; background: var(--surface); box-sizing: border-box; }
-.st-ponto.feito { background: var(--c-dot); border-color: var(--c-dot); }
-.st-ponto.atual { width: 10px; height: 10px; background: var(--c-dot); border-color: var(--c-dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-dot) 22%, transparent); }
-.st-ponto.alvo { border: 1.5px dashed var(--ink-2); background: var(--surface); box-shadow: none; }
-.st-linha { width: 12px; height: 1.5px; background: #D5DAE0; }
-.st-linha.feita { background: var(--c-dot); }
-.st-nome { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
-.st-nome svg { width: 13px; height: 13px; opacity: .7; }
 .st-trilha .st-nota { font-size: 12px; color: var(--muted); }
-.st-acao { height: 28px; padding: 0 12px; border: 1px solid var(--line-inp); border-radius: var(--r); background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+/* botão da etapa: Voltar para Pendente (branco), Marcar como Acionada (amarelo) e Concluir demanda (verde) */
+.st-acao { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 1px solid var(--line-inp); border-radius: var(--r); background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
 .st-acao:hover { border-color: #A9B1BB; background: #F4F6F8; color: var(--ink); }
+.st-acao.st-acionar { background: var(--acio-forte); border-color: var(--acio-forte); color: #3D2C00; }
+.st-acao.st-acionar:hover { background: #D9AA14; border-color: #D9AA14; color: #3D2C00; }
+.st-acao.st-concluir { background: #2F7D4F; border-color: #2F7D4F; color: #FFFFFF; }
+.st-acao.st-concluir:hover { background: #276B43; border-color: #276B43; color: #FFFFFF; }
+.st-acao svg { width: 14px; height: 14px; }
 .st-alvo { font-size: 12.5px; font-weight: 600; color: var(--acio-ink, var(--ink-2)); white-space: nowrap; }
 .st-trilha .btn-mini { width: 24px; height: 24px; margin-left: -6px; }
-@media (max-width: 899px) { .st-pontos, .st-trilha .st-nota { display: none; } }
+/* selo do status ao lado do nome do foro (o mesmo do post-it) */
+.det-l1 .det-selo { flex: none; }
+.det-selo svg { width: 12px; height: 12px; margin-left: -2px; }
+.det[data-sit="nova"] .det-selo { background: #F1F3F5; }
+.det[data-sit="cancelada"] .det-selo::before { display: none; }
 @media (max-width: 700px) { .det-barra { padding-left: 12px; padding-right: 12px; gap: 8px; } .st-acao { padding: 0 8px; } }
 /* ---------------------------------------------------------------- complexidade (Baixa / Normal / Alta) */
 /* gráfico de 3 barras verticais em degraus: acende 1, 2 ou 3; a cor sobe de cinza para âmbar e vermelho */

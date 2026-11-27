@@ -384,9 +384,16 @@ public class DemandaService {
         return new DemandaDtos.Resposta(completo(d), null, null);
     }
 
-    /** O card foi aberto: a bolinha azul some, para todos. */
-    public void marcarVisto(Long id) {
-        fluxo.limparAviso(carregar(id));
+    /**
+     * O card foi aberto: a bolinha azul some só quando quem abriu é o destinatário do aviso (o técnico com a
+     * demanda ou, na carga do Administrador, o administrador). Um colega abrindo o card não apaga o aviso.
+     */
+    public void marcarVisto(Long id, UsuarioLogado u) {
+        Demanda d = carregar(id);
+        String para = d.getAvisoPara();
+        if (para == null || u == null) return;
+        boolean destinatario = FluxoDemanda.AVISO_COORDENADOR.equals(para) ? u.coordenador() : para.equals(String.valueOf(u.id()));
+        if (destinatario) fluxo.limparAviso(d);
     }
 
     // ------------------------------------------------------------------ exclusão e lixeira (coordenador)

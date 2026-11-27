@@ -373,6 +373,21 @@ class ApiTest {
         assertThat(entrarPrimeiraVez(login, JsonPath.read(conta, "$.senha"))).isNotNull();
     }
 
+    @Test
+    void bolinhaAzulSoSomeQuandoODestinatarioAbre() throws Exception {
+        MockHttpSession ana = novoTecnico();
+        MockHttpSession bruno = novoTecnico();
+        String id = criar(bruno, LocalDate.now().plusDays(3).toString(), "Canoas", meuId(ana));
+        assertThat((Object) JsonPath.read(body(get("/api/mudancas/" + id), ana), "$.aviso.para")).hasToString(meuId(ana));
+        // um colega e o administrador abrem o card: o aviso da Ana continua
+        assertThat(status(post("/api/mudancas/" + id + "/visto").with(csrf()), bruno)).isEqualTo(204);
+        assertThat(status(post("/api/mudancas/" + id + "/visto").with(csrf()), admin)).isEqualTo(204);
+        assertThat((Object) JsonPath.read(body(get("/api/mudancas/" + id), ana), "$.aviso")).isNotNull();
+        // a Ana abre: o aviso some
+        assertThat(status(post("/api/mudancas/" + id + "/visto").with(csrf()), ana)).isEqualTo(204);
+        assertThat((Object) JsonPath.read(body(get("/api/mudancas/" + id), ana), "$.aviso")).isNull();
+    }
+
     // ------------------------------------------------------------------ apoio
 
     private MockHttpSession novoTecnico() throws Exception {

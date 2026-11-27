@@ -367,15 +367,20 @@
   }
   // Pendente cuja Data de Início chegou sem acionamento: bolinha vermelha, contorno vermelho e data em vermelho
   const vencida = (d) => d.situacao === 'nova' && !!d.inicio && d.inicio <= hojeISO();
+  // As bolinhas são só para quem entrou e só nas demandas dele (o administrador: as da carga do Administrador).
+  // Nos cards dos colegas elas não aparecem: a novidade não é para quem está olhando.
+  const avisoMeu = (d) => !!E.usuario && !!d.aviso && String(d.aviso.para) === String(meuResp());
+  const vencidaMinha = (d) => !!E.usuario && vencida(d) && String(d.responsavel) === String(meuResp());
   const pontoAviso = (d) => {
-    const a = d.aviso; const v = vencida(d);
+    const a = avisoMeu(d) ? d.aviso : null; const v = vencidaMinha(d);
     const azul = a ? `<span class="nv-ponto ${v ? 'par' : ''}" title="${esc(textoAviso(a))}"><span class="visually-hidden">${esc(textoAviso(a))}</span></span>` : '';
     return azul + (v ? `<span class="nv-ponto venc ${a ? 'par' : ''}" title="A Data de Início chegou e a demanda não foi acionada"><span class="visually-hidden">A Data de Início chegou e a demanda não foi acionada</span></span>` : '');
   };
-  // o card foi aberto: a demanda foi vista e a bolinha sai, para todos (chamado só no momento da abertura, em desenhar())
+  // o destinatário abriu o card: a novidade foi vista e a bolinha sai (chamado só no momento da abertura, em desenhar());
+  // um colega (ou quem não entrou) abrindo o card não apaga o aviso de quem está com a demanda
   function marcarVisto() {
     const d = E.aberta && demanda(E.aberta);
-    if (!d || !d.aviso || !E.usuario) return; // sem login, a bolinha fica para quem é responsável
+    if (!d || !avisoMeu(d)) return;
     d.aviso = null;
     api('POST', 'mudancas/' + d.id + '/visto').catch(() => { /* a bolinha volta na próxima atualização da lista */ });
   }
@@ -752,7 +757,7 @@
 <section class="modal-content det" data-sit="${esc(d.situacao)}" role="dialog" aria-modal="true" aria-labelledby="det-titulo">
   <header class="modal-header det-cab">
     <div class="det-id">
-      <div class="det-l1"><h2 id="det-titulo">${esc(predio(d.comarca) || 'Local não informado')}</h2></div>
+      <div class="det-l1"><h2 id="det-titulo">${esc(predio(d.comarca) || 'Local não informado')}</h2>${seloStatus(d)}</div>
       <div class="det-l2">
         ${d.sei ? `<span class="mono">${esc(d.sei)}</span><button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.sei)}" aria-label="Copiar expediente" title="Copiar número">${I.copiar}</button>` : '<span>Fora do SEI</span>'}
         <span class="sep" aria-hidden="true"></span><span class="l2-it ${d.ticketPrincipal ? 'l2-tk' : 'l2-sem'}">${I.ticket}${d.ticketPrincipal ? 'Ticket ' + esc(d.ticketPrincipal) : 'Sem ticket'}</span>${d.ticketPrincipal ? `<button type="button" class="mini-copia vis" data-acao="copiar" data-v="${esc(d.ticketPrincipal)}" aria-label="Copiar ticket ${esc(d.ticketPrincipal)}" title="Copiar ticket">${I.copiar}</button>` : ''}
@@ -791,7 +796,6 @@
     <span class="esp"></span>
     ${(E.aba === 'dados' && podeEditar(d)) || E.statusRascunho || temSubRasc() ? `<span class="sujo" id="sujo-txt" ${E.sujo || E.statusRascunho || temSubRasc() ? '' : 'hidden'}>Alterações não salvas</span>` : ''}
     <button type="button" class="btn btn-link btn-lg" data-acao="fechar-det">Fechar</button>
-    ${E.usuario && d.situacao === 'pendente' ? `<button type="button" class="btn btn-success btn-lg" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>` : ''}
     ${E.aba === 'dados' && podeEditar(d) ? `<button type="submit" form="form-dados" id="btn-salvar" class="btn btn-primary btn-lg" ${E.sujo || E.statusRascunho ? '' : 'disabled'}>Salvar alterações</button>`
     : E.aba === 'tickets' && temSubRasc() ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-subs">Salvar alterações</button>`
     : E.statusRascunho ? `<button type="button" id="btn-salvar" class="btn btn-primary btn-lg" data-acao="salvar-status">Salvar alterações</button>` : ''}
@@ -1171,7 +1175,7 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-bloco">Entrar</button>
   <p class="login-ajuda"><button type="button" class="link" data-acao="esqueci-senha" aria-expanded="${v.esqueci ? 'true' : 'false'}">Esqueci minha senha</button>
-    ${v.esqueci ? '<span class="login-dica">Procure o administrador: ele gera uma senha temporária em Equipe.</span>' : ''}
+    ${v.esqueci ? '<span class="login-dica">Procure o administrador: ele gera uma senha temporária.</span>' : ''}
     <br><button type="button" class="link" data-acao="pedir-acesso">Cadastrar novo usuário</button></p>
 </form>`;
   }
@@ -1854,27 +1858,26 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
     destacar(d.id); desenhar();
   }
   function somarDias(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
-  // trilha do fluxo, à direita das abas: etapas feitas preenchidas, a atual com o nome e o próximo passo manual como
-  // botão (só vale em Salvar alterações)
-  const ETAPAS = ['nova', 'acionada', 'atendimento', 'pendente', 'concluida'];
+  // à direita das abas, o próximo passo manual da etapa: Pendente → "Marcar como Acionada" (amarelo) e Acionada →
+  // "Voltar para Pendente" (branco), que valem em Salvar alterações; Para Validação → "Concluir demanda" (verde, com
+  // confirmação). Em Atendimento, Concluída e Cancelada não têm botão. O status fica no selo ao lado do título.
   function statusBarra(d) {
-    const s = sit(d.situacao); const idx = ETAPAS.indexOf(d.situacao); const alvo = E.statusRascunho;
-    const pontos = idx < 0 ? '' : `<span class="st-pontos" aria-hidden="true">${ETAPAS.map((e, i) => (i ? `<span class="st-linha ${i <= idx ? 'feita' : ''}"></span>` : '')
-      + `<span class="st-ponto ${i < idx ? 'feito' : i === idx ? 'atual' : ''} ${alvo === e ? 'alvo' : ''}" title="${esc(sit(e).um)}"></span>`).join('')}</span>`;
-    let nota = '';
-    if (FINAIS.includes(d.situacao)) nota = 'encerrada';
-    else if (!E.usuario) nota = 'somente consulta';
+    const alvo = E.statusRascunho;
     let acao = '';
-    const destino = E.usuario && !FINAIS.includes(d.situacao) ? destinosStatus(d)[0] : null;
-    if (destino && alvo) {
-      acao = `<span class="st-alvo">→ ${esc(sit(alvo).um)} ao salvar</span><button type="button" class="btn btn-icone btn-mini" data-acao="status-desfazer" aria-label="Desfazer a mudança de status" title="Desfazer">${I.xP}</button>`;
-    } else if (destino) {
-      acao = `<button type="button" class="btn st-acao" data-acao="status-escolher" data-v="${destino}" title="Vale ao clicar em Salvar alterações">${destino === 'acionada' ? 'Marcar como Acionada' : 'Voltar para Pendente'}</button>`;
+    if (!E.usuario) { /* consulta sem login: nada à direita das abas */ }
+    else if (d.situacao === 'pendente') acao = `<button type="button" class="btn st-acao st-concluir" data-acao="concluir-dem" data-id="${d.id}">${I.check}Concluir demanda</button>`;
+    else {
+      const destino = !FINAIS.includes(d.situacao) ? destinosStatus(d)[0] : null;
+      if (destino && alvo) {
+        acao = `<span class="st-alvo">→ ${esc(sit(alvo).um)} ao salvar</span><button type="button" class="btn btn-icone btn-mini" data-acao="status-desfazer" aria-label="Desfazer a mudança de status" title="Desfazer">${I.xP}</button>`;
+      } else if (destino) {
+        acao = `<button type="button" class="btn st-acao ${destino === 'acionada' ? 'st-acionar' : ''}" data-acao="status-escolher" data-v="${destino}" title="Vale ao clicar em Salvar alterações">${destino === 'acionada' ? 'Marcar como Acionada' : 'Voltar para Pendente'}</button>`;
+      }
     }
-    return `<div class="st-trilha" data-sit="${esc(d.situacao)}" role="group" aria-label="Status: ${esc(s.um)}${idx >= 0 ? ', etapa ' + (idx + 1) + ' de ' + ETAPAS.length : ''}">
-      ${pontos}<span class="st-nome">${d.situacao === 'cancelada' ? I.cadeadoP : ''}${esc(s.um)}</span>${nota ? `<span class="st-nota">${esc(nota)}</span>` : ''}${acao}
-    </div>`;
+    return `<div class="st-trilha" data-sit="${esc(d.situacao)}">${acao}</div>`;
   }
+  // selo do status ao lado do nome do foro, o mesmo do post-it
+  const seloStatus = (d) => `<span class="badge selo det-selo">${d.situacao === 'cancelada' ? I.cadeadoP : ''}${esc(sit(d.situacao).um)}</span>`;
 
   // botão Concluir demanda (só em Para validação, para qualquer pessoa), com confirmação
   function pedirConclusao(d) {
@@ -2472,15 +2475,15 @@ ${E.usuario ? `<form class="linha-form" data-form="nota" novalidate>
   }, true);
 
 
-  // a cada minuto: encerra a sessão depois de 30 minutos sem uso (a releitura automática mantém a sessão viva no
+  // a cada minuto: encerra a sessão depois de 1 hora sem uso (a releitura automática mantém a sessão viva no
   // servidor, então quem conta a inatividade é a tela); a cada 5 minutos, com a tela parada (sem card nem janela
   // aberta), relê a lista, porque a data muda e outras pessoas alteram demandas
-  const INATIVIDADE = 30 * 60000;
+  const INATIVIDADE = 60 * 60000;
   let ultimoUso = Date.now(); let minutos = 0;
   ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { ultimoUso = Date.now(); }, { capture: true, passive: true }));
   setInterval(() => {
     if (E.usuario && !E.ocupado && Date.now() - ultimoUso > INATIVIDADE) {
-      api('POST', 'logout').catch(() => null).then(sairDaSessao).then(() => { aviso('Sessão encerrada depois de 30 minutos sem uso.', true); desenhar(); });
+      api('POST', 'logout').catch(() => null).then(sairDaSessao).then(() => { aviso('Sessão encerrada depois de 1 hora sem uso.', true); desenhar(); });
       return;
     }
     if (++minutos % 5 || !E.carregado || E.aberta || E.modal || E.ocupado || document.hidden) return;
